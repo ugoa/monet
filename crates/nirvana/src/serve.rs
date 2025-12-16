@@ -79,7 +79,7 @@ pub fn serve<L, M, S, B>(listener: L, make_service: M) -> Serve<L, M, S, B>
 where
     L: Listener,
     M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<Request, Response = Response<B>, Error = Infallible> + Clone + 'static,
+    S: TowerService<Request, Response = Response<B>, Error = Infallible> + Clone,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
