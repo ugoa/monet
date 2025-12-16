@@ -101,7 +101,7 @@ where
     L: Listener,
     L::Addr: Debug,
     M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<Request, Response = Response<B>, Error = Infallible> + Clone,
+    S: TowerService<Request, Response = Response<B>, Error = Infallible> + Clone + 'static,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -136,7 +136,7 @@ where
             let hyper_service = TowerToHyperService::new(tower_service);
 
             unsafe {
-                monoio::spawn_without_static(async {
+                monoio::spawn(async move {
                     if let Err(err) = http1::Builder::new()
                         .timer(monoio_compat::hyper::MonoioTimer)
                         .serve_connection(io, hyper_service)
