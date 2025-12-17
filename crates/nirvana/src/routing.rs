@@ -7,3 +7,5 @@ pub mod route;
 pub mod route_tower;
 
 pub mod method_routing;
+
+pub mod method_filter;

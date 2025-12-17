@@ -227,44 +227,38 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct MethodFilter(u16);
+pub(crate) struct Map<S, E, E2> {
+    pub(crate) inner: Box<dyn ErasedHandlerIntoRoute<S, E>>,
+    pub(crate) layer: Box<dyn LayerFn<E, E2>>,
+}
 
-impl MethodFilter {
-    pub const CONNECT: Self = Self::from_bits(0b0_0000_0001);
+pub(crate) trait LayerFn<E, E2>: FnOnce(Route<E>) -> Route<E2> {
+    fn clone_box(&self) -> Box<dyn LayerFn<E, E2>>;
+}
 
-    pub const DELETE: Self = Self::from_bits(0b0_0000_0010);
+impl<F, E, E2> LayerFn<E, E2> for F
+where
+    F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
+{
+    fn clone_box(&self) -> Box<dyn LayerFn<E, E2>> {
+        Box::new(self.clone())
+    }
+}
 
-    pub const GET: Self = Self::from_bits(0b0_0000_0100);
-
-    pub const HEAD: Self = Self::from_bits(0b0_0000_1000);
-
-    pub const OPTIONS: Self = Self::from_bits(0b0_0001_0000);
-
-    pub const PATCH: Self = Self::from_bits(0b0_0010_0000);
-
-    pub const POST: Self = Self::from_bits(0b0_0100_0000);
-
-    pub const PUT: Self = Self::from_bits(0b0_1000_0000);
-
-    pub const TRACE: Self = Self::from_bits(0b1_0000_0000);
-
-    const fn bits(self) -> u16 {
-        let bits = self;
-        bits.0
+impl<S, E, E2> ErasedHandlerIntoRoute<S, E2> for Map<S, E, E2>
+where
+    S: 'static,
+    E: 'static,
+    E2: 'static,
+{
+    fn clone_box(&self) -> Box<dyn ErasedHandlerIntoRoute<S, E2>> {
+        Box::new(Self {
+            inner: self.inner.clone_box(),
+            layer: self.layer.clone_box(),
+        })
     }
 
-    const fn from_bits(bits: u16) -> Self {
-        Self(bits)
-    }
-
-    pub(crate) const fn contains(self, other: Self) -> bool {
-        self.bits() & other.bits() == other.bits()
-    }
-
-    /// Performs the OR operation between the [`MethodFilter`] in `self` with `other`.
-    #[must_use]
-    pub const fn or(self, other: Self) -> Self {
-        Self(self.0 | other.0)
+    fn into_route(self: Box<Self>, state: S) -> Route<E2> {
+        (self.layer)(self.inner.into_route(state))
     }
 }
