@@ -9,7 +9,16 @@ pub mod handler;
 
 pub mod tower_service;
 
-pub use self::{extract::state::State, routing::Router, routing::get, serve::serve};
+mod prelude {
+    pub use crate::{
+        Body, BoxError, Bytes, HttpBody, HttpRequest, HttpResponse, IntoResponse, Request,
+        Response, Router, TowerService, routing::get, serve::serve,
+    };
+}
+
+pub use self::{
+    extract::state::State, response::IntoResponse, routing::Router, routing::get, serve::serve,
+};
 
 #[macro_use]
 pub(crate) mod macros;
@@ -22,10 +31,11 @@ use std::borrow::Cow;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::Bytes;
-use http_body::{Body as HttpBody, Frame};
+pub use bytes::Bytes;
+pub use http_body::{Body as HttpBody, Frame};
+pub use tower::Service as TowerService;
+
 use http_body_util::BodyExt;
-use tower::Service as TowerService;
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 

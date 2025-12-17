@@ -163,6 +163,8 @@ macro_rules! all_the_tuples {
     };
 }
 
+all_the_tuples!(impl_handler);
+
 #[allow(non_snake_case, unused_mut)]
 impl<F, Fut, S, Res, M, T1> Handler<(M, T1), S> for F
 where
@@ -244,5 +246,3 @@ where
         })
     }
 }
-
-all_the_tuples!(impl_handler);
