@@ -1,14 +1,76 @@
-use crate::handler::Handler;
 use crate::prelude::*;
 use crate::routing::method_routing::MethodRouter;
 use crate::routing::route_tower::RouteFuture;
+use crate::{handler::Handler, routing::method_routing::BoxedIntoRoute};
 use matchit::MatchError;
+use std::rc::Rc;
 use std::{collections::HashMap, convert::Infallible};
 
 #[derive(Clone)]
 pub struct SimpleRouter<S = ()> {
     routes: Vec<MethodRouter<S>>,
     node: Node,
+}
+
+#[must_use]
+pub struct Router<S = ()> {
+    inner: Rc<RouterInner<S>>,
+}
+
+impl<S> Clone for Router<S> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Rc::clone(&self.inner),
+        }
+    }
+}
+
+impl<S> Default for Router<S>
+where
+    S: Clone + 'static,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<S> Router<S>
+where
+    S: Clone + 'static,
+{
+    /// Create a new `Router`.
+    ///
+    /// Unless you add additional routes this will respond with `404 Not Found` to
+    /// all requests.
+    pub fn new() -> Self {
+        Self {
+            inner: Rc::new(todo!()),
+        }
+    }
+
+
+struct RouterInner<S> {
+    path_router: PathRouter<S>,
+    default_fallback: bool,
+    catch_all_fallback: Fallback<S>,
+}
+
+enum Fallback<S, E = Infallible> {
+    Default(Route<E>),
+    Service(Route<E>),
+    BoxedHandler(BoxedIntoRoute<S, E>),
+}
+
+pub(super) struct PathRouter<S> {
+    routes: Vec<Endpoint<S>>,
+    node: Node,
+    v7_checks: bool,
+}
+
+#[allow(clippy::large_enum_variant)]
+enum Endpoint<S> {
+    MethodRouter(MethodRouter<S>),
+    Route(Route),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
