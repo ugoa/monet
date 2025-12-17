@@ -115,48 +115,6 @@ impl<S, E> Clone for MethodRouter<S, E> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct MethodFilter(u16);
-
-impl MethodFilter {
-    pub const CONNECT: Self = Self::from_bits(0b0_0000_0001);
-
-    pub const DELETE: Self = Self::from_bits(0b0_0000_0010);
-
-    pub const GET: Self = Self::from_bits(0b0_0000_0100);
-
-    pub const HEAD: Self = Self::from_bits(0b0_0000_1000);
-
-    pub const OPTIONS: Self = Self::from_bits(0b0_0001_0000);
-
-    pub const PATCH: Self = Self::from_bits(0b0_0010_0000);
-
-    pub const POST: Self = Self::from_bits(0b0_0100_0000);
-
-    pub const PUT: Self = Self::from_bits(0b0_1000_0000);
-
-    pub const TRACE: Self = Self::from_bits(0b1_0000_0000);
-
-    const fn bits(self) -> u16 {
-        let bits = self;
-        bits.0
-    }
-
-    const fn from_bits(bits: u16) -> Self {
-        Self(bits)
-    }
-
-    pub(crate) const fn contains(self, other: Self) -> bool {
-        self.bits() & other.bits() == other.bits()
-    }
-
-    /// Performs the OR operation between the [`MethodFilter`] in `self` with `other`.
-    #[must_use]
-    pub const fn or(self, other: Self) -> Self {
-        Self(self.0 | other.0)
-    }
-}
-
 pub fn get<H, X, S>(handler: H) -> MethodRouter<S, Infallible>
 where
     H: Handler<X, S>,
@@ -201,6 +159,15 @@ impl<S, E> Clone for MethodEndpoint<S, E> {
 
 pub(crate) struct BoxedHandlerIntoRoute<S, E>(Box<dyn ErasedHandlerIntoRoute<S, E>>);
 
+pub(crate) trait ErasedHandlerIntoRoute<S, E> {
+    fn clone_box(&self) -> Box<dyn ErasedHandlerIntoRoute<S, E>>;
+
+    fn into_route(self: Box<Self>, state: S) -> Route<E>;
+
+    #[allow(dead_code)]
+    fn call_with_state(self: Box<Self>, request: Request, state: S) -> RouteFuture<E>;
+}
+
 impl<S> BoxedHandlerIntoRoute<S, Infallible>
 where
     S: Clone + 'static,
@@ -210,7 +177,7 @@ where
         H: Handler<X, S>,
         X: 'static,
     {
-        Self(Box::new(MakeErasedHandler {
+        Self(Box::new(ErasedHandler {
             handler,
             into_route_fn: |handler, state| Route::new(Handler::with_state(handler, state)),
         }))
@@ -232,21 +199,12 @@ impl<S, E> Clone for BoxedHandlerIntoRoute<S, E> {
 /// This struct stores 2 function pointers:
 /// 1. The handler function itself
 /// 2. A function that turns handler w/ state into a Route
-pub struct MakeErasedHandler<H, S> {
+pub struct ErasedHandler<H, S> {
     pub handler: H,
     pub into_route_fn: fn(H, S) -> Route,
 }
 
-pub(crate) trait ErasedHandlerIntoRoute<S, E> {
-    fn clone_box(&self) -> Box<dyn ErasedHandlerIntoRoute<S, E>>;
-
-    fn into_route(self: Box<Self>, state: S) -> Route<E>;
-
-    #[allow(dead_code)]
-    fn call_with_state(self: Box<Self>, request: Request, state: S) -> RouteFuture<E>;
-}
-
-impl<H, S> ErasedHandlerIntoRoute<S, Infallible> for MakeErasedHandler<H, S>
+impl<H, S> ErasedHandlerIntoRoute<S, Infallible> for ErasedHandler<H, S>
 where
     H: Clone + 'static,
     S: 'static,
@@ -264,7 +222,7 @@ where
     }
 }
 
-impl<H, S> Clone for MakeErasedHandler<H, S>
+impl<H, S> Clone for ErasedHandler<H, S>
 where
     H: Clone,
 {
@@ -273,5 +231,47 @@ where
             handler: self.handler.clone(),
             into_route_fn: self.into_route_fn,
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct MethodFilter(u16);
+
+impl MethodFilter {
+    pub const CONNECT: Self = Self::from_bits(0b0_0000_0001);
+
+    pub const DELETE: Self = Self::from_bits(0b0_0000_0010);
+
+    pub const GET: Self = Self::from_bits(0b0_0000_0100);
+
+    pub const HEAD: Self = Self::from_bits(0b0_0000_1000);
+
+    pub const OPTIONS: Self = Self::from_bits(0b0_0001_0000);
+
+    pub const PATCH: Self = Self::from_bits(0b0_0010_0000);
+
+    pub const POST: Self = Self::from_bits(0b0_0100_0000);
+
+    pub const PUT: Self = Self::from_bits(0b0_1000_0000);
+
+    pub const TRACE: Self = Self::from_bits(0b1_0000_0000);
+
+    const fn bits(self) -> u16 {
+        let bits = self;
+        bits.0
+    }
+
+    const fn from_bits(bits: u16) -> Self {
+        Self(bits)
+    }
+
+    pub(crate) const fn contains(self, other: Self) -> bool {
+        self.bits() & other.bits() == other.bits()
+    }
+
+    /// Performs the OR operation between the [`MethodFilter`] in `self` with `other`.
+    #[must_use]
+    pub const fn or(self, other: Self) -> Self {
+        Self(self.0 | other.0)
     }
 }
