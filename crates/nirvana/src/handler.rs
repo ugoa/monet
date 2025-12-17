@@ -1,18 +1,10 @@
 use crate::{
-    Body, BoxError, Bytes, HttpBody, HttpRequest, Request, Response, TowerService,
+    Request, Response,
     extract::{FromRequest, FromRequestParts},
     handler::handler_service::HandlerService,
-    opaque_future,
     response::IntoResponse,
 };
-use futures::future::Map;
-use std::{
-    convert::Infallible,
-    fmt,
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::pin::Pin;
 
 pub mod handler_service;
 pub mod handler_service_tower;

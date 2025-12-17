@@ -1,16 +1,9 @@
 use crate::handler::Handler;
 use crate::prelude::*;
 use crate::routing::route::Route;
-use crate::routing::route_tower::{LocalBoxCloneService, MapIntoResponse, RouteFuture};
+use crate::routing::route_tower::RouteFuture;
 use http::Method;
-use pin_project_lite::pin_project;
-use std::{
-    convert::Infallible,
-    pin::Pin,
-    task::{Context, Poll, ready},
-};
-use tower::ServiceExt;
-use tower::util::Oneshot;
+use std::convert::Infallible;
 pub struct MethodRouter<S = (), E = Infallible> {
     get: MethodEndpoint<S, E>,
     head: MethodEndpoint<S, E>,

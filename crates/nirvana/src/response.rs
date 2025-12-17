@@ -28,7 +28,7 @@ impl IntoResponse for Body {
 
 impl IntoResponse for Cow<'static, str> {
     fn into_response(self) -> Response {
-        let mut res = Body::from(self).into_response();
+        let res = Body::from(self).into_response();
         // res.headers_mut().insert(
         //     http::header::CONTENT_TYPE,
         //     http::HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),

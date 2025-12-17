@@ -1,16 +1,6 @@
-use crate::{
-    Body, BoxError, Bytes, HttpBody, HttpRequest, Request, Response, TowerService,
-    extract::{FromRequest, FromRequestParts},
-    opaque_future,
-    response::IntoResponse,
-};
-use futures::future::Map;
 use std::{
-    convert::Infallible,
     fmt,
     marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
 };
 pub struct HandlerService<H, X, S> {
     pub handler: H,

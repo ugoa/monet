@@ -3,14 +3,9 @@ use hyper_util::service::TowerToHyperService;
 use std::convert::Infallible;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::{
-    io::ErrorKind::{ConnectionAborted, ConnectionRefused, ConnectionReset},
-    time::Duration,
-};
 use tower::ServiceExt;
 
 use hyper::server::conn::http1;
-use monoio::io::IntoPollIo;
 use monoio_compat::hyper::MonoioIo;
 use monoio_compat::{AsyncRead, AsyncWrite, TcpStreamCompat, UnixStreamCompat};
 

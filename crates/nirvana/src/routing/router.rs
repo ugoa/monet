@@ -1,22 +1,12 @@
-use crate::opaque_future;
 use crate::prelude::*;
 use crate::routing::method_routing::MethodRouter;
 use crate::routing::route_tower::RouteFuture;
-use crate::{HttpRequest, extract::FromRequest, handler::Handler, routing::route::Route};
-use futures_util::future::Map;
-use http::Method;
+use crate::handler::Handler;
 use matchit::MatchError;
-use pin_project_lite::pin_project;
 use std::{
     collections::HashMap,
     convert::Infallible,
-    fmt,
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll, ready},
 };
-use tower::ServiceExt;
-use tower::util::Oneshot;
 
 #[derive(Clone)]
 pub struct Router<S = ()> {
@@ -24,7 +14,6 @@ pub struct Router<S = ()> {
     node: Node,
 }
 
-use crate::serve::{IncomingStream, Listener};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RouteId(usize);
@@ -73,7 +62,7 @@ where
 
     pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
         if let Some(route_id) = self.node.path_to_route_id.get(path) {
-            if let Some(mut prev_method_router) = self.routes.get(route_id.0) {
+            if let Some(prev_method_router) = self.routes.get(route_id.0) {
                 // merge to existing router
                 todo!()
             }
@@ -99,7 +88,7 @@ where
     }
 
     pub(crate) fn call_with_state(&self, req: Request, state: S) -> RouteFuture<Infallible> {
-        let (mut parts, body) = req.into_parts();
+        let (parts, body) = req.into_parts();
 
         let matched = self.node.at(parts.uri.path()).unwrap();
 

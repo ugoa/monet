@@ -1,15 +1,13 @@
 use std::{
     convert::Infallible,
-    fmt,
     marker::PhantomData,
-    pin::Pin,
     task::{Context, Poll},
 };
 
 use futures::future::Map;
 
 use crate::{
-    Body, BoxError, Bytes, HttpBody, HttpRequest, Request, Response, TowerService,
+    Body, BoxError, HttpBody, Request, Response, TowerService,
     extract::{FromRequest, FromRequestParts},
     handler::{Handler, HandlerService},
     opaque_future,

@@ -2,7 +2,6 @@ use crate::prelude::*;
 use http::Method;
 use pin_project_lite::pin_project;
 use std::{
-    convert::Infallible,
     pin::Pin,
     task::{Context, Poll, ready},
 };
@@ -155,7 +154,7 @@ impl<E> Future for RouteFuture<E> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
 
-        let mut resp = std::task::ready!(this.inner.poll(cx))?;
+        let resp = std::task::ready!(this.inner.poll(cx))?;
 
         Poll::Ready(Ok(resp))
     }

@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use http::{Uri, request::Parts};
+use http::request::Parts;
 use serde_core::de::DeserializeOwned;
 
 use crate::extract::FromRequestParts;

@@ -6,8 +6,8 @@ pub mod handler;
 
 mod prelude {
     pub use crate::{
-        Body, BoxError, Bytes, HttpBody, HttpRequest, HttpResponse, IntoResponse, Request,
-        Response, Route, Router, TowerService, get, serve,
+        Body, BoxError, HttpBody, HttpRequest, IntoResponse, Request,
+        Response, Route, TowerService,
     };
 }
 
