@@ -1,7 +1,7 @@
 use crate::opaque_future;
 use crate::prelude::*;
 use crate::routing::method_routing::MethodRouter;
-use crate::routing::route_tower_impl::RouteFuture;
+use crate::routing::route_tower::RouteFuture;
 use crate::{HttpRequest, extract::FromRequest, handler::Handler, routing::route::Route};
 use futures_util::future::Map;
 use http::Method;

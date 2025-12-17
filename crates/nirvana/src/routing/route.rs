@@ -1,4 +1,4 @@
-use super::route_tower_impl::{LocalBoxCloneService, MapIntoResponse, RouteFuture};
+use super::route_tower::{LocalBoxCloneService, MapIntoResponse, RouteFuture};
 use crate::prelude::*;
 use http::Method;
 use pin_project_lite::pin_project;

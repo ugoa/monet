@@ -1,7 +1,7 @@
 use crate::handler::Handler;
 use crate::prelude::*;
 use crate::routing::route::Route;
-use crate::routing::route_tower_impl::{LocalBoxCloneService, MapIntoResponse, RouteFuture};
+use crate::routing::route_tower::{LocalBoxCloneService, MapIntoResponse, RouteFuture};
 use http::Method;
 use pin_project_lite::pin_project;
 use std::{
