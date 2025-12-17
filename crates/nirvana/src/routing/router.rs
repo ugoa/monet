@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::routing::method_routing::MethodRouter;
 use crate::routing::route_tower::RouteFuture;
-use crate::{handler::Handler, routing::method_routing::BoxedHandlerIntoRoute};
+use crate::{handler::Handler, routing::method_routing::BoxedHandler};
 use matchit::MatchError;
 use std::rc::Rc;
 use std::{collections::HashMap, convert::Infallible};
@@ -58,7 +58,7 @@ struct RouterInner<S> {
 enum Fallback<S, E = Infallible> {
     Default(Route<E>),
     Service(Route<E>),
-    BoxedHandler(BoxedHandlerIntoRoute<S, E>),
+    BoxedHandler(BoxedHandler<S, E>),
 }
 
 pub(super) struct PathRouter<S> {
