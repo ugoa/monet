@@ -89,7 +89,7 @@ where
         X: 'static,
         S: 'static,
     {
-        let endpoint = &MethodEndpoint::BoxedHandler(BoxedHandler::from_handler(handler));
+        let endpoint = &MethodEndpoint::BoxedHandler(BoxedIntoRoute::from_handler(handler));
         let end = &mut self.get;
 
         if end.is_some() {
@@ -128,7 +128,7 @@ where
 enum MethodEndpoint<S, E> {
     None,
     Route(Route<E>),
-    BoxedHandler(BoxedHandler<S, E>),
+    BoxedHandler(BoxedIntoRoute<S, E>),
 }
 
 impl<S, E> MethodEndpoint<S, E>
@@ -158,7 +158,7 @@ impl<S, E> Clone for MethodEndpoint<S, E> {
     }
 }
 
-pub(crate) struct BoxedHandler<S, E>(Box<dyn ErasedHandlerIntoRoute<S, E>>);
+pub(crate) struct BoxedIntoRoute<S, E>(Box<dyn ErasedHandlerIntoRoute<S, E>>);
 
 pub(crate) trait ErasedHandlerIntoRoute<S, E> {
     fn clone_box(&self) -> Box<dyn ErasedHandlerIntoRoute<S, E>>;
@@ -166,7 +166,7 @@ pub(crate) trait ErasedHandlerIntoRoute<S, E> {
     fn into_route(self: Box<Self>, state: S) -> Route<E>;
 }
 
-impl<S> BoxedHandler<S, Infallible>
+impl<S> BoxedIntoRoute<S, Infallible>
 where
     S: Clone + 'static,
 {
@@ -182,13 +182,13 @@ where
     }
 }
 
-impl<S, E> BoxedHandler<S, E> {
+impl<S, E> BoxedIntoRoute<S, E> {
     pub(crate) fn into_route(self, state: S) -> Route<E> {
         self.0.into_route(state)
     }
 }
 
-impl<S, E> Clone for BoxedHandler<S, E> {
+impl<S, E> Clone for BoxedIntoRoute<S, E> {
     fn clone(&self) -> Self {
         Self(self.0.clone_box())
     }
