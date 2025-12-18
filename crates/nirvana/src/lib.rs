@@ -9,6 +9,7 @@ mod prelude {
     pub use crate::{
         Body, BoxError, HttpBody, HttpRequest, IntoResponse, Request, Response, Route, TowerService,
     };
+    pub use std::fmt;
 }
 
 pub use self::{
