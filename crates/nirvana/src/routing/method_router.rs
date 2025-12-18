@@ -4,6 +4,7 @@ use crate::routing::route::{BoxedIntoRoute, ErasedIntoRoute, Route};
 use crate::routing::route_tower::RouteFuture;
 use http::Method;
 use std::convert::Infallible;
+use tower::Layer;
 
 pub struct MethodRouter<S = (), E = Infallible> {
     get: MethodEndpoint<S, E>,
@@ -76,6 +77,20 @@ where
         } else {
             todo!()
         }
+    }
+
+    pub fn layer<L, E2>(self, layer: L) -> MethodRouter<S, E2>
+    where
+        L: Layer<Route<E>> + Clone + 'static,
+        L::Service: TowerService<Request> + Clone + 'static,
+        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
+        <L::Service as TowerService<Request>>::Error: Into<E2> + 'static,
+        <L::Service as TowerService<Request>>::Future: 'static,
+        E: 'static,
+        S: 'static,
+        E2: 'static,
+    {
+        todo!()
     }
 }
 
