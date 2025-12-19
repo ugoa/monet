@@ -73,6 +73,25 @@ where
             ),
         }
     }
+
+    pub fn route_layer<L>(self, layer: L) -> Self
+    where
+        L: Layer<Route> + Clone + 'static,
+        L::Service: TowerService<Request> + Clone + 'static,
+        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
+        <L::Service as TowerService<Request>>::Error: Into<Infallible> + 'static,
+        <L::Service as TowerService<Request>>::Future: 'static,
+    {
+        let this = self.into_inner();
+        Router {
+            inner: Rc::new(
+                (RouterInner {
+                    path_router: this.path_router.layer(layer),
+                    default_fallback: this.default_fallback,
+                }),
+            ),
+        }
+    }
 }
 
 struct RouterInner<S> {
