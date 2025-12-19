@@ -6,6 +6,15 @@ use http::Method;
 use std::convert::Infallible;
 use tower::Layer;
 
+pub fn get<H, X, S>(handler: H) -> MethodRouter<S, Infallible>
+where
+    H: Handler<X, S>,
+    X: 'static,
+    S: Clone + 'static,
+{
+    MethodRouter::new().get(handler)
+}
+
 pub struct MethodRouter<S = (), E = Infallible> {
     get: MethodEndpoint<S, E>,
     head: MethodEndpoint<S, E>,
@@ -180,15 +189,6 @@ impl<S, E> Clone for MethodRouter<S, E> {
             connect: self.connect.clone(),
         }
     }
-}
-
-pub fn get<H, X, S>(handler: H) -> MethodRouter<S, Infallible>
-where
-    H: Handler<X, S>,
-    X: 'static,
-    S: Clone + 'static,
-{
-    MethodRouter::new().get(handler)
 }
 
 enum MethodEndpoint<S, E> {
