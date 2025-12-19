@@ -17,7 +17,12 @@ where
     pub fn route(&mut self, path: &str, method_router: MethodRouter<S>) -> Result<(), String> {
         if let Some(route_id) = self.node.path_to_route_id.get(path) {
             if let Some(Endpoint::MethodRouter(prev_method_router)) = self.routes.get(route_id.0) {
-                // merge route
+                let service = Endpoint::MethodRouter(
+                    prev_method_router
+                        .clone()
+                        .merge_for_path(Some(path), method_router)?,
+                );
+                self.routes[route_id.0] = service;
             }
         } else {
             let endpoint = Endpoint::MethodRouter(method_router);

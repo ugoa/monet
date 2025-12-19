@@ -104,6 +104,45 @@ where
             connect: self.connect.map(layer_fn.clone()),
         }
     }
+
+    pub(crate) fn merge_for_path(
+        mut self,
+        path: Option<&str>,
+        other: Self,
+    ) -> Result<Self, String> {
+        // written using inner functions to generate less IR
+        fn merge_inner<S, E>(
+            path: Option<&str>,
+            name: &str,
+            first: MethodEndpoint<S, E>,
+            second: MethodEndpoint<S, E>,
+        ) -> Result<MethodEndpoint<S, E>, String> {
+            match (first, second) {
+                (MethodEndpoint::None, MethodEndpoint::None) => Ok(MethodEndpoint::None),
+                (pick, MethodEndpoint::None) | (MethodEndpoint::None, pick) => Ok(pick),
+                _ => {
+                    let error_message = if path.is_some() {
+                        "Overlapping method route. Handler for `{name} {path}` already exists"
+                    } else {
+                        "Overlapping method route. Cannot merge two method routes that both define `{name}`"
+                    };
+                    Err(format!("error_message").into())
+                }
+            }
+        }
+
+        self.get = merge_inner(path, "GET", self.get, other.get)?;
+        self.head = merge_inner(path, "HEAD", self.head, other.head)?;
+        self.delete = merge_inner(path, "DELETE", self.delete, other.delete)?;
+        self.options = merge_inner(path, "OPTIONS", self.options, other.options)?;
+        self.patch = merge_inner(path, "PATCH", self.patch, other.patch)?;
+        self.post = merge_inner(path, "POST", self.post, other.post)?;
+        self.put = merge_inner(path, "PUT", self.put, other.put)?;
+        self.trace = merge_inner(path, "TRACE", self.trace, other.trace)?;
+        self.connect = merge_inner(path, "CONNECT", self.connect, other.connect)?;
+
+        Ok(self)
+    }
 }
 
 impl<S> MethodRouter<S, Infallible>
