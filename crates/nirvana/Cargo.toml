@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# monoio = { version = "0.2.3", path = "../monoio", default-features = true, features = ["sync"] }
-# monoio-compat = { version = "0.2.2", path = "../monoio-compat", features = ["hyper"] }
+monoio = { version = "0.2.3", path = "../monoio", default-features = true, features = ["sync"] }
+monoio-compat = { version = "0.2.2", path = "../monoio-compat", features = ["hyper"] }
 
-monoio = "0.2.4"
-monoio-compat = { version = "0.2.2", features = ["hyper"] }
+# monoio = "0.2.4"
+# monoio-compat = { version = "0.2.2", features = ["hyper"] }
 
 bytes = { version = "1.11.0", features = ["serde"] }
 futures = "0.3.31"

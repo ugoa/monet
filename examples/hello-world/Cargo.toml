@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 nirvana = { path = "../../crates/nirvana" }
-# monoio = { path = "../../crates/monoio" }
-monoio = "0.2.4"
+monoio = { path = "../../crates/monoio" }
+# monoio = "0.2.4"
 
 bytes = { version = "1.11.0", features = ["serde"] }
 futures = "0.3.31"
