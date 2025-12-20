@@ -98,6 +98,24 @@ where
             default_fallback: self.default_fallback,
         }
     }
+
+    pub(crate) fn call_with_state(&self, req: Request, state: S) -> RouteFuture<Infallible> {
+        // let (req, state) = match self.path_router.call_with_state(req, state) {
+        //     Ok(future) => return future,
+        //     Err((req, state)) => (req, state),
+        // };
+        //
+        // self.inner
+        //     .catch_all_fallback
+        //     .clone()
+        //     .call_with_state(req, state)
+        //
+        //
+        match self.path_router.call_with_state(req, state) {
+            Ok(future) => return future,
+            Err((req, state)) => (req, state),
+        }
+    }
 }
 
 struct RouterInner<S> {
