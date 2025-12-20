@@ -128,7 +128,8 @@ where
         ) -> Result<MethodEndpoint<S, E>, String> {
             match (first, second) {
                 (MethodEndpoint::None, MethodEndpoint::None) => Ok(MethodEndpoint::None),
-                (pick, MethodEndpoint::None) | (MethodEndpoint::None, pick) => Ok(pick),
+                (pick, MethodEndpoint::None) => Ok(pick),
+                (MethodEndpoint::None, pick) => Ok(pick),
                 _ => {
                     let error_message = if path.is_some() {
                         "Overlapping method route. Handler for `{name} {path}` already exists"

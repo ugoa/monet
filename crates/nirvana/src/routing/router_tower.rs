@@ -1,6 +1,6 @@
 use crate::{
     Body, BoxError, HttpBody, Request, Response, SimpleRouter, TowerService,
-    routing::route_tower::RouteFuture,
+    routing::{route_tower::RouteFuture, router::Router},
     serve::{IncomingStream, Listener},
 };
 use std::{

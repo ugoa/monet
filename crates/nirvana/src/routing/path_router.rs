@@ -64,6 +64,24 @@ where
             node: self.node,
         }
     }
+
+    pub(super) fn with_state<S2>(self, state: S) -> PathRouter<S2> {
+        let routes = self
+            .routes
+            .into_iter()
+            .map(|endpoint| match endpoint {
+                Endpoint::MethodRouter(method_router) => {
+                    Endpoint::MethodRouter(method_router.with_state(state.clone()))
+                }
+                Endpoint::Route(route) => Endpoint::Route(route),
+            })
+            .collect();
+
+        PathRouter {
+            routes,
+            node: self.node,
+        }
+    }
 }
 
 impl<S> Clone for PathRouter<S> {

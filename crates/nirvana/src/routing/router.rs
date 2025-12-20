@@ -104,6 +104,18 @@ where
             ),
         }
     }
+
+    pub fn with_state<S2>(self, state: S) -> Router<S2> {
+        let this = self.into_inner();
+        Router {
+            inner: Rc::new(
+                (RouterInner {
+                    path_router: this.path_router.with_state(state.clone()),
+                    default_fallback: this.default_fallback,
+                }),
+            ),
+        }
+    }
 }
 
 struct RouterInner<S> {
