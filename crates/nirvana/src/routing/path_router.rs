@@ -6,8 +6,8 @@ use tower::Layer;
 use crate::{prelude::*, routing::method_router::MethodRouter};
 
 pub(super) struct PathRouter<S> {
-    routes: Vec<Endpoint<S>>,
-    node: Node,
+    pub routes: Vec<Endpoint<S>>,
+    pub node: Node,
 }
 
 impl<S> PathRouter<S>
@@ -94,7 +94,7 @@ impl<S> Clone for PathRouter<S> {
 }
 
 #[allow(clippy::large_enum_variant)]
-enum Endpoint<S> {
+pub enum Endpoint<S> {
     MethodRouter(MethodRouter<S>),
     Route(Route),
 }

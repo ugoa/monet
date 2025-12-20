@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use crate::routing::method_router::MethodRouter;
-use crate::routing::path_router::{Node, PathRouter, RouteId};
+use crate::routing::path_router::{Endpoint, Node, PathRouter, RouteId};
 use crate::routing::route_tower::RouteFuture;
 use crate::{handler::Handler, routing::route::BoxedIntoRoute};
 use matchit::MatchError;
@@ -15,16 +15,10 @@ pub struct SimpleRouter<S = ()> {
 }
 
 #[must_use]
+#[derive(Clone)]
 pub struct Router<S = ()> {
-    inner: Rc<RouterInner<S>>,
-}
-
-impl<S> Clone for Router<S> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: Rc::clone(&self.inner),
-        }
-    }
+    pub path_router: PathRouter<S>,
+    pub default_fallback: bool,
 }
 
 impl<S> Default for Router<S>
@@ -41,30 +35,15 @@ where
     S: Clone + 'static,
 {
     pub fn new() -> Self {
-        Self {
-            inner: Rc::new(todo!()),
-        }
+        todo!()
     }
 
-    pub fn route(self, path: &str, method_router: MethodRouter<S>) -> Self {
-        let mut this = self.into_inner();
-        match (this.path_router.route(path, method_router)) {
+    pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
+        match (self.path_router.route(path, method_router)) {
             Ok(x) => x,
             Err(err) => panic!("{err}"),
         };
-        Router {
-            inner: Rc::new(this),
-        }
-    }
-
-    fn into_inner(self) -> RouterInner<S> {
-        match Rc::try_unwrap(self.inner) {
-            Ok(inner) => inner,
-            Err(arc) => RouterInner {
-                path_router: arc.path_router.clone(),
-                default_fallback: arc.default_fallback,
-            },
-        }
+        self
     }
 
     pub fn layer<L>(self, layer: L) -> Self
@@ -75,14 +54,9 @@ where
         <L::Service as TowerService<Request>>::Error: Into<Infallible> + 'static,
         <L::Service as TowerService<Request>>::Future: 'static,
     {
-        let this = self.into_inner();
         Router {
-            inner: Rc::new(
-                (RouterInner {
-                    path_router: this.path_router.layer(layer.clone()),
-                    default_fallback: this.default_fallback,
-                }),
-            ),
+            path_router: self.path_router.layer(layer.clone()),
+            default_fallback: self.default_fallback,
         }
     }
 
@@ -94,33 +68,41 @@ where
         <L::Service as TowerService<Request>>::Error: Into<Infallible> + 'static,
         <L::Service as TowerService<Request>>::Future: 'static,
     {
-        let this = self.into_inner();
         Router {
-            inner: Rc::new(
-                (RouterInner {
-                    path_router: this.path_router.layer(layer),
-                    default_fallback: this.default_fallback,
-                }),
-            ),
+            path_router: self.path_router.layer(layer),
+            default_fallback: self.default_fallback,
         }
     }
 
     pub fn with_state<S2>(self, state: S) -> Router<S2> {
-        let this = self.into_inner();
+        let path_router = {
+            let this = self.path_router;
+
+            let routes = this
+                .routes
+                .into_iter()
+                .map(|endpoint| match endpoint {
+                    Endpoint::MethodRouter(method_router) => {
+                        Endpoint::MethodRouter(method_router.with_state(state.clone()))
+                    }
+                    Endpoint::Route(route) => Endpoint::Route(route),
+                })
+                .collect();
+            PathRouter {
+                routes,
+                node: this.node,
+            }
+        };
         Router {
-            inner: Rc::new(
-                (RouterInner {
-                    path_router: this.path_router.with_state(state.clone()),
-                    default_fallback: this.default_fallback,
-                }),
-            ),
+            path_router: path_router,
+            default_fallback: self.default_fallback,
         }
     }
 }
 
 struct RouterInner<S> {
-    path_router: PathRouter<S>,
-    default_fallback: bool,
+    pub path_router: PathRouter<S>,
+    pub default_fallback: bool,
     // catch_all_fallback: Fallback<S>,
 }
 
