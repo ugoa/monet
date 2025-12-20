@@ -9,7 +9,7 @@ impl<E> Route<E> {
     pub fn new<T>(svc: T) -> Self
     where
         T: TowerService<Request, Error = E> + Clone + 'static,
-        T::Response: IntoResponse + 'static,
+        T::Response: IntoResponse,
     {
         Self(LocalBoxCloneService::new(MapIntoResponse::new(svc)))
     }
@@ -34,8 +34,8 @@ impl<E> Route<E> {
     where
         L: Layer<Self> + 'static,
         L::Service: TowerService<Request> + Clone + 'static,
-        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
         <L::Service as TowerService<Request>>::Error: Into<E2> + 'static,
+        <L::Service as TowerService<Request>>::Response: IntoResponse,
         E2: 'static,
     {
         let layer = (MapErrLayer::new(Into::into), layer);

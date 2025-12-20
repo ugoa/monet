@@ -128,7 +128,7 @@ where
 
             let hyper_service = TowerToHyperService::new(tower_service);
 
-            monoio::spawn(async move {
+            let task = async move {
                 println!("Task started on thread {:?}", std::thread::current().id());
                 if let Err(err) = http1::Builder::new()
                     .timer(monoio_compat::hyper::MonoioTimer)
@@ -137,7 +137,13 @@ where
                 {
                     println!("Error serving connection: {:?}", err);
                 }
-            });
+            };
+
+            unsafe {
+                monoio::spawn_without_static(task);
+            }
+
+            // monoio::spawn(fnbody);
         }
     }
 }
