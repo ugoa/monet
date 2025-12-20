@@ -10,7 +10,6 @@ impl<E> Route<E> {
     where
         T: TowerService<Request, Error = E> + Clone + 'static,
         T::Response: IntoResponse + 'static,
-        T::Future: 'static,
     {
         Self(LocalBoxCloneService::new(MapIntoResponse::new(svc)))
     }
@@ -37,7 +36,6 @@ impl<E> Route<E> {
         L::Service: TowerService<Request> + Clone + 'static,
         <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
         <L::Service as TowerService<Request>>::Error: Into<E2> + 'static,
-        <L::Service as TowerService<Request>>::Future: 'static,
         E2: 'static,
     {
         let layer = (MapErrLayer::new(Into::into), layer);
