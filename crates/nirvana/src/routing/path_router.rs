@@ -10,6 +10,15 @@ pub(super) struct PathRouter<S> {
     pub node: Node,
 }
 
+impl<S> Default for PathRouter<S> {
+    fn default() -> Self {
+        Self {
+            routes: Default::default(),
+            node: Default::default(),
+        }
+    }
+}
+
 impl<S> PathRouter<S>
 where
     S: Clone + 'static,

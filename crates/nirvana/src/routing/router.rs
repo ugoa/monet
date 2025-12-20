@@ -35,7 +35,10 @@ where
     S: Clone + 'static,
 {
     pub fn new() -> Self {
-        todo!()
+        Self {
+            path_router: Default::default(),
+            default_fallback: true,
+        }
     }
 
     pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
