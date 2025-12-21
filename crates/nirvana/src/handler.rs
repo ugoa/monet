@@ -7,7 +7,7 @@ use crate::{
 use std::pin::Pin;
 
 pub mod handler_service;
-pub mod handler_service_tower;
+pub mod handler_service_tower_impl;
 
 // X for Extractor
 pub trait Handler<X, S>: Clone + Sized + 'static {

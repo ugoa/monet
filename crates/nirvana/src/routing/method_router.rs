@@ -1,7 +1,7 @@
 use crate::handler::Handler;
 use crate::prelude::*;
 use crate::routing::route::{BoxedIntoRoute, ErasedIntoRoute, Route};
-use crate::routing::route_tower::RouteFuture;
+use crate::routing::route_tower_impl::RouteFuture;
 use http::Method;
 use std::convert::Infallible;
 use tower::Layer;
