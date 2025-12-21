@@ -47,6 +47,10 @@ impl Body {
         let body = http_body.map_err(Into::into);
         Body(Box::pin(body))
     }
+
+    pub fn empty() -> Self {
+        Self::new(http_body_util::Empty::new())
+    }
 }
 
 impl From<Cow<'static, str>> for Body {

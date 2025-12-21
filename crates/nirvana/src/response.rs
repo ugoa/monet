@@ -1,9 +1,8 @@
-use std::borrow::Cow;
-use std::convert::Infallible;
-
 use crate::Body;
 use crate::BoxError;
 use crate::Response;
+use std::borrow::Cow;
+use std::convert::Infallible;
 
 pub trait IntoResponse {
     /// Create a response.
@@ -23,6 +22,20 @@ where
 impl IntoResponse for Body {
     fn into_response(self) -> Response {
         Response::new(self)
+    }
+}
+
+impl IntoResponse for () {
+    fn into_response(self) -> Response {
+        Body::empty().into_response()
+    }
+}
+
+impl IntoResponse for http::StatusCode {
+    fn into_response(self) -> Response {
+        let mut res = ().into_response();
+        *res.status_mut() = self;
+        res
     }
 }
 

@@ -19,6 +19,7 @@ pub struct Router<S = ()> {
     pub routes: Vec<Endpoint<S>>,
     pub node: Node,
     pub default_fallback: bool,
+    pub catch_all_fallback: Fallback<S>,
 }
 
 impl<S> Default for Router<S>
@@ -30,6 +31,9 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(super) struct NotFound;
+
 impl<S> Router<S>
 where
     S: Clone + 'static,
@@ -39,6 +43,7 @@ where
             routes: Default::default(),
             node: Default::default(),
             default_fallback: true,
+            catch_all_fallback: Fallback::Default(Route::new(NotFound)),
         }
     }
 
@@ -164,12 +169,6 @@ where
     }
 }
 
-enum Fallback<S, E = Infallible> {
-    Default(Route<E>),
-    Service(Route<E>),
-    BoxedHandler(BoxedIntoRoute<S, E>),
-}
-
 #[allow(clippy::large_enum_variant)]
 pub enum Endpoint<S> {
     MethodRouter(MethodRouter<S>),
@@ -235,5 +234,21 @@ impl Node {
         path: &'p str,
     ) -> Result<matchit::Match<'n, 'p, &'n RouteId>, MatchError> {
         self.inner.at(path)
+    }
+}
+
+enum Fallback<S, E = Infallible> {
+    Default(Route<E>),
+    Service(Route<E>),
+    BoxedHandler(BoxedIntoRoute<S, E>),
+}
+
+impl<S, E> Clone for Fallback<S, E> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Default(inner) => Self::Default(inner.clone()),
+            Self::Service(inner) => Self::Service(inner.clone()),
+            Self::BoxedHandler(inner) => Self::BoxedHandler(inner.clone()),
+        }
     }
 }
