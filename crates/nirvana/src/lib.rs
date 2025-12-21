@@ -2,7 +2,10 @@
 #![allow(warnings)]
 
 pub mod extract;
+
 pub mod handler;
+pub mod handler_tower_impl;
+
 pub mod routing;
 
 mod prelude {

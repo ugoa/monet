@@ -1,13 +1,9 @@
 use crate::{
     Request, Response,
     extract::{FromRequest, FromRequestParts},
-    handler::handler_service::HandlerService,
     response::IntoResponse,
 };
 use std::pin::Pin;
-
-pub mod handler_service;
-pub mod handler_service_tower_impl;
 
 // X for Extractor
 pub trait Handler<X, S>: Clone + Sized + 'static {
@@ -190,5 +186,33 @@ where
             };
             self(T1, T2, T3).await.into_response()
         })
+    }
+}
+
+use std::{fmt, marker::PhantomData};
+
+pub struct HandlerService<H, X, S> {
+    pub handler: H,
+    pub state: S,
+    pub(crate) _marker: PhantomData<fn() -> X>,
+}
+
+impl<H, X, S> Clone for HandlerService<H, X, S>
+where
+    H: Clone,
+    S: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            handler: self.handler.clone(),
+            state: self.state.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<H, T, S> fmt::Debug for HandlerService<H, T, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IntoService").finish_non_exhaustive()
     }
 }
