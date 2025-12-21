@@ -233,7 +233,7 @@ impl Node {
     }
 }
 
-enum Fallback<S, E = Infallible> {
+pub(crate) enum Fallback<S, E = Infallible> {
     Default(Route<E>),
     Service(Route<E>),
     BoxedHandler(BoxedIntoRoute<S, E>),
@@ -262,7 +262,7 @@ impl<S, E> Fallback<S, E>
 where
     S: Clone,
 {
-    fn map<F, E2>(self, f: F) -> Fallback<S, E2>
+    pub fn map<F, E2>(self, f: F) -> Fallback<S, E2>
     where
         S: 'static,
         E: 'static,
@@ -276,7 +276,7 @@ where
         }
     }
 
-    fn with_state<S2>(self, state: S) -> Fallback<S2, E> {
+    pub fn with_state<S2>(self, state: S) -> Fallback<S2, E> {
         match self {
             Self::Default(route) => Fallback::Default(route),
             Self::Service(route) => Fallback::Service(route),
@@ -284,7 +284,7 @@ where
         }
     }
 
-    fn call_with_state(self, req: Request, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(self, req: Request, state: S) -> RouteFuture<E> {
         match self {
             Self::Default(route) | Self::Service(route) => route.oneshot_inner_owned(req),
             Self::BoxedHandler(handler) => {
