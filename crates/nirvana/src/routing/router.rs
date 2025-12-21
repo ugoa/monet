@@ -7,12 +7,6 @@ use std::rc::Rc;
 use std::{collections::HashMap, convert::Infallible};
 use tower::Layer;
 
-// #[derive(Clone)]
-// pub struct SimpleRouter<S = ()> {
-//     routes: Vec<MethodRouter<S>>,
-//     node: Node,
-// }
-
 #[must_use]
 #[derive(Clone)]
 pub struct Router<S = ()> {
