@@ -152,16 +152,16 @@ where
 
                 match endpoint {
                     Endpoint::MethodRouter(method_router) => {
-                        Ok(method_router.call_with_state(req, state))
+                        method_router.call_with_state(req, state)
                     }
-                    Endpoint::Route(route) => Ok(route.clone().call_owned(req)),
+                    Endpoint::Route(route) => route.clone().call_owned(req),
                 }
             }
-            Err(MatchError::NotFound) => Err((Request::from_parts(parts, body), state)),
-        };
-
-        // Result<RouteFuture<Infallible>, (Request, S)>
-        todo!()
+            Err(MatchError::NotFound) => {
+                let req = Request::from_parts(parts, body);
+                self.catch_all_fallback.clone().call_with_state(req, state)
+            }
+        }
     }
 }
 
@@ -281,6 +281,16 @@ where
             Self::Default(route) => Fallback::Default(route),
             Self::Service(route) => Fallback::Service(route),
             Self::BoxedHandler(handler) => Fallback::Service(handler.into_route(state)),
+        }
+    }
+
+    fn call_with_state(self, req: Request, state: S) -> RouteFuture<E> {
+        match self {
+            Self::Default(route) | Self::Service(route) => route.oneshot_inner_owned(req),
+            Self::BoxedHandler(handler) => {
+                let route = handler.into_route(state);
+                route.oneshot_inner_owned(req)
+            }
         }
     }
 }
