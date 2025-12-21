@@ -137,11 +137,7 @@ where
         }
     }
 
-    pub(crate) fn call_with_state(
-        &self,
-        req: Request,
-        state: S,
-    ) -> Result<RouteFuture<Infallible>, (Request, S)> {
+    pub(crate) fn call_with_state(&self, req: Request, state: S) -> RouteFuture<Infallible> {
         let (mut parts, body) = req.into_parts();
 
         match self.node.at(parts.uri.path()) {
@@ -162,7 +158,10 @@ where
                 }
             }
             Err(MatchError::NotFound) => Err((Request::from_parts(parts, body), state)),
-        }
+        };
+
+        // Result<RouteFuture<Infallible>, (Request, S)>
+        todo!()
     }
 }
 

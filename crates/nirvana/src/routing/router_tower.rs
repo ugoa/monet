@@ -48,10 +48,7 @@ where
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
         let req = req.map(Body::new);
-        match self.call_with_state(req, ()) {
-            Ok(fut) => return fut,
-            Err(_) => todo!(), // fallback logic
-        }
+        self.call_with_state(req, ())
     }
 }
 
@@ -72,11 +69,3 @@ where
         ready(Ok(http::StatusCode::NOT_FOUND.into_response()))
     }
 }
-
-// impl IntoResponse for http::StatusCode {
-//     fn into_response(self) -> Response {
-//         let mut res = ().into_response();
-//         *res.status_mut() = self;
-//         res
-//     }
-// }
