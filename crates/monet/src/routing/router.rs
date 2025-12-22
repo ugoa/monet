@@ -53,6 +53,17 @@ where
     }
 
     pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
+        match (self.process_route(path, method_router)) {
+            Ok(x) => x,
+            Err(err) => {
+                panic!("{err}")
+            }
+        };
+
+        self
+    }
+
+    fn process_route(&mut self, path: &str, method_router: MethodRouter<S>) -> Result<(), String> {
         if let Some(route_id) = self.node.path_to_route_id.get(path) {
             if let Some(Endpoint::MethodRouter(prev_method_router)) = self.routes.get(route_id.0) {
                 let service = Endpoint::MethodRouter(
@@ -67,8 +78,7 @@ where
             let endpoint = Endpoint::MethodRouter(method_router);
             self.new_route(path, endpoint).unwrap();
         }
-
-        self
+        Ok(())
     }
 
     fn new_route(&mut self, path: &str, endpoint: Endpoint<S>) -> Result<(), String> {
@@ -114,16 +124,14 @@ where
                 .get(&route_id)
                 .expect("no path for route id. This is a bug in axum. Please file an issue");
 
-            todo!()
-
-            // match route {
-            //     Endpoint::MethodRouter(method_router) => {
-            //         this.process_route(path, method_router).unwrap()
-            //     }
-            //     Endpoint::Route(service) => this
-            //         .new_route(path, Endpoint::Route(Route::new(service)))
-            //         .unwrap(),
-            // }
+            match route {
+                Endpoint::MethodRouter(method_router) => {
+                    this.process_route(path, method_router).unwrap()
+                }
+                Endpoint::Route(service) => this
+                    .new_route(path, Endpoint::Route(Route::new(service)))
+                    .unwrap(),
+            }
         }
         Router {
             routes: this.routes,
