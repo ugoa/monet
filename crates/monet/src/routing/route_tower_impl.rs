@@ -23,7 +23,7 @@ where
     }
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
-        self.oneshot_inner(req.map(Body::new))
+        self.call_inner(req.map(Body::new))
     }
 }
 

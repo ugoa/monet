@@ -67,7 +67,7 @@ where
     }
 
     pub fn call_with_state(&self, req: Request, state: S) -> RouteFuture<E> {
-        for (method, endpoint) in [
+        let call_branches = [
             (Method::HEAD, &self.head),
             (Method::HEAD, &self.get),
             (Method::GET, &self.get),
@@ -77,15 +77,17 @@ where
             (Method::DELETE, &self.delete),
             (Method::TRACE, &self.trace),
             (Method::CONNECT, &self.connect),
-        ] {
+        ];
+
+        for (method, endpoint) in call_branches {
             if *req.method() == method {
                 match endpoint {
                     MethodEndpoint::Route(route) => {
-                        return route.clone().oneshot_inner_owned(req);
+                        return route.clone().call(req);
                     }
                     MethodEndpoint::BoxedHandler(handler) => {
                         let route = handler.clone().into_route(state);
-                        return route.oneshot_inner_owned(req);
+                        return route.call(req);
                     }
                     MethodEndpoint::None => {}
                 }
@@ -94,8 +96,9 @@ where
 
         // If reached here, it means there is no endpoint found for current request,
         // we use fallback to such case.
-        // todo add allow_header
         self.fallback.clone().call_with_state(req, state)
+
+        // todo add allow_header
     }
 
     pub fn layer<L, E2>(self, layer: L) -> MethodRouter<S, E2>

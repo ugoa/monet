@@ -18,15 +18,15 @@ impl<E> Route<E> {
     /// Variant of [`Route::call`] that takes ownership of the route to avoid cloning.
     pub(crate) fn call_owned(self, req: Request<Body>) -> RouteFuture<E> {
         let req = req.map(Body::new);
-        self.oneshot_inner_owned(req)
+        self.call(req)
     }
 
-    pub fn oneshot_inner(&self, req: Request) -> RouteFuture<E> {
+    pub fn call_inner(&self, req: Request) -> RouteFuture<E> {
         let method = req.method().clone();
         RouteFuture::new(method, self.0.clone().oneshot(req))
     }
 
-    pub fn oneshot_inner_owned(self, req: Request) -> RouteFuture<E> {
+    pub fn call(self, req: Request) -> RouteFuture<E> {
         let method = req.method().clone();
         RouteFuture::new(method, self.0.oneshot(req))
     }
