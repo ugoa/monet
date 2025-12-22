@@ -1,14 +1,14 @@
 [package]
+name = "monoio-macros"
+readme = "README.md"
+version = "0.1.0"
+publish = false
 authors = ["ChiHai <ihciah@gmail.com>"]
 categories = ["asynchronous"]
 description = "Monoio proc macros."
 edition = "2021"
 keywords = ["runtime", "iouring", "async"]
 license = "MIT OR Apache-2.0"
-name = "monoio-macros"
-readme = "README.md"
-version = "0.1.0"
-publish = false
 
 [lib]
 proc-macro = true

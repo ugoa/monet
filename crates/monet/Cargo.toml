@@ -11,8 +11,8 @@ repository = "https://github.com/ugoa/monet"
 authors = ["Dawei Hu <hoodavy@gmail.com>"]
 
 [dependencies]
-monoio = { path = "../monoio", default-features = true, features = ["sync"] }
-monoio-compat = { path = "../monoio-compat", features = ["hyper"] }
+monoio = { version = "0.2.4", path = "../monoio", default-features = true, features = ["sync"] }
+monoio-compat = { version = "0.2.2", path = "../monoio-compat", features = ["hyper"] }
 
 # monoio = "0.2.4"
 # monoio-compat = { version = "0.2.2", features = ["hyper"] }

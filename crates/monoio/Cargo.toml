@@ -1,17 +1,17 @@
 [package]
+name = "monoio"
+version = "0.2.4"
+publish = false
 authors = ["ChiHai <ihciah@gmail.com>", "XuShuai <dyxushuai@gmail.com>"]
 categories = ["asynchronous", "network-programming"]
 description = "A thread per core runtime based on iouring."
 edition = "2021"
 keywords = ["runtime", "iouring", "async"]
 license = "MIT OR Apache-2.0"
-name = "monoio"
-version = "0.2.4"
-publish = false
 
 # common dependencies
 [dependencies]
-monoio-macros = { path = "../monoio-macros", optional = true }
+monoio-macros = { version = "0.1.0", path = "../monoio-macros", optional = true }
 
 auto-const-array = "0.2"
 rustc-hash = "2.0"
