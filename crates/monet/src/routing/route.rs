@@ -17,18 +17,15 @@ impl<E> Route<E> {
 
     /// Variant of [`Route::call`] that takes ownership of the route to avoid cloning.
     pub(crate) fn call_owned(self, req: Request<Body>) -> RouteFuture<E> {
-        let req = req.map(Body::new);
-        self.call(req)
+        self.call(req.map(Body::new))
     }
 
     pub fn call_inner(&self, req: Request) -> RouteFuture<E> {
-        let method = req.method().clone();
-        RouteFuture::new(method, self.0.clone().oneshot(req))
+        RouteFuture::new(req.method().clone(), self.0.clone().oneshot(req))
     }
 
     pub fn call(self, req: Request) -> RouteFuture<E> {
-        let method = req.method().clone();
-        RouteFuture::new(method, self.0.oneshot(req))
+        RouteFuture::new(req.method().clone(), self.0.oneshot(req))
     }
 
     pub fn layer<L, E2>(self, layer: L) -> Route<E2>
