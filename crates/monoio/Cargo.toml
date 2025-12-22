@@ -11,7 +11,7 @@ publish = false
 
 # common dependencies
 [dependencies]
-monoio-macros = { version = "0.1.0", path = "../monoio-macros", optional = true }
+monoio-macros = { path = "../monoio-macros", optional = true }
 
 auto-const-array = "0.2"
 rustc-hash = "2.0"
