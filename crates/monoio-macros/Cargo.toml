@@ -9,6 +9,7 @@ name = "monoio-macros"
 readme = "README.md"
 repository = "https://github.com/bytedance/monoio"
 version = "0.1.0"
+publish = false
 
 [lib]
 proc-macro = true

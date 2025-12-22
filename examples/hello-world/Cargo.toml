@@ -1,7 +1,8 @@
 [package]
 name = "hello-world"
-version = "0.1.0"
+publish = false
 edition = "2024"
+version = "0.1.0"
 
 [dependencies]
 monet = { path = "../../crates/monet" }
