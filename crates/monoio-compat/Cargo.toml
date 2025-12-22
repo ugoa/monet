@@ -7,7 +7,6 @@ keywords = ["runtime", "iouring", "async"]
 license = "MIT OR Apache-2.0"
 name = "monoio-compat"
 readme = "README.md"
-repository = "https://github.com/bytedance/monoio"
 version = "0.2.2"
 publish = false
 
