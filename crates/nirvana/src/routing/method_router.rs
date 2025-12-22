@@ -1,10 +1,11 @@
 use crate::handler::Handler;
 use crate::prelude::*;
 use crate::routing::route::{BoxedIntoRoute, ErasedIntoRoute, Route};
-use crate::routing::route_tower::RouteFuture;
-use http::Method;
+use crate::routing::route_tower_impl::RouteFuture;
+use crate::routing::router::Fallback;
+use http::{Method, StatusCode};
 use std::convert::Infallible;
-use tower::Layer;
+use tower::{Layer, service_fn};
 
 pub fn get<H, X, S>(handler: H) -> MethodRouter<S, Infallible>
 where
@@ -25,6 +26,7 @@ pub struct MethodRouter<S = (), E = Infallible> {
     put: MethodEndpoint<S, E>,
     trace: MethodEndpoint<S, E>,
     connect: MethodEndpoint<S, E>,
+    fallback: Fallback<S, E>,
 }
 
 impl<S, E> MethodRouter<S, E>
@@ -32,6 +34,9 @@ where
     S: Clone,
 {
     pub fn new() -> Self {
+        let fallback = Route::new(service_fn(|_: Request| async {
+            Ok(StatusCode::METHOD_NOT_ALLOWED)
+        }));
         Self {
             get: MethodEndpoint::None,
             head: MethodEndpoint::None,
@@ -42,6 +47,7 @@ where
             put: MethodEndpoint::None,
             trace: MethodEndpoint::None,
             connect: MethodEndpoint::None,
+            fallback: Fallback::Default(fallback),
         }
     }
 
@@ -56,36 +62,40 @@ where
             put: self.put.with_state(&state),
             trace: self.trace.with_state(&state),
             connect: self.connect.with_state(&state),
+            fallback: self.fallback.with_state(state),
         }
     }
 
     pub fn call_with_state(&self, req: Request, state: S) -> RouteFuture<E> {
-        let Self {
-            get,
-            head,
-            delete,
-            options,
-            patch,
-            post,
-            put,
-            trace,
-            connect,
-        } = self;
-
-        if *req.method() == Method::GET {
-            match get {
-                MethodEndpoint::None => todo!(),
-                MethodEndpoint::Route(route) => {
-                    return route.clone().oneshot_inner_owned(req);
-                }
-                MethodEndpoint::BoxedHandler(handler) => {
-                    let route = handler.clone().into_route(state);
-                    return route.oneshot_inner_owned(req);
+        for (method, endpoint) in [
+            (Method::HEAD, &self.head),
+            (Method::HEAD, &self.get),
+            (Method::GET, &self.get),
+            (Method::POST, &self.post),
+            (Method::PATCH, &self.patch),
+            (Method::PUT, &self.put),
+            (Method::DELETE, &self.delete),
+            (Method::TRACE, &self.trace),
+            (Method::CONNECT, &self.connect),
+        ] {
+            if *req.method() == method {
+                match endpoint {
+                    MethodEndpoint::Route(route) => {
+                        return route.clone().oneshot_inner_owned(req);
+                    }
+                    MethodEndpoint::BoxedHandler(handler) => {
+                        let route = handler.clone().into_route(state);
+                        return route.oneshot_inner_owned(req);
+                    }
+                    MethodEndpoint::None => {}
                 }
             }
-        } else {
-            todo!()
         }
+
+        // If reached here, it means there is no endpoint found for current request,
+        // we use fallback to such case.
+        // todo add allow_header
+        self.fallback.clone().call_with_state(req, state)
     }
 
     pub fn layer<L, E2>(self, layer: L) -> MethodRouter<S, E2>
@@ -111,6 +121,7 @@ where
             put: self.put.map(layer_fn.clone()),
             trace: self.trace.map(layer_fn.clone()),
             connect: self.connect.map(layer_fn.clone()),
+            fallback: self.fallback.map(layer_fn),
         }
     }
 
@@ -151,6 +162,11 @@ where
         self.trace = merge_inner(path, "TRACE", self.trace, other.trace)?;
         self.connect = merge_inner(path, "CONNECT", self.connect, other.connect)?;
 
+        self.fallback = self
+            .fallback
+            .merge(other.fallback)
+            .ok_or("Cannot merge two `MethodRouter`s that both have a fallback")?;
+
         Ok(self)
     }
 }
@@ -188,6 +204,7 @@ impl<S, E> Clone for MethodRouter<S, E> {
             put: self.put.clone(),
             trace: self.trace.clone(),
             connect: self.connect.clone(),
+            fallback: self.fallback.clone(),
         }
     }
 }

@@ -2,7 +2,10 @@
 #![allow(warnings)]
 
 pub mod extract;
+
 pub mod handler;
+pub mod handler_tower_impl;
+
 pub mod routing;
 
 mod prelude {
@@ -46,6 +49,10 @@ impl Body {
     {
         let body = http_body.map_err(Into::into);
         Body(Box::pin(body))
+    }
+
+    pub fn empty() -> Self {
+        Self::new(http_body_util::Empty::new())
     }
 }
 
