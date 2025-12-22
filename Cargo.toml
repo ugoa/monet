@@ -6,7 +6,6 @@ members = [
   "examples/*",
   "crates/monoio",
   "crates/monoio-compat",
-  "crates/monoio-macros",
 ]
 
 [workspace.lints.clippy]

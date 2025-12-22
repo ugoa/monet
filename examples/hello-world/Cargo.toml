@@ -6,8 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 monet = { path = "../../crates/monet" }
-monoio = { path = "../../crates/monoio" }
-# monoio = "0.2.4"
+monoio = { package = "mondayio", path = "../../crates/monoio" }
 
 bytes = { version = "1.11.0", features = ["serde"] }
 futures = "0.3.31"

@@ -331,8 +331,8 @@ dependencies = [
  "http",
  "http-body-util",
  "hyper",
+ "mondayio",
  "monet",
- "monoio",
  "rand",
  "serde",
 ]
@@ -561,35 +561,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "monet"
-version = "0.1.2"
-dependencies = [
- "bytes",
- "form_urlencoded",
- "futures",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-util",
- "matchit",
- "monoio",
- "monoio-compat",
- "pin-project-lite",
- "serde",
- "serde_core",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
- "tokio",
- "tower",
- "tower-service",
-]
-
-[[package]]
-name = "monoio"
+name = "mondayio"
 version = "0.2.4"
 dependencies = [
  "auto-const-array",
@@ -617,19 +589,49 @@ dependencies = [
 ]
 
 [[package]]
-name = "monoio-compat"
+name = "mondayio-compat"
 version = "0.2.2"
 dependencies = [
  "hyper",
- "monoio",
+ "mondayio",
  "pin-project-lite",
  "reusable-box-future",
  "tokio",
 ]
 
 [[package]]
+name = "monet"
+version = "0.1.2"
+dependencies = [
+ "bytes",
+ "form_urlencoded",
+ "futures",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "matchit",
+ "mondayio",
+ "mondayio-compat",
+ "pin-project-lite",
+ "serde",
+ "serde_core",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_urlencoded",
+ "tokio",
+ "tower",
+ "tower-service",
+]
+
+[[package]]
 name = "monoio-macros"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "176a5f5e69613d9e88337cf2a65e11135332b4efbcc628404a7c555e4452084c"
 dependencies = [
  "proc-macro2",
  "quote",
