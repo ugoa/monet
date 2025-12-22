@@ -95,7 +95,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/sub", get(sub))
-        .fallback(dont_worry)
+        // .fallback(dont_worry)
         // .layer(dummy_middleware)
         .with_state(AppState {
             data: "no arc".to_string(),
