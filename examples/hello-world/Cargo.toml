@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-nirvana = { path = "../../crates/nirvana" }
+monet = { path = "../../crates/monet" }
 monoio = { path = "../../crates/monoio" }
 # monoio = "0.2.4"
 

@@ -331,8 +331,8 @@ dependencies = [
  "http",
  "http-body-util",
  "hyper",
+ "monet",
  "monoio",
- "nirvana",
  "rand",
  "serde",
 ]
@@ -561,6 +561,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "monet"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "form_urlencoded",
+ "futures",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "matchit",
+ "monoio",
+ "monoio-compat",
+ "pin-project-lite",
+ "serde",
+ "serde_core",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_urlencoded",
+ "tokio",
+ "tower",
+ "tower-service",
+]
+
+[[package]]
 name = "monoio"
 version = "0.2.4"
 dependencies = [
@@ -615,34 +643,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
 dependencies = [
  "getrandom 0.2.16",
-]
-
-[[package]]
-name = "nirvana"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "form_urlencoded",
- "futures",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-util",
- "matchit",
- "monoio",
- "monoio-compat",
- "pin-project-lite",
- "serde",
- "serde_core",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
- "tokio",
- "tower",
- "tower-service",
 ]
 
 [[package]]

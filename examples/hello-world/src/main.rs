@@ -10,7 +10,7 @@ use hyper::{Method, StatusCode};
 use hyper::{server::conn::http1, service::service_fn};
 use monoio::net::TcpListener;
 
-use nirvana::{MapResponseLayer, Response, Router, State, extract::query::Query, get};
+use monet::{MapResponseLayer, Response, Router, State, extract::query::Query, get};
 
 #[derive(Clone, Debug)]
 struct AppState {
@@ -100,7 +100,7 @@ async fn main() {
         .with_state(AppState {
             data: "no arc".to_string(),
         });
-    nirvana::serve(listener, app).await;
+    monet::serve(listener, app).await;
 }
 
 // fn main() {
