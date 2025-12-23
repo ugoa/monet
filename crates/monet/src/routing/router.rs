@@ -52,6 +52,10 @@ where
         }
     }
 
+    pub fn chain(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
+        todo!()
+    }
+
     pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
         match (self.process_route(path, method_router)) {
             Ok(x) => x,
