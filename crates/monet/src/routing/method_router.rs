@@ -51,7 +51,7 @@ where
     S: Clone,
 {
     pub fn new() -> Self {
-        let fallback = Route::new(service_fn(|_: Request| async {
+        let fallback = Route::new(service_fn(|_: HttpRequest| async {
             Ok(StatusCode::METHOD_NOT_ALLOWED)
         }));
         Self {
@@ -83,7 +83,7 @@ where
         }
     }
 
-    pub fn call_with_state(&self, req: Request, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<E> {
         let call_branches = [
             (Method::HEAD, &self.head),
             (Method::HEAD, &self.get),
@@ -121,10 +121,10 @@ where
     pub fn layer<L, E2>(self, layer: L) -> MethodRouter<S, E2>
     where
         L: Layer<Route<E>> + Clone + 'static,
-        L::Service: TowerService<Request> + Clone + 'static,
-        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<Request>>::Error: Into<E2> + 'static,
-        <L::Service as TowerService<Request>>::Future: 'static,
+        L::Service: TowerService<HttpRequest> + Clone + 'static,
+        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+        <L::Service as TowerService<HttpRequest>>::Error: Into<E2> + 'static,
+        <L::Service as TowerService<HttpRequest>>::Future: 'static,
         E: 'static,
         S: 'static,
         E2: 'static,

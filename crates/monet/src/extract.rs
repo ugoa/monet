@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use crate::{Request, response::IntoResponse};
+use crate::{HttpRequest, response::IntoResponse};
 use http::{Method, Uri, request::Parts};
 
 pub mod state;
@@ -19,7 +19,7 @@ pub trait FromRequest<S, M = ViaRequest>: Sized {
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection>;
+    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection>;
 }
 
 impl<S, T> FromRequest<S, ViaParts> for T
@@ -28,7 +28,7 @@ where
 {
     type Rejection = <Self as FromRequestParts<S>>::Rejection;
 
-    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection> {
         let (mut parts, _) = req.into_parts();
         Self::from_request_parts(&mut parts, state).await
     }
@@ -40,7 +40,7 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection> {
         Ok(T::from_request(req, state).await)
     }
 }

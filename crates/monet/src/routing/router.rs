@@ -152,10 +152,10 @@ where
     pub fn layer<L>(mut self, layer: L) -> Self
     where
         L: Layer<Route> + Clone + 'static,
-        L::Service: TowerService<Request> + Clone + 'static,
-        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<Request>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<Request>>::Future: 'static,
+        L::Service: TowerService<HttpRequest> + Clone + 'static,
+        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+        <L::Service as TowerService<HttpRequest>>::Future: 'static,
     {
         self.routes = self
             .routes
@@ -170,10 +170,10 @@ where
     pub fn route_layer<L>(mut self, layer: L) -> Self
     where
         L: Layer<Route> + Clone + 'static,
-        L::Service: TowerService<Request> + Clone + 'static,
-        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<Request>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<Request>>::Future: 'static,
+        L::Service: TowerService<HttpRequest> + Clone + 'static,
+        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+        <L::Service as TowerService<HttpRequest>>::Future: 'static,
     {
         self.routes = self
             .routes
@@ -203,7 +203,7 @@ where
         }
     }
 
-    pub(crate) fn call_with_state(&self, req: Request, state: S) -> RouteFuture<Infallible> {
+    pub(crate) fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<Infallible> {
         let (mut parts, body) = req.into_parts();
 
         println!("{:?}", &self);
@@ -216,7 +216,7 @@ where
                     "It is granted a valid route for id. Please file an issue if it is not",
                 );
 
-                let req = Request::from_parts(parts, body);
+                let req = HttpRequest::from_parts(parts, body);
 
                 match endpoint {
                     Endpoint::MethodRouter(method_router) => {
@@ -226,7 +226,7 @@ where
                 }
             }
             Err(MatchError::NotFound) => {
-                let req = Request::from_parts(parts, body);
+                let req = HttpRequest::from_parts(parts, body);
                 self.catch_all_fallback.clone().call_with_state(req, state)
             }
         }
@@ -257,10 +257,10 @@ where
     pub fn layer<L>(self, layer: L) -> Self
     where
         L: Layer<Route> + Clone + 'static,
-        L::Service: TowerService<Request> + Clone + 'static,
-        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<Request>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<Request>>::Future: 'static,
+        L::Service: TowerService<HttpRequest> + Clone + 'static,
+        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+        <L::Service as TowerService<HttpRequest>>::Future: 'static,
     {
         match self {
             Self::Route(route) => Self::Route(route.layer(layer)),
@@ -381,7 +381,7 @@ where
         }
     }
 
-    pub fn call_with_state(self, req: Request, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<E> {
         match self {
             Self::Default(route) | Self::Service(route) => route.call(req),
             Self::BoxedHandler(handler) => {

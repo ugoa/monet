@@ -1,5 +1,5 @@
 use crate::{
-    Request, Response,
+    HttpRequest, Response,
     extract::{FromRequest, FromRequestParts},
     response::IntoResponse,
 };
@@ -9,7 +9,7 @@ use std::pin::Pin;
 pub trait Handler<X, S>: Clone + Sized + 'static {
     type Future: Future<Output = Response> + 'static;
 
-    fn call(self, req: Request, state: S) -> Self::Future;
+    fn call(self, req: HttpRequest, state: S) -> Self::Future;
 
     fn with_state(self, state: S) -> HandlerService<Self, X, S> {
         HandlerService::new(self, state)
@@ -38,7 +38,7 @@ where
 {
     type Future = Pin<Box<dyn Future<Output = Response>>>;
 
-    fn call(self, _req: Request, _state: S) -> Self::Future {
+    fn call(self, _req: HttpRequest, _state: S) -> Self::Future {
         Box::pin(async move { self().await.into_response() })
     }
 }
@@ -59,7 +59,7 @@ macro_rules! impl_handler {
         {
             type Future = Pin<Box<dyn Future<Output = Response>>>;
 
-            fn call(self, req: Request, state: S) -> Self::Future {
+            fn call(self, req: HttpRequest, state: S) -> Self::Future {
                 let (mut parts, body) = req.into_parts();
                 Box::pin(async move {
                     $(
@@ -69,7 +69,7 @@ macro_rules! impl_handler {
                         };
                     )*
 
-                    let req = Request::from_parts(parts, body);
+                    let req = HttpRequest::from_parts(parts, body);
 
                     let $last = match $last::from_request(req, &state).await {
                         Ok(value) => value,
@@ -117,10 +117,10 @@ where
     T1: FromRequest<S, M>,
 {
     type Future = Pin<Box<dyn Future<Output = Response>>>;
-    fn call(self, req: Request, state: S) -> Self::Future {
+    fn call(self, req: HttpRequest, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();
         Box::pin(async move {
-            let req = Request::from_parts(parts, body);
+            let req = HttpRequest::from_parts(parts, body);
             let T1 = match T1::from_request(req, &state).await {
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
@@ -140,14 +140,14 @@ where
     T2: FromRequest<S, M>,
 {
     type Future = Pin<Box<dyn Future<Output = Response>>>;
-    fn call(self, req: Request, state: S) -> Self::Future {
+    fn call(self, req: HttpRequest, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();
         Box::pin(async move {
             let T1 = match T1::from_request_parts(&mut parts, &state).await {
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
             };
-            let req = Request::from_parts(parts, body);
+            let req = HttpRequest::from_parts(parts, body);
             let T2 = match T2::from_request(req, &state).await {
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
@@ -168,7 +168,7 @@ where
     T3: FromRequest<S, M>,
 {
     type Future = Pin<Box<dyn Future<Output = Response>>>;
-    fn call(self, req: Request, state: S) -> Self::Future {
+    fn call(self, req: HttpRequest, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();
         Box::pin(async move {
             let T1 = match T1::from_request_parts(&mut parts, &state).await {
@@ -179,7 +179,7 @@ where
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
             };
-            let req = Request::from_parts(parts, body);
+            let req = HttpRequest::from_parts(parts, body);
             let T3 = match T3::from_request(req, &state).await {
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),

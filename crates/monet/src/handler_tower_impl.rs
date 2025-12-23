@@ -7,14 +7,14 @@ use std::{
 use futures::future::Map;
 
 use crate::{
-    Body, BoxError, HttpBody, Request, Response, TowerService,
+    Body, BoxError, HttpBody, HttpRequest, Response, TowerService,
     extract::{FromRequest, FromRequestParts},
     handler::{Handler, HandlerService},
     opaque_future,
     response::IntoResponse,
 };
 
-impl<H, X, S, B> TowerService<Request<B>> for HandlerService<H, X, S>
+impl<H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<H, X, S>
 where
     H: Handler<X, S> + Clone + 'static,
     B: HttpBody<Data = bytes::Bytes> + 'static,
@@ -31,7 +31,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Request<B>) -> Self::Future {
+    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
         use futures_util::future::FutureExt;
         let req = req.map(Body::new);
         let handler = self.handler.clone();

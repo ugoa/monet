@@ -115,7 +115,7 @@ pin_project! {
     /// Response future for [`Route`].
     pub struct RouteFuture<E> {
         #[pin]
-        inner: Oneshot<LocalBoxCloneService<Request,Response,E> , Request>,
+        inner: Oneshot<LocalBoxCloneService<HttpRequest,Response,E> , HttpRequest>,
         method: Method,
     }
 }
@@ -123,7 +123,7 @@ pin_project! {
 impl<E> RouteFuture<E> {
     pub fn new(
         method: Method,
-        inner: Oneshot<LocalBoxCloneService<Request, Response, E>, Request>,
+        inner: Oneshot<LocalBoxCloneService<HttpRequest, Response, E>, HttpRequest>,
     ) -> Self {
         Self { inner, method }
     }

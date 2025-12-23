@@ -23,12 +23,12 @@ pub mod serve;
 pub(crate) mod macros;
 pub(crate) mod prelude {
     pub use crate::{
-        Body, BoxError, HttpBody, IntoResponse, Request, Response, Route, TowerService,
+        Body, BoxError, HttpBody, HttpRequest, IntoResponse, Response, Route, TowerService,
     };
     pub use std::fmt;
 }
 
-pub type Request<T = Body> = http::Request<T>;
+pub type HttpRequest<T = Body> = http::Request<T>;
 pub type Response<T = Body> = http::Response<T>;
 pub use tower::util::MapResponseLayer;
 

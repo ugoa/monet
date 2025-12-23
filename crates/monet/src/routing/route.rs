@@ -3,12 +3,12 @@ use crate::{handler::Handler, prelude::*};
 use std::convert::Infallible;
 use tower::{Layer, ServiceExt, util::MapErrLayer};
 
-pub struct Route<E = Infallible>(LocalBoxCloneService<Request, Response, E>);
+pub struct Route<E = Infallible>(LocalBoxCloneService<HttpRequest, Response, E>);
 
 impl<E> Route<E> {
     pub fn new<T>(svc: T) -> Self
     where
-        T: TowerService<Request, Error = E> + Clone + 'static,
+        T: TowerService<HttpRequest, Error = E> + Clone + 'static,
         T::Response: IntoResponse + 'static,
         T::Future: 'static,
     {
@@ -16,21 +16,21 @@ impl<E> Route<E> {
     }
 
     /// Variant of [`Route::call`] that takes ownership of the route to avoid cloning.
-    pub(crate) fn call_owned(self, req: Request<Body>) -> RouteFuture<E> {
+    pub(crate) fn call_owned(self, req: HttpRequest<Body>) -> RouteFuture<E> {
         self.call(req.map(Body::new))
     }
 
-    pub fn call(self, req: Request) -> RouteFuture<E> {
+    pub fn call(self, req: HttpRequest) -> RouteFuture<E> {
         RouteFuture::new(req.method().clone(), self.0.oneshot(req))
     }
 
     pub fn layer<L, E2>(self, layer: L) -> Route<E2>
     where
         L: Layer<Self> + 'static,
-        L::Service: TowerService<Request> + Clone + 'static,
-        <L::Service as TowerService<Request>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<Request>>::Error: Into<E2> + 'static,
-        <L::Service as TowerService<Request>>::Future: 'static,
+        L::Service: TowerService<HttpRequest> + Clone + 'static,
+        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+        <L::Service as TowerService<HttpRequest>>::Error: Into<E2> + 'static,
+        <L::Service as TowerService<HttpRequest>>::Future: 'static,
         E2: 'static,
     {
         let layer = (MapErrLayer::new(Into::into), layer);

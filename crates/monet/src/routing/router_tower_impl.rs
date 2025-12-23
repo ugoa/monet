@@ -1,5 +1,5 @@
 use crate::{
-    Body, BoxError, HttpBody, IntoResponse, Request, Response, TowerService,
+    Body, BoxError, HttpBody, HttpRequest, IntoResponse, Response, TowerService,
     routing::{
         route_tower_impl::RouteFuture,
         router::{NotFound, Router},
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<B> TowerService<Request<B>> for Router<()>
+impl<B> TowerService<HttpRequest<B>> for Router<()>
 where
     B: HttpBody<Data = bytes::Bytes> + 'static,
     B::Error: Into<BoxError>,
@@ -46,13 +46,13 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Request<B>) -> Self::Future {
+    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
         let req = req.map(Body::new);
         self.call_with_state(req, ())
     }
 }
 
-impl<B> TowerService<Request<B>> for NotFound
+impl<B> TowerService<HttpRequest<B>> for NotFound
 where
     B: 'static,
 {
@@ -65,7 +65,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, _req: Request<B>) -> Self::Future {
+    fn call(&mut self, _req: HttpRequest<B>) -> Self::Future {
         ready(Ok(http::StatusCode::NOT_FOUND.into_response()))
     }
 }

@@ -11,7 +11,7 @@ use monoio_compat::{AsyncRead, AsyncWrite, TcpStreamCompat, UnixStreamCompat};
 
 use crate::Body;
 use crate::HttpBody;
-use crate::{BoxError, Request, Response, TowerService};
+use crate::{BoxError, HttpRequest, Response, TowerService};
 
 pub trait Listener: 'static {
     type Io: AsyncRead + AsyncWrite + Unpin;
@@ -74,7 +74,7 @@ pub fn serve<L, M, S, B>(listener: L, make_service: M) -> Serve<L, M, S, B>
 where
     L: Listener,
     M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<Request, Response = Response<B>, Error = Infallible> + Clone + 'static,
+    S: TowerService<HttpRequest, Response = Response<B>, Error = Infallible> + Clone + 'static,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -96,7 +96,7 @@ where
     L: Listener,
     L::Addr: Debug,
     M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<Request, Response = Response<B>, Error = Infallible> + Clone + 'static,
+    S: TowerService<HttpRequest, Response = Response<B>, Error = Infallible> + Clone + 'static,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -124,7 +124,7 @@ where
                 })
                 .await
                 .unwrap_or_else(|err| match err {})
-                .map_request(|req: Request<Incoming>| req.map(Body::new));
+                .map_request(|req: HttpRequest<Incoming>| req.map(Body::new));
 
             let hyper_service = TowerToHyperService::new(tower_service);
 
@@ -147,7 +147,7 @@ where
     L: Listener,
     L::Addr: std::fmt::Debug,
     M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible> + 'static,
-    S: TowerService<Request, Response = Response<B>, Error = Infallible> + Clone + 'static,
+    S: TowerService<HttpRequest, Response = Response<B>, Error = Infallible> + Clone + 'static,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
