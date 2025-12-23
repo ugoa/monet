@@ -91,9 +91,9 @@ impl<S> MapIntoResponse<S> {
     }
 }
 
-impl<B, S> TowerService<HttpRequest<B>> for MapIntoResponse<S>
+impl<B, S> TowerService<http::Request<B>> for MapIntoResponse<S>
 where
-    S: TowerService<HttpRequest<B>>,
+    S: TowerService<http::Request<B>>,
     S::Response: IntoResponse,
 {
     type Response = Response;
@@ -104,7 +104,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
+    fn call(&mut self, req: http::Request<B>) -> Self::Future {
         MapIntoResponseFuture {
             inner: self.inner.call(req),
         }

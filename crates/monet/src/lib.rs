@@ -10,7 +10,7 @@ pub mod routing;
 
 mod prelude {
     pub use crate::{
-        Body, BoxError, HttpBody, HttpRequest, IntoResponse, Request, Response, Route, TowerService,
+        Body, BoxError, HttpBody, IntoResponse, Request, Response, Route, TowerService,
     };
     pub use std::fmt;
 }
@@ -122,12 +122,8 @@ impl http_body::Body for Body {
     }
 }
 
-pub use http::Request as HttpRequest;
+pub type Request<T = Body> = http::Request<T>;
 
-pub type Request<T = Body> = HttpRequest<T>;
-
-pub use http::Response as HttpResponse;
-
-pub type Response<T = Body> = HttpResponse<T>;
+pub type Response<T = Body> = http::Response<T>;
 
 pub use tower::util::MapResponseLayer;
