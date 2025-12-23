@@ -1,41 +1,36 @@
 #![allow(clippy::all)]
 #![allow(warnings)]
 
-pub mod extract;
+pub use self::{
+    extract::state::State, response::IntoResponse, routing::method_router::get,
+    routing::route::Route, routing::router::Router, serve::serve,
+};
+pub use bytes::Bytes;
+pub use http_body::{Body as HttpBody, Frame};
+use http_body_util::BodyExt;
+use std::borrow::Cow;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+pub use tower::Service as TowerService;
 
+pub mod extract;
 pub mod handler;
 pub mod handler_tower_impl;
-
+pub mod response;
 pub mod routing;
-
-mod prelude {
+pub mod serve;
+#[macro_use]
+pub(crate) mod macros;
+pub(crate) mod prelude {
     pub use crate::{
         Body, BoxError, HttpBody, IntoResponse, Request, Response, Route, TowerService,
     };
     pub use std::fmt;
 }
 
-pub use self::{
-    extract::state::State, response::IntoResponse, routing::method_router::get,
-    routing::route::Route, routing::router::Router, serve::serve,
-};
-
-#[macro_use]
-pub(crate) mod macros;
-
-pub mod response;
-
-pub mod serve;
-
-use std::borrow::Cow;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
-pub use bytes::Bytes;
-pub use http_body::{Body as HttpBody, Frame};
-pub use tower::Service as TowerService;
-
-use http_body_util::BodyExt;
+pub type Request<T = Body> = http::Request<T>;
+pub type Response<T = Body> = http::Response<T>;
+pub use tower::util::MapResponseLayer;
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -121,9 +116,3 @@ impl http_body::Body for Body {
         self.0.is_end_stream()
     }
 }
-
-pub type Request<T = Body> = http::Request<T>;
-
-pub type Response<T = Body> = http::Response<T>;
-
-pub use tower::util::MapResponseLayer;
