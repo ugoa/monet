@@ -5,7 +5,6 @@ use crate::{handler::Handler, routing::route::BoxedIntoRoute};
 use matchit::MatchError;
 use std::rc::Rc;
 use std::{collections::HashMap, convert::Infallible};
-use tower::Layer;
 
 #[must_use]
 #[derive(Clone)]
@@ -155,7 +154,7 @@ where
 
     pub fn layer<L>(mut self, layer: L) -> Self
     where
-        L: Layer<Route> + Clone + 'static,
+        L: TowerLayer<Route> + Clone + 'static,
         L::Service: TowerService<HttpRequest> + Clone + 'static,
         <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
         <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
@@ -173,7 +172,7 @@ where
 
     pub fn route_layer<L>(mut self, layer: L) -> Self
     where
-        L: Layer<Route> + Clone + 'static,
+        L: TowerLayer<Route> + Clone + 'static,
         L::Service: TowerService<HttpRequest> + Clone + 'static,
         <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
         <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
@@ -260,7 +259,7 @@ where
 {
     pub fn layer<L>(self, layer: L) -> Self
     where
-        L: Layer<Route> + Clone + 'static,
+        L: TowerLayer<Route> + Clone + 'static,
         L::Service: TowerService<HttpRequest> + Clone + 'static,
         <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
         <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
