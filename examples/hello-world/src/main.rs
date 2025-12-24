@@ -189,10 +189,10 @@ fn main() {
                             .route("/sub", get(sub))
                             .merge(user_routes)
                             .merge(team_routes)
-                            .fallback(dont_worry)
                             .with_state(AppState {
                                 data: "no arc".to_string(),
-                            });
+                            })
+                            .fallback(dont_worry);
                         monet::serve(listener, app).await;
                     });
             })
