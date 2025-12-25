@@ -128,11 +128,11 @@ where
             if *req.method() == method {
                 match endpoint {
                     MethodEndpoint::Route(route) => {
-                        return route.clone().call(req);
+                        return route.clone().oneshot_inner_owned(req);
                     }
                     MethodEndpoint::BoxedHandler(handler) => {
                         let route = handler.clone().into_route(state);
-                        return route.call(req);
+                        return route.oneshot_inner_owned(req);
                     }
                     MethodEndpoint::None => {}
                 }

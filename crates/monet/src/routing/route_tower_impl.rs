@@ -120,27 +120,6 @@ pin_project! {
     }
 }
 
-impl<E> RouteFuture<E> {
-    pub fn new(
-        method: Method,
-        inner: Oneshot<LocalBoxCloneService<HttpRequest, HttpResponse, E>, HttpRequest>,
-    ) -> Self {
-        Self { inner, method }
-    }
-}
-
-impl<E> Future for RouteFuture<E> {
-    type Output = Result<HttpResponse, E>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-
-        let resp = std::task::ready!(this.inner.poll(cx))?;
-
-        Poll::Ready(Ok(resp))
-    }
-}
-
 pin_project! {
     pub(crate) struct MapIntoResponseFuture<F> {
         #[pin]
@@ -160,5 +139,46 @@ where
 
         Poll::Ready(Ok(res.into_response()))
         // Here every different types of return values from handler turn into Response
+    }
+}
+
+impl<B, E> TowerService<HttpRequest<B>> for Route<E>
+where
+    B: HttpBody<Data = bytes::Bytes> + 'static,
+    B::Error: Into<BoxError>,
+{
+    type Response = HttpResponse;
+    type Error = E;
+    type Future = RouteFuture<E>;
+
+    #[inline]
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    #[inline]
+    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
+        self.oneshot_inner(req.map(Body::new))
+    }
+}
+
+impl<E> RouteFuture<E> {
+    pub fn new(
+        method: Method,
+        inner: Oneshot<LocalBoxCloneService<HttpRequest, HttpResponse, E>, HttpRequest>,
+    ) -> Self {
+        Self { inner, method }
+    }
+}
+
+impl<E> Future for RouteFuture<E> {
+    type Output = Result<HttpResponse, E>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        let resp = std::task::ready!(this.inner.poll(cx))?;
+
+        Poll::Ready(Ok(resp))
     }
 }

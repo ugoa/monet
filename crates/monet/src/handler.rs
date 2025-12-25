@@ -11,7 +11,7 @@ pub trait Handler<X, S>: Clone + Sized + 'static {
 
     fn call(self, req: HttpRequest, state: S) -> Self::Future;
 
-    fn with_state(self, state: S) -> HandlerService<Self, X, S> {
+    fn to_service(self, state: S) -> HandlerService<Self, X, S> {
         HandlerService::new(self, state)
     }
 }
@@ -26,7 +26,7 @@ where
     H: Handler<T, ()>,
 {
     fn into_service(self) -> HandlerService<Self, T, ()> {
-        self.with_state(())
+        self.to_service(())
     }
 }
 

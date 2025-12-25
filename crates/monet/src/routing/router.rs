@@ -386,10 +386,10 @@ where
 
     pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<E> {
         match self {
-            Self::Default(route) | Self::Service(route) => route.call(req),
+            Self::Default(route) | Self::Service(route) => route.oneshot_inner(req),
             Self::BoxedHandler(handler) => {
                 let route = handler.into_route(state);
-                route.call(req)
+                route.oneshot_inner(req)
             }
         }
     }

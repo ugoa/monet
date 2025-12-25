@@ -1,5 +1,8 @@
 use super::route_tower_impl::{LocalBoxCloneService, MapIntoResponse, RouteFuture};
-use crate::{handler::Handler, prelude::*};
+use crate::{
+    handler::{Handler, HandlerService},
+    prelude::*,
+};
 use std::convert::Infallible;
 use tower::{ServiceExt, util::MapErrLayer};
 
@@ -17,11 +20,18 @@ impl<E> Route<E> {
 
     /// Variant of [`Route::call`] that takes ownership of the route to avoid cloning.
     pub(crate) fn call_owned(self, req: HttpRequest<Body>) -> RouteFuture<E> {
-        self.call(req.map(Body::new))
+        self.oneshot_inner(req.map(Body::new))
     }
 
-    pub fn call(self, req: HttpRequest) -> RouteFuture<E> {
-        RouteFuture::new(req.method().clone(), self.0.oneshot(req))
+    pub fn oneshot_inner(&self, req: HttpRequest) -> RouteFuture<E> {
+        let method = req.method().clone();
+        RouteFuture::new(method, self.0.clone().oneshot(req))
+    }
+
+    /// Variant of [`Route::oneshot_inner`] that takes ownership of the route to avoid cloning.
+    pub(crate) fn oneshot_inner_owned(self, req: HttpRequest) -> RouteFuture<E> {
+        let method = req.method().clone();
+        RouteFuture::new(method, self.0.oneshot(req))
     }
 
     pub fn layer<L, E2>(self, layer: L) -> Route<E2>
@@ -134,7 +144,7 @@ where
     {
         Self(Box::new(ErasedHandler {
             handler: handler,
-            into_route_fn: |handler, state| Route::new(Handler::with_state(handler, state)),
+            into_route_fn: |handler, state| Route::new(HandlerService::new(handler, state)),
         }))
     }
 }
