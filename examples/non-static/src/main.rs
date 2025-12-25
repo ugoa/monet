@@ -6,6 +6,7 @@ use futures::future::Map;
 use http::StatusCode;
 pub use http_body::Body as HttpBody;
 use http_body::Frame;
+use http_body_util::BodyExt;
 use hyper::server::conn::http1;
 use hyper_util::service::TowerToHyperService;
 use monet::opaque_future;
@@ -13,6 +14,7 @@ use monoio::net::TcpListener;
 use monoio_compat::hyper::MonoioIo;
 use monoio_compat::{AsyncRead, AsyncWrite, TcpStreamCompat, UnixStreamCompat};
 use pin_project_lite::pin_project;
+use std::future::Future;
 use std::{
     convert::Infallible,
     future::Ready,
@@ -29,7 +31,38 @@ pub type HttpRequest<T = Body> = http::Request<T>;
 pub type HttpResponse<T = Body> = http::Response<T>;
 pub use tower::Service as TowerService;
 
-use http_body_util::BodyExt;
+#[monoio::main(threads = 1)]
+async fn main() {
+    let hs = HandlerService::new(hello);
+    let mut tower_service = MapIntoResponse::new(hs);
+
+    let thread_id = std::thread::current().id();
+    println!("Starting Monoio application on thread: {thread_id:?}",);
+
+    use std::net::SocketAddr;
+
+    let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
+    let mut listener = TcpListener::bind(addr).unwrap();
+
+    loop {
+        let (io, remote_addr) = Listener::accept(&mut listener).await;
+
+        let io = monoio_compat::hyper::MonoioIo::new(io);
+
+        let mut hyper_service = TowerToHyperService::new(tower_service.clone());
+
+        monoio::spawn_without_static(async {
+            println!("Task started on thread {:?}", std::thread::current().id());
+            if let Err(err) = http1::Builder::new()
+                .serve_connection(io, hyper_service)
+                .await
+            {
+                println!("Error serving connection: {:?}", err);
+            }
+        });
+    }
+}
+
 impl Body {
     pub fn new<B>(http_body: B) -> Self
     where
@@ -53,30 +86,6 @@ impl From<&'static str> for Body {
 
 async fn hello() -> &'static str {
     "No static haha ha"
-}
-struct HelloService;
-use std::future::Future;
-
-impl TowerService<HttpRequest<Body>> for HelloService {
-    type Response = HttpResponse<Body>;
-    type Error = std::io::Error; // or your error type
-    // type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, _req: HttpRequest) -> Self::Future {
-        std::future::ready({
-            let body = "No static";
-            let response = HttpResponse::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(body))
-                .unwrap();
-            Ok(response)
-        })
-    }
 }
 
 #[derive(Clone)]
@@ -161,38 +170,6 @@ impl Listener for monoio::net::TcpListener {
 
     fn local_addr(&self) -> std::io::Result<Self::Addr> {
         Self::local_addr(self)
-    }
-}
-
-#[monoio::main(threads = 1)]
-async fn main() {
-    let hs = HandlerService::new(hello);
-    let mut svc = MapIntoResponse::new(hs);
-
-    let thread_id = std::thread::current().id();
-    println!("Starting Monoio application on thread: {thread_id:?}",);
-
-    use std::net::SocketAddr;
-
-    let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    let mut listener = TcpListener::bind(addr).unwrap();
-
-    loop {
-        let (io, remote_addr) = Listener::accept(&mut listener).await;
-
-        let io = monoio_compat::hyper::MonoioIo::new(io);
-
-        let mut hyper_service = TowerToHyperService::new(svc.clone());
-
-        monoio::spawn_without_static(async move {
-            println!("Task started on thread {:?}", std::thread::current().id());
-            if let Err(err) = http1::Builder::new()
-                .serve_connection(io, hyper_service)
-                .await
-            {
-                println!("Error serving connection: {:?}", err);
-            }
-        });
     }
 }
 
