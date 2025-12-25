@@ -52,7 +52,7 @@ impl From<&'static str> for Body {
 }
 
 async fn hello() -> &'static str {
-    "No static"
+    "No static haha ha"
 }
 struct HelloService;
 use std::future::Future;
@@ -175,28 +175,14 @@ async fn main() {
     use std::net::SocketAddr;
 
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    let listener = TcpListener::bind(addr).unwrap();
+    let mut listener = TcpListener::bind(addr).unwrap();
 
     loop {
-        let (io, remote_addr) = listener.accept().await;
+        let (io, remote_addr) = Listener::accept(&mut listener).await;
 
         let io = monoio_compat::hyper::MonoioIo::new(io);
 
-        // make_service
-        //     .ready()
-        //     .await
-        //     .unwrap_or_else(|err| match err {});
-        //
-        // let tower_service = make_service
-        //     .call(IncomingStream {
-        //         io: &io,
-        //         remote_addr,
-        //     })
-        //     .await
-        //     .unwrap_or_else(|err| match err {})
-        //     .map_request(|req: HttpRequest<Incoming>| req.map(Body::new));
-
-        let hyper_service = TowerToHyperService::new(svc);
+        let mut hyper_service = TowerToHyperService::new(svc.clone());
 
         monoio::spawn_without_static(async move {
             println!("Task started on thread {:?}", std::thread::current().id());
