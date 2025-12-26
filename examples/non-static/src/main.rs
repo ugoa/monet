@@ -143,7 +143,7 @@ where
     }
 }
 
-pub trait Listener: 'static {
+pub trait Listener {
     type Io: AsyncRead + AsyncWrite + Unpin;
 
     type Addr;
