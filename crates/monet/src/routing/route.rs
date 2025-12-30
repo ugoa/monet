@@ -142,10 +142,17 @@ where
         H: Handler<X, S>,
         X: 'static,
     {
-        Self(Box::new(ErasedHandler {
+        let svc_fn = |handler, state| {
+            let svc = HandlerService::new(handler, state);
+            let resp_map = MapIntoResponse::new(svc);
+            let lbcs = LocalBoxCloneService::new(resp_map);
+            Route(lbcs)
+        };
+        let erased = ErasedHandler {
             handler: handler,
-            into_route_fn: |handler, state| Route::new(HandlerService::new(handler, state)),
-        }))
+            into_route_fn: svc_fn,
+        };
+        BoxedIntoRoute(Box::new(erased))
     }
 }
 
