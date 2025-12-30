@@ -46,8 +46,9 @@ where
         Poll::Ready(Ok(()))
     }
 
-    // Router is a Tower Service, which is converted to Hyper Service, Hyper server will call the
-    // hyper service's call() method. Inside the call() method it returns a OneShot future:
+    // Router is a Tower Service, which is converted to Hyper Service at crate::serve.rs#L129 ,
+    // Hyper server will call the hyper service's call() method.
+    // Inside hyper's call() method it returns a OneShot future:
     //      https://github.com/hyperium/hyper-util/blob/v0.1.19/src/service/oneshot.rs#L51
     // when the future is being polled by the runtime, the Towerservice call() is triggered,
     // which is below
