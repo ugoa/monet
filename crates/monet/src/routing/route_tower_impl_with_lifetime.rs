@@ -83,3 +83,57 @@ where
         Box::new(self.clone())
     }
 }
+
+#[derive(Clone)]
+pub(crate) struct MapIntoResponse<S> {
+    pub inner: S,
+}
+
+impl<S> MapIntoResponse<S> {
+    pub(crate) fn new(inner: S) -> Self {
+        Self { inner }
+    }
+}
+
+impl<'a, B, S> TowerService<http::Request<B>> for MapIntoResponse<S>
+where
+    S: TowerService<http::Request<B>> + 'a,
+    S::Response: IntoResponse + 'a,
+    S::Future: 'a,
+{
+    type Response = HttpResponse;
+    type Error = S::Error;
+    type Future = MapIntoResponseFuture<S::Future>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: http::Request<B>) -> Self::Future {
+        MapIntoResponseFuture {
+            inner: self.inner.call(req),
+        }
+    }
+}
+
+pin_project! {
+    pub(crate) struct MapIntoResponseFuture<F> {
+        #[pin]
+        pub inner: F,
+    }
+}
+
+impl<F, T, E> Future for MapIntoResponseFuture<F>
+where
+    F: Future<Output = Result<T, E>>,
+    T: IntoResponse,
+{
+    type Output = Result<HttpResponse, E>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let res = ready!(self.project().inner.poll(cx)?);
+
+        Poll::Ready(Ok(res.into_response()))
+        // Here every different types of return values from handler turn into Response
+    }
+}
