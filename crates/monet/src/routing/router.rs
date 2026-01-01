@@ -152,39 +152,39 @@ where
         self
     }
 
-    pub fn layer<L>(mut self, layer: L) -> Self
-    where
-        L: TowerLayer<Route> + Clone + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-    {
-        self.routes = self
-            .routes
-            .into_iter()
-            .map(|endpoint| endpoint.layer(layer.clone()))
-            .collect();
+    // pub fn layer<L>(mut self, layer: L) -> Self
+    // where
+    //     L: TowerLayer<Route> + Clone + 'static,
+    //     L::Service: TowerService<HttpRequest> + Clone + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Future: 'static,
+    // {
+    //     self.routes = self
+    //         .routes
+    //         .into_iter()
+    //         .map(|endpoint| endpoint.layer(layer.clone()))
+    //         .collect();
+    //
+    //     self.catch_all_fallback = self.catch_all_fallback.map(|route| route.layer(layer));
+    //     self
+    // }
 
-        self.catch_all_fallback = self.catch_all_fallback.map(|route| route.layer(layer));
-        self
-    }
-
-    pub fn route_layer<L>(mut self, layer: L) -> Self
-    where
-        L: TowerLayer<Route> + Clone + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-    {
-        self.routes = self
-            .routes
-            .into_iter()
-            .map(|endpoint| endpoint.layer(layer.clone()))
-            .collect();
-        self
-    }
+    // pub fn route_layer<L>(mut self, layer: L) -> Self
+    // where
+    //     L: TowerLayer<Route> + Clone + 'static,
+    //     L::Service: TowerService<HttpRequest> + Clone + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Future: 'static,
+    // {
+    //     self.routes = self
+    //         .routes
+    //         .into_iter()
+    //         .map(|endpoint| endpoint.layer(layer.clone()))
+    //         .collect();
+    //     self
+    // }
 
     pub fn with_state<S2>(mut self, state: S) -> Router<S2> {
         let routes = self
@@ -253,24 +253,24 @@ impl<S> fmt::Debug for Endpoint<S> {
     }
 }
 
-impl<S> Endpoint<S>
-where
-    S: Clone + 'static,
-{
-    pub fn layer<L>(self, layer: L) -> Self
-    where
-        L: TowerLayer<Route> + Clone + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-    {
-        match self {
-            Self::Route(route) => Self::Route(route.layer(layer)),
-            Self::MethodRouter(method_router) => Self::MethodRouter(method_router.layer(layer)),
-        }
-    }
-}
+// impl<S> Endpoint<S>
+// where
+//     S: Clone + 'static,
+// {
+//     pub fn layer<L>(self, layer: L) -> Self
+//     where
+//         L: TowerLayer<Route> + Clone + 'static,
+//         L::Service: TowerService<HttpRequest> + Clone + 'static,
+//         <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+//         <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+//         <L::Service as TowerService<HttpRequest>>::Future: 'static,
+//     {
+//         match self {
+//             Self::Route(route) => Self::Route(route.layer(layer)),
+//             Self::MethodRouter(method_router) => Self::MethodRouter(method_router.layer(layer)),
+//         }
+//     }
+// }
 
 impl<S> Clone for Endpoint<S> {
     fn clone(&self) -> Self {
@@ -362,19 +362,19 @@ where
         }
     }
 
-    pub fn map<F, E2>(self, f: F) -> Fallback<S, E2>
-    where
-        S: 'static,
-        E: 'static,
-        F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
-        E2: 'static,
-    {
-        match self {
-            Self::Default(route) => Fallback::Default(f(route)),
-            Self::Service(route) => Fallback::Service(f(route)),
-            Self::BoxedHandler(handler) => Fallback::BoxedHandler(handler.map(f)),
-        }
-    }
+    // pub fn map<F, E2>(self, f: F) -> Fallback<S, E2>
+    // where
+    //     S: 'static,
+    //     E: 'static,
+    //     F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
+    //     E2: 'static,
+    // {
+    //     match self {
+    //         Self::Default(route) => Fallback::Default(f(route)),
+    //         Self::Service(route) => Fallback::Service(f(route)),
+    //         Self::BoxedHandler(handler) => Fallback::BoxedHandler(handler.map(f)),
+    //     }
+    // }
 
     pub fn with_state<S2>(self, state: S) -> Fallback<S2, E> {
         match self {

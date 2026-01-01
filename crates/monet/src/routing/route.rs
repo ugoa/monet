@@ -6,14 +6,14 @@ use crate::{
 use std::convert::Infallible;
 use tower::{ServiceExt, util::MapErrLayer};
 
-pub struct Route<E = Infallible>(LocalBoxCloneService<HttpRequest, HttpResponse, E>);
+pub struct Route<'a, E = Infallible>(LocalBoxCloneService<'a, HttpRequest, HttpResponse, E>);
 
-impl<E> Route<E> {
+impl<'a, E> Route<'a, E> {
     pub fn new<T>(svc: T) -> Self
     where
-        T: TowerService<HttpRequest, Error = E> + Clone + 'static,
-        T::Response: IntoResponse + 'static,
-        T::Future: 'static,
+        T: TowerService<HttpRequest, Error = E> + Clone + 'a,
+        T::Response: IntoResponse + 'a,
+        T::Future: 'a,
     {
         Self(LocalBoxCloneService::new(MapIntoResponse::new(svc)))
     }
@@ -34,29 +34,29 @@ impl<E> Route<E> {
         RouteFuture::new(method, self.0.oneshot(req))
     }
 
-    pub fn layer<L, E2>(self, layer: L) -> Route<E2>
-    where
-        L: TowerLayer<Self> + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<E2> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-        E2: 'static,
-    {
-        let layer = (MapErrLayer::new(Into::into), layer);
-
-        Route::new(layer.layer(self))
-    }
+    // pub fn layer<L, E2>(self, layer: L) -> Route<'a, E2>
+    // where
+    //     L: TowerLayer<Self> + 'static,
+    //     L::Service: TowerService<HttpRequest> + Clone + 'a,
+    //     <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'a,
+    //     <L::Service as TowerService<HttpRequest>>::Error: Into<E2> + 'a,
+    //     <L::Service as TowerService<HttpRequest>>::Future: 'a,
+    //     E2: 'static,
+    // {
+    //     let layer = (MapErrLayer::new(Into::into), layer);
+    //
+    //     Route::new(layer.layer(self))
+    // }
 }
 
-impl<E> Clone for Route<E> {
+impl<E> Clone for Route<'_, E> {
     #[track_caller]
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<E> fmt::Debug for Route<E> {
+impl<E> fmt::Debug for Route<'_, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Route").finish()
     }
@@ -77,10 +77,10 @@ impl<S, E> Clone for BoxedIntoRoute<S, E> {
 }
 
 ///  Transfer Layer Map to Route
-pub(crate) struct Map<S, E, E2> {
-    pub(crate) inner: Box<dyn ErasedIntoRoute<S, E>>,
-    pub(crate) layer: Box<dyn LayerFn<E, E2>>,
-}
+// pub(crate) struct Map<S, E, E2> {
+//     pub(crate) inner: Box<dyn ErasedIntoRoute<S, E>>,
+//     pub(crate) layer: Box<dyn LayerFn<E, E2>>,
+// }
 
 pub(crate) trait LayerFn<E, E2>: FnOnce(Route<E>) -> Route<E2> {
     fn clone_box(&self) -> Box<dyn LayerFn<E, E2>>;
@@ -95,37 +95,37 @@ where
     }
 }
 
-impl<S, E, E2> ErasedIntoRoute<S, E2> for Map<S, E, E2>
-where
-    S: 'static,
-    E: 'static,
-    E2: 'static,
-{
-    fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, E2>> {
-        Box::new(Self {
-            inner: self.inner.clone_box(),
-            layer: self.layer.clone_box(),
-        })
-    }
-
-    fn into_route(self: Box<Self>, state: S) -> Route<E2> {
-        (self.layer)(self.inner.into_route(state))
-    }
-}
+// impl<S, E, E2> ErasedIntoRoute<S, E2> for Map<S, E, E2>
+// where
+//     S: 'static,
+//     E: 'static,
+//     E2: 'static,
+// {
+//     fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, E2>> {
+//         Box::new(Self {
+//             inner: self.inner.clone_box(),
+//             layer: self.layer.clone_box(),
+//         })
+//     }
+//
+//     fn into_route(self: Box<Self>, state: S) -> Route<E2> {
+//         (self.layer)(self.inner.into_route(state))
+//     }
+// }
 
 impl<S, E> BoxedIntoRoute<S, E> {
-    pub(crate) fn map<F, E2>(self, f: F) -> BoxedIntoRoute<S, E2>
-    where
-        S: 'static,
-        E: 'static,
-        F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
-        E2: 'static,
-    {
-        BoxedIntoRoute(Box::new(Map {
-            inner: self.0,
-            layer: Box::new(f),
-        }))
-    }
+    // pub(crate) fn map<F, E2>(self, f: F) -> BoxedIntoRoute<S, E2>
+    // where
+    //     S: 'static,
+    //     E: 'static,
+    //     F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
+    //     E2: 'static,
+    // {
+    //     BoxedIntoRoute(Box::new(Map {
+    //         inner: self.0,
+    //         layer: Box::new(f),
+    //     }))
+    // }
 
     pub(crate) fn into_route(self, state: S) -> Route<E> {
         self.0.into_route(state)

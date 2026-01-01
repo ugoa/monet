@@ -146,32 +146,32 @@ where
         // todo add allow_header
     }
 
-    pub fn layer<L, E2>(self, layer: L) -> MethodRouter<S, E2>
-    where
-        L: Layer<Route<E>> + Clone + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<E2> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-        E: 'static,
-        S: 'static,
-        E2: 'static,
-    {
-        let layer_fn = move |route: Route<E>| route.layer(layer.clone());
-
-        MethodRouter {
-            get: self.get.map(layer_fn.clone()),
-            head: self.head.map(layer_fn.clone()),
-            delete: self.delete.map(layer_fn.clone()),
-            options: self.options.map(layer_fn.clone()),
-            patch: self.patch.map(layer_fn.clone()),
-            post: self.post.map(layer_fn.clone()),
-            put: self.put.map(layer_fn.clone()),
-            trace: self.trace.map(layer_fn.clone()),
-            connect: self.connect.map(layer_fn.clone()),
-            fallback: self.fallback.map(layer_fn),
-        }
-    }
+    // pub fn layer<L, E2>(self, layer: L) -> MethodRouter<S, E2>
+    // where
+    //     L: Layer<Route<E>> + Clone + 'static,
+    //     L::Service: TowerService<HttpRequest> + Clone + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Error: Into<E2> + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Future: 'static,
+    //     E: 'static,
+    //     S: 'static,
+    //     E2: 'static,
+    // {
+    //     let layer_fn = move |route: Route<E>| route.layer(layer.clone());
+    //
+    //     MethodRouter {
+    //         get: self.get.map(layer_fn.clone()),
+    //         head: self.head.map(layer_fn.clone()),
+    //         delete: self.delete.map(layer_fn.clone()),
+    //         options: self.options.map(layer_fn.clone()),
+    //         patch: self.patch.map(layer_fn.clone()),
+    //         post: self.post.map(layer_fn.clone()),
+    //         put: self.put.map(layer_fn.clone()),
+    //         trace: self.trace.map(layer_fn.clone()),
+    //         connect: self.connect.map(layer_fn.clone()),
+    //         fallback: self.fallback.map(layer_fn),
+    //     }
+    // }
 
     pub(crate) fn merge_for_path(
         mut self,
@@ -281,19 +281,19 @@ where
         matches!(self, Self::Route(_) | Self::BoxedHandler(_))
     }
 
-    fn map<F, E2>(self, f: F) -> MethodEndpoint<S, E2>
-    where
-        S: 'static,
-        E: 'static,
-        F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
-        E2: 'static,
-    {
-        match self {
-            Self::None => MethodEndpoint::None,
-            Self::Route(route) => MethodEndpoint::Route(f(route)),
-            Self::BoxedHandler(handler) => MethodEndpoint::BoxedHandler(handler.map(f)),
-        }
-    }
+    // fn map<F, E2>(self, f: F) -> MethodEndpoint<S, E2>
+    // where
+    //     S: 'static,
+    //     E: 'static,
+    //     F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
+    //     E2: 'static,
+    // {
+    //     match self {
+    //         Self::None => MethodEndpoint::None,
+    //         Self::Route(route) => MethodEndpoint::Route(f(route)),
+    //         Self::BoxedHandler(handler) => MethodEndpoint::BoxedHandler(handler.map(f)),
+    //     }
+    // }
 
     fn with_state<S2>(self, state: &S) -> MethodEndpoint<S2, E> {
         match self {
