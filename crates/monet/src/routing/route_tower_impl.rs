@@ -10,41 +10,36 @@ use tower::util::{Oneshot, ServiceExt};
 /// A local boxed [`Service`] trait object with `Clone`. Same with UnsyncBoxService
 /// Ref: https://github.com/tower-rs/tower/blob/tower-0.5.2/tower/src/util/boxed/unsync.rs#L12
 
-pub struct LocalBoxCloneService<T, U, E>(
+pub struct LocalBoxCloneService<'a, T, U, E>(
     Box<
         dyn ClonableService<
+                'a,
                 T,
                 Response = U,
                 Error = E,
-                Future = Pin<Box<dyn Future<Output = Result<U, E>>>>,
-            >,
+                Future = Pin<Box<dyn Future<Output = Result<U, E>> + 'a>>,
+            > + 'a,
     >,
 );
 
-impl<T, U, E> LocalBoxCloneService<T, U, E> {
+impl<'a, T, U, E> LocalBoxCloneService<'a, T, U, E> {
     /// Create a new `BoxCloneSyncService`.
     pub fn new<S>(inner: S) -> Self
     where
-        S: TowerService<T, Response = U, Error = E> + Clone + 'static,
-        S::Future: 'static,
+        S: TowerService<T, Response = U, Error = E> + Clone + 'a,
+        <S as tower::Service<T>>::Future: 'a,
     {
-        let inner = inner.map_future(|f| Box::pin(f) as _);
+        let inner = inner.map_future(|fut| Box::pin(fut) as _);
         LocalBoxCloneService(Box::new(inner))
     }
 }
 
-impl<T, U, E> Clone for LocalBoxCloneService<T, U, E> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone_box())
-    }
-}
-
-impl<T, U, E> TowerService<T> for LocalBoxCloneService<T, U, E> {
+impl<'a, T, U, E> TowerService<T> for LocalBoxCloneService<'a, T, U, E> {
     type Response = U;
 
     type Error = E;
 
-    type Future = Pin<Box<dyn Future<Output = Result<U, E>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<U, E>> + 'a>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.0.poll_ready(cx)
@@ -55,27 +50,36 @@ impl<T, U, E> TowerService<T> for LocalBoxCloneService<T, U, E> {
     }
 }
 
-trait ClonableService<S>: TowerService<S> {
+impl<T, U, E> Clone for LocalBoxCloneService<'_, T, U, E> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone_box())
+    }
+}
+
+trait ClonableService<'a, S>: TowerService<S> {
     fn clone_box(
         &self,
     ) -> Box<
         dyn ClonableService<
+                'a,
                 S,
                 Response = Self::Response,
                 Error = Self::Error,
                 Future = Self::Future,
-            >,
+            > + 'a,
     >;
 }
 
-impl<S, T> ClonableService<S> for T
+impl<'a, S, T> ClonableService<'a, S> for T
 where
-    T: TowerService<S> + Clone + 'static,
+    T: TowerService<S> + Clone + 'a,
 {
     fn clone_box(
         &self,
-    ) -> Box<dyn ClonableService<S, Response = T::Response, Error = T::Error, Future = T::Future>>
-    {
+    ) -> Box<
+        dyn ClonableService<'a, S, Response = T::Response, Error = T::Error, Future = T::Future>
+            + 'a,
+    > {
         Box::new(self.clone())
     }
 }
@@ -91,10 +95,11 @@ impl<S> MapIntoResponse<S> {
     }
 }
 
-impl<B, S> TowerService<http::Request<B>> for MapIntoResponse<S>
+impl<'a, B, S> TowerService<http::Request<B>> for MapIntoResponse<S>
 where
-    S: TowerService<http::Request<B>>,
-    S::Response: IntoResponse,
+    S: TowerService<http::Request<B>> + 'a,
+    S::Response: IntoResponse + 'a,
+    S::Future: 'a,
 {
     type Response = HttpResponse;
     type Error = S::Error;
@@ -108,15 +113,6 @@ where
         MapIntoResponseFuture {
             inner: self.inner.call(req),
         }
-    }
-}
-
-pin_project! {
-    /// Response future for [`Route`].
-    pub struct RouteFuture<E> {
-        #[pin]
-        inner: Oneshot<LocalBoxCloneService<HttpRequest,HttpResponse,E> , HttpRequest>,
-        method: Method,
     }
 }
 
@@ -139,6 +135,15 @@ where
 
         Poll::Ready(Ok(res.into_response()))
         // Here every different types of return values from handler turn into Response
+    }
+}
+
+pin_project! {
+    /// Response future for [`Route`].
+    pub struct RouteFuture<E> {
+        #[pin]
+        inner: Oneshot<LocalBoxCloneService<HttpRequest,HttpResponse,E> , HttpRequest>,
+        method: Method,
     }
 }
 
