@@ -1,14 +1,58 @@
-use crate::prelude::*;
+// use crate::prelude::*;
 use http::Method;
 use pin_project_lite::pin_project;
 use std::{
+    convert::Infallible,
     pin::Pin,
     task::{Context, Poll, ready},
 };
 use tower::util::{Oneshot, ServiceExt};
 
-/// A local boxed [`Service`] trait object with `Clone`. Same with UnsyncBoxService
-/// Ref: https://github.com/tower-rs/tower/blob/tower-0.5.2/tower/src/util/boxed/unsync.rs#L12
+use tower::Service as TowerService;
+
+use crate::{HttpRequest, HttpResponse, IntoResponse};
+
+pub struct Route<'r, E = Infallible>(LocalBoxCloneService<'r, HttpRequest, HttpResponse, E>);
+
+impl<'svc, 'resp, 'fut, E> Route<'svc, E> {
+    pub fn new<T>(svc: T) -> Self
+    where
+        T: TowerService<HttpRequest, Error = E> + Clone + 'svc,
+        T::Response: IntoResponse + 'resp,
+        T::Future: 'fut,
+        'svc: 'fut,
+        'resp: 'fut,
+    {
+        Self(LocalBoxCloneService::new(MapIntoResponse::new(svc)))
+    }
+}
+
+pub(crate) struct BoxedIntoRoute<'a, S, E>(pub Box<dyn ErasedIntoRoute<'a, S, E> + 'a>);
+
+pub(crate) trait ErasedIntoRoute<'a, S, E> {
+    // fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, E> + 'a>;
+
+    fn into_route(self: Box<Self>, state: S) -> Route<'a, E>;
+}
+
+pub struct ErasedHandler<'a, H, S> {
+    pub handler: H,
+    pub into_route_fn: fn(H, S) -> Route<'a>,
+}
+
+impl<'a, H, S> ErasedIntoRoute<'a, S, Infallible> for ErasedHandler<'a, H, S>
+where
+    H: Clone + 'a,
+    S: 'a,
+{
+    // fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, Infallible> + 'a> {
+    //     Box::new(self.clone())
+    // }
+
+    fn into_route(self: Box<Self>, state: S) -> Route<'a, Infallible> {
+        (self.into_route_fn)(self.handler, state)
+    }
+}
 
 pub struct LocalBoxCloneService<'a, T, U, E>(
     Box<
