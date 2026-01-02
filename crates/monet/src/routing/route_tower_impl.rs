@@ -10,24 +10,24 @@ use tower::util::{Oneshot, ServiceExt};
 /// A local boxed [`Service`] trait object with `Clone`. Same with UnsyncBoxService
 /// Ref: https://github.com/tower-rs/tower/blob/tower-0.5.2/tower/src/util/boxed/unsync.rs#L12
 
-pub struct LocalBoxCloneService<'a, T, U, E>(
+pub struct LocalBoxCloneService<'svc, T, U, E>(
     Box<
         dyn ClonableService<
-                'a,
+                'svc,
                 T,
                 Response = U,
                 Error = E,
-                Future = Pin<Box<dyn Future<Output = Result<U, E>> + 'a>>,
-            > + 'a,
+                Future = Pin<Box<dyn Future<Output = Result<U, E>> + 'svc>>,
+            > + 'svc,
     >,
 );
 
-impl<'a, T, U, E> LocalBoxCloneService<'a, T, U, E> {
+impl<'svc, T, U, E> LocalBoxCloneService<'svc, T, U, E> {
     /// Create a new `BoxCloneSyncService`.
     pub fn new<S>(inner: S) -> Self
     where
-        S: TowerService<T, Response = U, Error = E> + Clone + 'a,
-        <S as tower::Service<T>>::Future: 'a,
+        S: TowerService<T, Response = U, Error = E> + Clone + 'svc,
+        <S as tower::Service<T>>::Future: 'svc,
     {
         let inner = inner.map_future(|fut| Box::pin(fut) as _);
         LocalBoxCloneService(Box::new(inner))
