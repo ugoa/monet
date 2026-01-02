@@ -30,7 +30,7 @@ impl<'svc, 'resp, 'fut, E> Route<'svc, E> {
 pub(crate) struct BoxedIntoRoute<'a, S, E>(pub Box<dyn ErasedIntoRoute<'a, S, E> + 'a>);
 
 pub(crate) trait ErasedIntoRoute<'a, S, E> {
-    // fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, E> + 'a>;
+    fn clone_box(&self) -> Box<dyn ErasedIntoRoute<'a, S, E> + 'a>;
 
     fn into_route(self: Box<Self>, state: S) -> Route<'a, E>;
 }
@@ -45,12 +45,24 @@ where
     H: Clone + 'a,
     S: 'a,
 {
-    // fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, Infallible> + 'a> {
-    //     Box::new(self.clone())
-    // }
+    fn clone_box(&self) -> Box<dyn ErasedIntoRoute<'a, S, Infallible> + 'a> {
+        Box::new(self.clone())
+    }
 
     fn into_route(self: Box<Self>, state: S) -> Route<'a, Infallible> {
         (self.into_route_fn)(self.handler, state)
+    }
+}
+
+impl<'a, H, S> Clone for ErasedHandler<'a, H, S>
+where
+    H: Clone + 'a,
+{
+    fn clone(&self) -> Self {
+        Self {
+            handler: self.handler.clone(),
+            into_route_fn: self.into_route_fn,
+        }
     }
 }
 
