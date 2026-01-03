@@ -98,7 +98,6 @@ pub trait Handler<'a, X, S>: Clone + Sized + 'a
 where
     X: 'a,
     S: 'a,
-    Self: 'a,
 {
     type Future: Future<Output = HttpResponse> + 'a;
 

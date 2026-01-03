@@ -191,9 +191,15 @@ where
 
 use std::{fmt, marker::PhantomData};
 
+// X represents the handler's arguments which are all extractors
 pub struct HandlerService<H, X, S> {
     pub handler: H,
     pub state: S,
+    // The handler service is covariant in X, which is similar to
+    //     PhantomData<X>,
+    // the above is Send, and Sync if and only if X is Sync too.
+    // while fn() -> X is always Send and Sync, because function pointer
+    // type is always Send and Sync
     pub(crate) _marker: PhantomData<fn() -> X>,
 }
 
