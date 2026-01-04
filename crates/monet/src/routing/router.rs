@@ -8,14 +8,14 @@ use std::{collections::HashMap, convert::Infallible};
 
 #[must_use]
 #[derive(Clone)]
-pub struct Router<S = ()> {
-    pub routes: Vec<Endpoint<S>>,
+pub struct Router<'a, S = ()> {
+    pub routes: Vec<Endpoint<'a, S>>,
     pub node: Node,
     pub default_fallback: bool,
-    pub catch_all_fallback: Fallback<S>,
+    pub catch_all_fallback: Fallback<'a, S>,
 }
 
-impl<S> fmt::Debug for Router<S> {
+impl<'a, S> fmt::Debug for Router<'a, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Router")
             .field("routes", &self.routes)
@@ -26,9 +26,9 @@ impl<S> fmt::Debug for Router<S> {
     }
 }
 
-impl<S> Default for Router<S>
+impl<'a, S> Default for Router<'a, S>
 where
-    S: Clone + 'static,
+    S: Clone + 'a,
 {
     fn default() -> Self {
         Self::new()
@@ -38,9 +38,9 @@ where
 #[derive(Clone, Copy, Debug)]
 pub(super) struct NotFound;
 
-impl<S> Router<S>
+impl<'a, S> Router<'a, S>
 where
-    S: Clone + 'static,
+    S: Clone + 'a,
 {
     pub fn new() -> Self {
         Self {
@@ -51,11 +51,11 @@ where
         }
     }
 
-    pub fn chain(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
+    pub fn chain(mut self, path: &str, method_router: MethodRouter<'a, S>) -> Self {
         todo!()
     }
 
-    pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
+    pub fn route(mut self, path: &str, method_router: MethodRouter<'a, S>) -> Self {
         match (self.process_route(path, method_router)) {
             Ok(x) => x,
             Err(err) => {
@@ -66,7 +66,11 @@ where
         self
     }
 
-    fn process_route(&mut self, path: &str, method_router: MethodRouter<S>) -> Result<(), String> {
+    fn process_route(
+        &mut self,
+        path: &str,
+        method_router: MethodRouter<'a, S>,
+    ) -> Result<(), String> {
         if let Some(route_id) = self.node.path_to_route_id.get(path) {
             if let Some(Endpoint::MethodRouter(prev_method_router)) = self.routes.get(route_id.0) {
                 let service = Endpoint::MethodRouter(
@@ -84,7 +88,7 @@ where
         Ok(())
     }
 
-    fn new_route(&mut self, path: &str, endpoint: Endpoint<S>) -> Result<(), String> {
+    fn new_route(&mut self, path: &str, endpoint: Endpoint<'a, S>) -> Result<(), String> {
         let id = RouteId(self.routes.len());
         self.set_node(path, id)?;
         self.routes.push(endpoint);
@@ -144,8 +148,8 @@ where
 
     pub fn fallback<H, T>(mut self, handler: H) -> Self
     where
-        H: Handler<T, S>,
-        T: 'static,
+        H: Handler<'a, T, S> + 'a,
+        T: 'a,
     {
         self.catch_all_fallback =
             Fallback::BoxedHandler(BoxedIntoRoute::from_handler(handler.clone()));
@@ -186,7 +190,7 @@ where
     //     self
     // }
 
-    pub fn with_state<S2>(mut self, state: S) -> Router<S2> {
+    pub fn with_state<S2>(mut self, state: S) -> Router<'a, S2> {
         let routes = self
             .routes
             .into_iter()
@@ -206,7 +210,11 @@ where
         }
     }
 
-    pub(crate) fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<Infallible> {
+    pub(crate) fn call_with_state(
+        &self,
+        req: HttpRequest,
+        state: S,
+    ) -> RouteFuture<'a, Infallible> {
         let (mut parts, body) = req.into_parts();
 
         println!("{:?}", &self);
@@ -237,12 +245,12 @@ where
 }
 
 #[allow(clippy::large_enum_variant)]
-pub enum Endpoint<S> {
-    MethodRouter(MethodRouter<S>),
-    Route(Route),
+pub enum Endpoint<'a, S> {
+    MethodRouter(MethodRouter<'a, S>),
+    Route(Route<'a>),
 }
 
-impl<S> fmt::Debug for Endpoint<S> {
+impl<'a, S> fmt::Debug for Endpoint<'a, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MethodRouter(method_router) => {
@@ -272,7 +280,7 @@ impl<S> fmt::Debug for Endpoint<S> {
 //     }
 // }
 
-impl<S> Clone for Endpoint<S> {
+impl<'a, S> Clone for Endpoint<'a, S> {
     fn clone(&self) -> Self {
         match self {
             Self::MethodRouter(inner) => Self::MethodRouter(inner.clone()),
@@ -323,13 +331,13 @@ impl Node {
     }
 }
 
-pub(crate) enum Fallback<S, E = Infallible> {
-    Default(Route<E>),
-    Service(Route<E>),
-    BoxedHandler(BoxedIntoRoute<S, E>),
+pub(crate) enum Fallback<'a, S, E = Infallible> {
+    Default(Route<'a, E>),
+    Service(Route<'a, E>),
+    BoxedHandler(BoxedIntoRoute<'a, S, E>),
 }
 
-impl<S, E> Clone for Fallback<S, E> {
+impl<'a, S, E> Clone for Fallback<'a, S, E> {
     fn clone(&self) -> Self {
         match self {
             Self::Default(inner) => Self::Default(inner.clone()),
@@ -338,7 +346,7 @@ impl<S, E> Clone for Fallback<S, E> {
         }
     }
 }
-impl<S, E> fmt::Debug for Fallback<S, E> {
+impl<'a, S, E> fmt::Debug for Fallback<'a, S, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Default(inner) => f.debug_tuple("Default").field(inner).finish(),
@@ -348,7 +356,7 @@ impl<S, E> fmt::Debug for Fallback<S, E> {
     }
 }
 
-impl<S, E> Fallback<S, E>
+impl<'a, S, E> Fallback<'a, S, E>
 where
     S: Clone,
 {
@@ -376,7 +384,7 @@ where
     //     }
     // }
 
-    pub fn with_state<S2>(self, state: S) -> Fallback<S2, E> {
+    pub fn with_state<S2>(self, state: S) -> Fallback<'a, S2, E> {
         match self {
             Self::Default(route) => Fallback::Default(route),
             Self::Service(route) => Fallback::Service(route),
@@ -384,7 +392,7 @@ where
         }
     }
 
-    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<'a, E> {
         match self {
             Self::Default(route) | Self::Service(route) => route.oneshot_inner(req),
             Self::BoxedHandler(handler) => {
