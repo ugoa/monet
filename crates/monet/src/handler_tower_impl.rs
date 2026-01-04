@@ -7,19 +7,19 @@ use std::{
 use futures::future::Map;
 
 use crate::{
-    Body, BoxError, HttpBody, HttpRequest, HttpResponse, TowerService,
     extract::{FromRequest, FromRequestParts},
     handler::{Handler, HandlerService},
     opaque_future,
     response::IntoResponse,
+    Body, BoxError, HttpBody, HttpRequest, HttpResponse, TowerService,
 };
 
-impl<H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<H, X, S>
+impl<'a, H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<'a, H, X, S>
 where
-    H: Handler<X, S> + Clone + 'static,
+    H: Handler<'a, X, S> + Clone + 'a,
     B: HttpBody<Data = bytes::Bytes> + 'static,
     B::Error: Into<BoxError>,
-    S: Clone,
+    S: Clone + 'a,
 {
     type Response = HttpResponse;
 

@@ -4,32 +4,32 @@ use crate::{
     prelude::*,
 };
 use std::convert::Infallible;
-use tower::{ServiceExt, util::MapErrLayer};
+use tower::{util::MapErrLayer, ServiceExt};
 
-pub struct Route<E = Infallible>(LocalBoxCloneService<'static, HttpRequest, HttpResponse, E>);
+pub struct Route<'a, E = Infallible>(LocalBoxCloneService<'a, HttpRequest, HttpResponse, E>);
 
-impl<E> Route<E> {
+impl<'a, E> Route<'a, E> {
     pub fn new<T>(svc: T) -> Self
     where
-        T: TowerService<HttpRequest, Error = E> + Clone + 'static,
-        T::Response: IntoResponse + 'static,
-        T::Future: 'static,
+        T: TowerService<HttpRequest, Error = E> + Clone + 'a,
+        T::Response: IntoResponse + 'a,
+        T::Future: 'a,
     {
         Self(LocalBoxCloneService::new(MapIntoResponse::new(svc)))
     }
 
     /// Variant of [`Route::call`] that takes ownership of the route to avoid cloning.
-    pub(crate) fn call_owned(self, req: HttpRequest<Body>) -> RouteFuture<E> {
+    pub(crate) fn call_owned(self, req: HttpRequest<Body>) -> RouteFuture<'a, E> {
         self.oneshot_inner(req.map(Body::new))
     }
 
-    pub fn oneshot_inner(&self, req: HttpRequest) -> RouteFuture<E> {
+    pub fn oneshot_inner(&self, req: HttpRequest) -> RouteFuture<'a, E> {
         let method = req.method().clone();
         RouteFuture::new(method, self.0.clone().oneshot(req))
     }
 
     /// Variant of [`Route::oneshot_inner`] that takes ownership of the route to avoid cloning.
-    pub(crate) fn oneshot_inner_owned(self, req: HttpRequest) -> RouteFuture<E> {
+    pub(crate) fn oneshot_inner_owned(self, req: HttpRequest) -> RouteFuture<'a, E> {
         let method = req.method().clone();
         RouteFuture::new(method, self.0.oneshot(req))
     }
@@ -49,28 +49,28 @@ impl<E> Route<E> {
     // }
 }
 
-impl<E> Clone for Route<E> {
+impl<'a, E> Clone for Route<'a, E> {
     #[track_caller]
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<E> fmt::Debug for Route<E> {
+impl<'a, E> fmt::Debug for Route<'a, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Route").finish()
     }
 }
 
-pub(crate) struct BoxedIntoRoute<S, E>(pub Box<dyn ErasedIntoRoute<S, E>>);
+pub(crate) struct BoxedIntoRoute<'a, S, E>(pub Box<dyn ErasedIntoRoute<'a, S, E> + 'a>);
 
-pub(crate) trait ErasedIntoRoute<S, E> {
-    fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, E>>;
+pub(crate) trait ErasedIntoRoute<'a, S, E> {
+    fn clone_box(&self) -> Box<dyn ErasedIntoRoute<'a, S, E> + 'a>;
 
-    fn into_route(self: Box<Self>, state: S) -> Route<E>;
+    fn into_route(self: Box<Self>, state: S) -> Route<'a, E>;
 }
 
-impl<S, E> Clone for BoxedIntoRoute<S, E> {
+impl<'a, S, E> Clone for BoxedIntoRoute<'a, S, E> {
     fn clone(&self) -> Self {
         Self(self.0.clone_box())
     }
@@ -113,7 +113,7 @@ where
 //     }
 // }
 
-impl<S, E> BoxedIntoRoute<S, E> {
+impl<'a, S, E> BoxedIntoRoute<'a, S, E> {
     // pub(crate) fn map<F, E2>(self, f: F) -> BoxedIntoRoute<S, E2>
     // where
     //     S: 'static,
@@ -127,20 +127,20 @@ impl<S, E> BoxedIntoRoute<S, E> {
     //     }))
     // }
 
-    pub(crate) fn into_route(self, state: S) -> Route<E> {
+    pub(crate) fn into_route(self, state: S) -> Route<'a, E> {
         self.0.into_route(state)
     }
 }
 
 ///  Transfer handler to Route
-impl<S> BoxedIntoRoute<S, Infallible>
+impl<'a, S> BoxedIntoRoute<'a, S, Infallible>
 where
-    S: Clone + 'static,
+    S: Clone + 'a,
 {
     pub fn from_handler<H, X>(handler: H) -> Self
     where
-        H: Handler<X, S>,
-        X: 'static,
+        H: Handler<'a, X, S> + 'a,
+        X: 'a,
     {
         let svc_fn = |handler, state| {
             let svc = HandlerService::new(handler, state);
@@ -159,26 +159,26 @@ where
 /// This struct stores 2 function pointers:
 /// 1. The handler function itself
 /// 2. A function that turns handler w/ state into a Route
-pub struct ErasedHandler<H, S> {
+pub struct ErasedHandler<'a, H, S> {
     pub handler: H,
-    pub into_route_fn: fn(H, S) -> Route,
+    pub into_route_fn: fn(H, S) -> Route<'a, Infallible>,
 }
 
-impl<H, S> ErasedIntoRoute<S, Infallible> for ErasedHandler<H, S>
+impl<'a, H, S> ErasedIntoRoute<'a, S, Infallible> for ErasedHandler<'a, H, S>
 where
-    H: Clone + 'static,
-    S: 'static,
+    H: Clone + 'a,
+    S: 'a,
 {
-    fn clone_box(&self) -> Box<dyn ErasedIntoRoute<S, Infallible>> {
+    fn clone_box(&self) -> Box<dyn ErasedIntoRoute<'a, S, Infallible> + 'a> {
         Box::new(self.clone())
     }
 
-    fn into_route(self: Box<Self>, state: S) -> Route<Infallible> {
+    fn into_route(self: Box<Self>, state: S) -> Route<'a, Infallible> {
         (self.into_route_fn)(self.handler, state)
     }
 }
 
-impl<H, S> Clone for ErasedHandler<H, S>
+impl<'a, H, S> Clone for ErasedHandler<'a, H, S>
 where
     H: Clone,
 {

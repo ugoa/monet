@@ -119,3 +119,19 @@ impl http_body::Body for Body {
         self.0.is_end_stream()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Router;
+    use crate::routing::method_router::get;
+
+    #[test]
+    fn non_static_handler() {
+        let data = String::from("hello");
+        let handler = || async { data.clone() };
+        let _router: Router<'_, ()> = Router::new().route("/", get(handler));
+        // The router borrows `data`, so `data` must outlive `_router`.
+        // This is enforced by the borrow checker.
+    }
+}

@@ -3,7 +3,7 @@ use http::Method;
 use pin_project_lite::pin_project;
 use std::{
     pin::Pin,
-    task::{Context, Poll, ready},
+    task::{ready, Context, Poll},
 };
 use tower::util::{Oneshot, ServiceExt};
 
@@ -140,21 +140,21 @@ where
 
 pin_project! {
     /// Response future for [`Route`].
-    pub struct RouteFuture<E> {
+    pub struct RouteFuture<'a, E> {
         #[pin]
-        inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest>,
+        inner: Oneshot<LocalBoxCloneService<'a, HttpRequest,HttpResponse,E> , HttpRequest>,
         method: Method,
     }
 }
 
-impl<B, E> TowerService<HttpRequest<B>> for Route<E>
+impl<'a, B, E> TowerService<HttpRequest<B>> for Route<'a, E>
 where
     B: HttpBody<Data = bytes::Bytes> + 'static,
     B::Error: Into<BoxError>,
 {
     type Response = HttpResponse;
     type Error = E;
-    type Future = RouteFuture<E>;
+    type Future = RouteFuture<'a, E>;
 
     #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -167,16 +167,16 @@ where
     }
 }
 
-impl<E> RouteFuture<E> {
+impl<'a, E> RouteFuture<'a, E> {
     pub fn new(
         method: Method,
-        inner: Oneshot<LocalBoxCloneService<'static, HttpRequest, HttpResponse, E>, HttpRequest>,
+        inner: Oneshot<LocalBoxCloneService<'a, HttpRequest, HttpResponse, E>, HttpRequest>,
     ) -> Self {
         Self { inner, method }
     }
 }
 
-impl<E> Future for RouteFuture<E> {
+impl<'a, E> Future for RouteFuture<'a, E> {
     type Output = Result<HttpResponse, E>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
