@@ -1,4 +1,12 @@
-# AGENTS.MD - monet Codebase Guidelines
+# Agent Guidelines for Monet
+
+This document contains guidelines and commands for agents working in the Monet repository.
+Monet is an io-uring based, share-nothing (thread-per-core) web framework with structured concurrency.
+It is a Rust workspace with the following crates:
+- `monet`: the main web framework
+- `monoio`: the async runtime
+- `monoio-compat`: compatibility layer for monoio
+- Examples in `examples/`
 
 ## Build/Lint/Test Commands
 
@@ -75,8 +83,8 @@
 - Use `#[cfg(test)]` for test modules
 - Test both success and failure cases
 - Use descriptive test function names that indicate what is being tested
-- Follow the pattern `#[monoio::test_all]` for async tests in monoio
 - Use property-based testing for complex functions when appropriate
+- Run `cargo build` to make sure it compiles successfully
 
 ### Performance
 - Leverage async/await for I/O-bound operations
@@ -86,11 +94,12 @@
 - Be mindful of zero-copy operations where possible
 
 ### Async Patterns
-- Use `monoio` runtime for I/O-uring based operations
+- The runtime is `monoio`; do not use `tokio` runtime directly (except in compatibility layer).
 - Follow structured concurrency patterns
 - Use appropriate async primitives from the monoio ecosystem
 - Leverage thread-per-core architecture for scalability
-- Consider cancellation safety in async operations
+- the 'static bound should be avoided as much as possible
+- Use `async fn` and `.await` for asynchronous operations.
 
 ### Code Organization
 - Group related functionality in modules

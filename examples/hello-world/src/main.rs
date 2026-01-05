@@ -114,5 +114,5 @@ async fn main() {
         .with_state(AppState {
             data: "no arc".to_string(),
         });
-    monet::serve(listener, app).await;
+    monet::serve(listener, app);
 }

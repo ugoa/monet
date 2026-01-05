@@ -1,10 +1,10 @@
 use crate::{
-    Body, BoxError, HttpBody, HttpRequest, HttpResponse, IntoResponse, TowerService,
     routing::{
         route_tower_impl::RouteFuture,
         router::{NotFound, Router},
     },
     serve::{IncomingStream, Listener},
+    Body, BoxError, HttpBody, HttpRequest, HttpResponse, IntoResponse, TowerService,
 };
 use std::{
     convert::Infallible,
@@ -12,9 +12,9 @@ use std::{
     task::{Context, Poll},
 };
 
-impl<L> TowerService<IncomingStream<'_, L>> for Router<()>
+impl<'a, L> TowerService<IncomingStream<'a, L>> for Router<'a, ()>
 where
-    L: Listener,
+    L: Listener + 'a,
 {
     type Response = Self;
 
@@ -26,21 +26,21 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: IncomingStream<'_, L>) -> Self::Future {
+    fn call(&mut self, req: IncomingStream<'a, L>) -> Self::Future {
         std::future::ready(Ok(self.clone().with_state(())))
     }
 }
 
-impl<B> TowerService<HttpRequest<B>> for Router<()>
+impl<'a, B> TowerService<HttpRequest<B>> for Router<'a, ()>
 where
-    B: HttpBody<Data = bytes::Bytes> + 'static,
+    B: HttpBody<Data = bytes::Bytes> + 'a + 'static,
     B::Error: Into<BoxError>,
 {
     type Response = HttpResponse;
 
     type Error = Infallible;
 
-    type Future = RouteFuture<Infallible>;
+    type Future = RouteFuture<'a, Infallible>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

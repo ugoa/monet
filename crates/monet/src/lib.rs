@@ -5,6 +5,8 @@ pub use self::{
     extract::state::State, response::IntoResponse, routing::method_router::get,
     routing::route::Route, routing::router::Router, serve::serve,
 };
+
+pub use routing::method_router::MethodRouter;
 pub use bytes::Bytes;
 pub use http_body::{Body as HttpBody, Frame};
 use http_body_util::BodyExt;

@@ -7,25 +7,26 @@ use std::{
 use futures::future::Map;
 
 use crate::{
-    Body, BoxError, HttpBody, HttpRequest, HttpResponse, TowerService,
     extract::{FromRequest, FromRequestParts},
     handler::{Handler, HandlerService},
     opaque_future,
     response::IntoResponse,
+    Body, BoxError, HttpBody, HttpRequest, HttpResponse, TowerService,
 };
 
-impl<H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<H, X, S>
+impl<'a, H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<'a, H, X, S>
 where
-    H: Handler<X, S> + Clone + 'static,
-    B: HttpBody<Data = bytes::Bytes> + 'static,
+    H: Handler<'a, X, S> + Clone + 'a,
+    H::Future: 'a,
+    B: HttpBody<Data = bytes::Bytes> + 'a + 'static,
     B::Error: Into<BoxError>,
-    S: Clone,
+    S: Clone + 'a,
 {
     type Response = HttpResponse;
 
     type Error = Infallible;
 
-    type Future = IntoServiceFuture<H::Future>;
+    type Future = IntoServiceFuture<<H as Handler<'a, X, S>>::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

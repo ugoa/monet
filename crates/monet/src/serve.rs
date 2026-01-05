@@ -73,7 +73,7 @@ where
 pub fn serve<L, M, S, B>(listener: L, make_service: M) -> Serve<L, M, S, B>
 where
     L: Listener,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
+    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible> + 'static,
     S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
@@ -95,50 +95,59 @@ impl<L, M, S, B> Serve<L, M, S, B>
 where
     L: Listener,
     L::Addr: Debug,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
+    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible> + 'static,
     S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
-    async fn run(self) -> ! {
+    async fn run(self) -> Result<(), std::io::Error> {
         let Self {
-            mut listener,
-            mut make_service,
+            listener,
+            make_service,
             _marker,
         } = self;
 
-        loop {
-            let (io, remote_addr) = listener.accept().await;
+        // Spawn the server loop as a background task
+        monoio::spawn(async move {
+            let mut listener = listener;
+            let mut make_service = make_service;
+            
+            loop {
+                let (io, remote_addr) = listener.accept().await;
 
-            let io = monoio_compat::hyper::MonoioIo::new(io);
+                let io = monoio_compat::hyper::MonoioIo::new(io);
 
-            make_service
-                .ready()
-                .await
-                .unwrap_or_else(|err| match err {});
-
-            let tower_service = make_service
-                .call(IncomingStream {
-                    io: &io,
-                    remote_addr,
-                })
-                .await
-                .unwrap_or_else(|err| match err {})
-                .map_request(|req: HttpRequest<Incoming>| req.map(Body::new));
-
-            let hyper_service = TowerToHyperService::new(tower_service);
-
-            monoio::spawn_without_static(async move {
-                println!("Task started on thread {:?}", std::thread::current().id());
-                if let Err(err) = http1::Builder::new()
-                    .timer(monoio_compat::hyper::MonoioTimer)
-                    .serve_connection(io, hyper_service)
+                make_service
+                    .ready()
                     .await
-                {
-                    println!("Error serving connection: {:?}", err);
-                }
-            });
-        }
+                    .unwrap_or_else(|err| match err {});
+
+                let tower_service = make_service
+                    .call(IncomingStream {
+                        io: &io,
+                        remote_addr,
+                    })
+                    .await
+                    .unwrap_or_else(|err| match err {})
+                    .map_request(|req: HttpRequest<Incoming>| req.map(Body::new));
+
+                let hyper_service = TowerToHyperService::new(tower_service);
+
+                monoio::spawn_without_static(async move {
+                    println!("Task started on thread {:?}", std::thread::current().id());
+                    if let Err(err) = http1::Builder::new()
+                        .timer(monoio_compat::hyper::MonoioTimer)
+                        .serve_connection(io, hyper_service)
+                        .await
+                    {
+                        println!("Error serving connection: {:?}", err);
+                    }
+                });
+            }
+        });
+
+        // Return immediately after spawning the server
+        Ok(())
     }
 }
 

@@ -8,39 +8,39 @@ use http::{Method, StatusCode};
 use std::convert::Infallible;
 use tower::{Layer, service_fn};
 
-pub fn get<H, X, S>(handler: H) -> MethodRouter<S, Infallible>
+pub fn get<'a, H, X, S>(handler: H) -> MethodRouter<'a, S, Infallible>
 where
-    H: Handler<X, S>,
-    X: 'static,
-    S: Clone + 'static,
+    H: Handler<'a, X, S> + 'a,
+    X: 'a,
+    S: Clone + 'a,
 {
     MethodRouter::new().get(handler)
 }
 
-pub fn get_service<T, S>(filter: MethodFilter, svc: T) -> MethodRouter<S, T::Error>
+pub fn get_service<'a, T, S>(filter: MethodFilter, svc: T) -> MethodRouter<'a, S, T::Error>
 where
-    T: TowerService<HttpRequest> + Clone + 'static,
-    T::Response: IntoResponse + 'static,
-    T::Future: 'static,
+    T: TowerService<HttpRequest> + Clone + 'a,
+    T::Response: IntoResponse + 'a,
+    T::Future: 'a,
     S: Clone,
 {
     MethodRouter::new().get_service(svc)
 }
 
-pub struct MethodRouter<S = (), E = Infallible> {
-    get: MethodEndpoint<S, E>,
-    head: MethodEndpoint<S, E>,
-    delete: MethodEndpoint<S, E>,
-    options: MethodEndpoint<S, E>,
-    patch: MethodEndpoint<S, E>,
-    post: MethodEndpoint<S, E>,
-    put: MethodEndpoint<S, E>,
-    trace: MethodEndpoint<S, E>,
-    connect: MethodEndpoint<S, E>,
-    fallback: Fallback<S, E>,
+pub struct MethodRouter<'a, S = (), E = Infallible> {
+    get: MethodEndpoint<'a, S, E>,
+    head: MethodEndpoint<'a, S, E>,
+    delete: MethodEndpoint<'a, S, E>,
+    options: MethodEndpoint<'a, S, E>,
+    patch: MethodEndpoint<'a, S, E>,
+    post: MethodEndpoint<'a, S, E>,
+    put: MethodEndpoint<'a, S, E>,
+    trace: MethodEndpoint<'a, S, E>,
+    connect: MethodEndpoint<'a, S, E>,
+    fallback: Fallback<'a, S, E>,
 }
 
-impl<S, E> fmt::Debug for MethodRouter<S, E> {
+impl<'a, S, E> fmt::Debug for MethodRouter<'a, S, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MethodRouter")
             .field("get", &self.get)
@@ -57,7 +57,7 @@ impl<S, E> fmt::Debug for MethodRouter<S, E> {
     }
 }
 
-impl<S, E> MethodRouter<S, E>
+impl<'a, S, E> MethodRouter<'a, S, E>
 where
     S: Clone,
 {
@@ -82,9 +82,9 @@ where
     #[track_caller]
     pub fn get_service<T>(mut self, svc: T) -> Self
     where
-        T: TowerService<HttpRequest, Error = E> + Clone + 'static,
-        T::Response: IntoResponse + 'static,
-        T::Future: 'static,
+        T: TowerService<HttpRequest, Error = E> + Clone + 'a,
+        T::Response: IntoResponse + 'a,
+        T::Future: 'a,
     {
         let endpoint = &MethodEndpoint::Route(Route::new(svc));
         let target = &mut self.get;
@@ -96,7 +96,7 @@ where
         self
     }
 
-    pub fn with_state<S2>(self, state: S) -> MethodRouter<S2, E> {
+    pub fn with_state<S2>(self, state: S) -> MethodRouter<'a, S2, E> {
         MethodRouter {
             get: self.get.with_state(&state),
             head: self.head.with_state(&state),
@@ -111,7 +111,7 @@ where
         }
     }
 
-    pub fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<'a, E> {
         let call_branches = [
             (Method::HEAD, &self.head),
             (Method::HEAD, &self.get),
@@ -179,12 +179,12 @@ where
         other: Self,
     ) -> Result<Self, String> {
         // written using inner functions to generate less IR
-        fn merge_inner<S, E>(
+        fn merge_inner<'a, S, E>(
             path: Option<&str>,
             name: &str,
-            first: MethodEndpoint<S, E>,
-            second: MethodEndpoint<S, E>,
-        ) -> Result<MethodEndpoint<S, E>, String> {
+            first: MethodEndpoint<'a, S, E>,
+            second: MethodEndpoint<'a, S, E>,
+        ) -> Result<MethodEndpoint<'a, S, E>, String> {
             match (first, second) {
                 (MethodEndpoint::None, MethodEndpoint::None) => Ok(MethodEndpoint::None),
                 (pick, MethodEndpoint::None) => Ok(pick),
@@ -219,15 +219,15 @@ where
     }
 }
 
-impl<S> MethodRouter<S, Infallible>
+impl<'a, S> MethodRouter<'a, S, Infallible>
 where
     S: Clone,
 {
     pub fn get<H, X>(mut self, handler: H) -> Self
     where
-        H: Handler<X, S>,
-        X: 'static,
-        S: 'static,
+        H: Handler<'a, X, S> + 'a,
+        X: 'a,
+        S: 'a,
     {
         let endpoint = &MethodEndpoint::BoxedHandler(BoxedIntoRoute::from_handler(handler));
         let end = &mut self.get;
@@ -240,7 +240,7 @@ where
     }
 }
 
-impl<S, E> Clone for MethodRouter<S, E> {
+impl<'a, S, E> Clone for MethodRouter<'a, S, E> {
     fn clone(&self) -> Self {
         Self {
             get: self.get.clone(),
@@ -257,13 +257,13 @@ impl<S, E> Clone for MethodRouter<S, E> {
     }
 }
 
-enum MethodEndpoint<S, E> {
-    BoxedHandler(BoxedIntoRoute<S, E>),
-    Route(Route<E>),
+enum MethodEndpoint<'a, S, E> {
+    BoxedHandler(BoxedIntoRoute<'a, S, E>),
+    Route(Route<'a, E>),
     None,
 }
 
-impl<S, E> fmt::Debug for MethodEndpoint<S, E> {
+impl<'a, S, E> fmt::Debug for MethodEndpoint<'a, S, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::None => f.debug_tuple("None").finish(),
@@ -273,7 +273,7 @@ impl<S, E> fmt::Debug for MethodEndpoint<S, E> {
     }
 }
 
-impl<S, E> MethodEndpoint<S, E>
+impl<'a, S, E> MethodEndpoint<'a, S, E>
 where
     S: Clone,
 {
@@ -295,7 +295,7 @@ where
     //     }
     // }
 
-    fn with_state<S2>(self, state: &S) -> MethodEndpoint<S2, E> {
+    fn with_state<S2>(self, state: &S) -> MethodEndpoint<'a, S2, E> {
         match self {
             Self::None => MethodEndpoint::None,
             Self::Route(route) => MethodEndpoint::Route(route),
@@ -304,7 +304,7 @@ where
     }
 }
 
-impl<S, E> Clone for MethodEndpoint<S, E> {
+impl<'a, S, E> Clone for MethodEndpoint<'a, S, E> {
     fn clone(&self) -> Self {
         match self {
             Self::None => Self::None,
