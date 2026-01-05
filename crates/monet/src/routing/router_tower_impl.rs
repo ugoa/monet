@@ -1,10 +1,10 @@
 use crate::{
+    Body, BoxError, HttpBody, HttpRequest, HttpResponse, IntoResponse, TowerService,
     routing::{
         route_tower_impl::RouteFuture,
         router::{NotFound, Router},
     },
     serve::{IncomingStream, Listener},
-    Body, BoxError, HttpBody, HttpRequest, HttpResponse, IntoResponse, TowerService,
 };
 use std::{
     convert::Infallible,
@@ -31,12 +31,12 @@ where
     }
 }
 
-impl<'a, B> TowerService<HttpRequest<B>> for Router<'a, ()>
+impl<'a, B> TowerService<HttpRequest<'a, B>> for Router<'a, ()>
 where
-    B: HttpBody<Data = bytes::Bytes> + 'static,
+    B: HttpBody<Data = bytes::Bytes> + 'a,
     B::Error: Into<BoxError>,
 {
-    type Response = HttpResponse;
+    type Response = HttpResponse<'a>;
 
     type Error = Infallible;
 
@@ -52,26 +52,23 @@ where
     //      https://github.com/hyperium/hyper-util/blob/v0.1.19/src/service/oneshot.rs#L51
     // when the future is being polled by the runtime, the Towerservice call() is triggered,
     // which is below
-    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
+    fn call(&mut self, req: HttpRequest<'a, B>) -> Self::Future {
         let req = req.map(Body::new);
         self.call_with_state(req, ())
     }
 }
 
-impl<B> TowerService<HttpRequest<B>> for NotFound
-where
-    B: 'static,
-{
-    type Response = HttpResponse;
+impl<B> TowerService<HttpRequest<'_, B>> for NotFound {
+    type Response = HttpResponse<'static>;
     type Error = Infallible;
-    type Future = std::future::Ready<Result<HttpResponse, Self::Error>>;
+    type Future = std::future::Ready<Result<HttpResponse<'static>, Self::Error>>;
 
     #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, _req: HttpRequest<B>) -> Self::Future {
+    fn call(&mut self, _req: HttpRequest<'_, B>) -> Self::Future {
         ready(Ok(http::StatusCode::NOT_FOUND.into_response()))
     }
 }

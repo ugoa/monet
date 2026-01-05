@@ -27,6 +27,23 @@ struct DummyParams {
     b: usize,
 }
 
+fn dummy_middleware_fn<'a>(mut res: HttpResponse<'a>) -> HttpResponse<'a> {
+    // If there is a content-length header, its value will be zero and axum will avoid
+    // overwriting it. But this means our content-length doesn't match the length of the
+    // body, which leads to panics in Hyper. Thus we have to ensure that axum doesn't add
+    // on content-length headers until after middleware has been run.
+    assert!(!res.headers().contains_key("content-length"));
+
+    let mut rng = rand::rng();
+    let mut nums: Vec<i32> = (1..3).collect();
+    // And take a random pick (yes, we didn't need to shuffle first!):
+    let num = nums.choose_mut(&mut rng).unwrap();
+    if (*num == 2) {
+        *res.body_mut() = "hijacked…\n".into();
+    }
+    res
+}
+
 // fn main_old() {
 //     let body = async {
 //         println!("Running http server on 0.0.0.0:9527");
@@ -84,22 +101,7 @@ async fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     let listener = TcpListener::bind(addr).unwrap();
 
-    let dummy_middleware = MapResponseLayer::new(|mut res: HttpResponse| -> HttpResponse {
-        // If there is a content-length header, its value will be zero and axum will avoid
-        // overwriting it. But this means our content-length doesn’t match the length of the
-        // body, which leads to panics in Hyper. Thus we have to ensure that axum doesn’t add
-        // on content-length headers until after middleware has been run.
-        assert!(!res.headers().contains_key("content-length"));
-
-        let mut rng = rand::rng();
-        let mut nums: Vec<i32> = (1..3).collect();
-        // And take a random pick (yes, we didn't need to shuffle first!):
-        let num = nums.choose_mut(&mut rng).unwrap();
-        if (*num == 2) {
-            *res.body_mut() = "hijacked…\n".into();
-        }
-        res
-    });
+    let dummy_middleware = MapResponseLayer::new(dummy_middleware_fn);
 
     let user_routes = Router::new().route("/users", get(merge1));
     let team_routes = Router::new().route("/teams", get(merge2));

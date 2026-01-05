@@ -10,7 +10,7 @@ use tower::{Layer, service_fn};
 
 pub fn get<'a, H, X, S>(handler: H) -> MethodRouter<'a, S, Infallible>
 where
-        H: Handler<'a, X, S> + 'a,
+    H: Handler<'a, X, S> + 'a,
     X: 'a,
     S: Clone + 'a,
 {
@@ -19,7 +19,7 @@ where
 
 pub fn get_service<'a, T, S>(filter: MethodFilter, svc: T) -> MethodRouter<'a, S, T::Error>
 where
-    T: TowerService<HttpRequest> + Clone + 'a,
+    T: TowerService<HttpRequest<'a>> + Clone + 'a,
     T::Response: IntoResponse + 'a,
     T::Future: 'a,
     S: Clone,
@@ -62,7 +62,7 @@ where
     S: Clone,
 {
     pub fn new() -> Self {
-        let fallback = Route::new(service_fn(|_: HttpRequest| async {
+        let fallback = Route::new(service_fn(|_: HttpRequest<'a>| async {
             Ok(StatusCode::METHOD_NOT_ALLOWED)
         }));
         Self {
@@ -82,7 +82,7 @@ where
     #[track_caller]
     pub fn get_service<T>(mut self, svc: T) -> Self
     where
-        T: TowerService<HttpRequest, Error = E> + Clone + 'a,
+        T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'a,
         T::Response: IntoResponse + 'a,
         T::Future: 'a,
     {
@@ -111,7 +111,7 @@ where
         }
     }
 
-    pub fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<'a, E> {
+    pub fn call_with_state(&self, req: HttpRequest<'a>, state: S) -> RouteFuture<'a, E> {
         let call_branches = [
             (Method::HEAD, &self.head),
             (Method::HEAD, &self.get),
@@ -225,7 +225,7 @@ where
 {
     pub fn get<H, X>(mut self, handler: H) -> Self
     where
-    H: Handler<'a, X, S> + 'a,
+        H: Handler<'a, X, S> + 'a,
         X: 'a,
         S: 'a,
     {

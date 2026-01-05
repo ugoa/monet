@@ -212,7 +212,7 @@ where
 
     pub(crate) fn call_with_state(
         &self,
-        req: HttpRequest,
+        req: HttpRequest<'a>,
         state: S,
     ) -> RouteFuture<'a, Infallible> {
         let (mut parts, body) = req.into_parts();
@@ -227,7 +227,7 @@ where
                     "It is granted a valid route for id. Please file an issue if it is not",
                 );
 
-                let req = HttpRequest::from_parts(parts, body);
+                let req: HttpRequest<'a> = HttpRequest::from_parts(parts, body);
 
                 match endpoint {
                     Endpoint::MethodRouter(method_router) => {
@@ -237,7 +237,7 @@ where
                 }
             }
             Err(MatchError::NotFound) => {
-                let req = HttpRequest::from_parts(parts, body);
+                let req: HttpRequest<'a> = HttpRequest::from_parts(parts, body);
                 self.catch_all_fallback.clone().call_with_state(req, state)
             }
         }
@@ -392,7 +392,7 @@ where
         }
     }
 
-    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<'a, E> {
+    pub fn call_with_state(self, req: HttpRequest<'a>, state: S) -> RouteFuture<'a, E> {
         match self {
             Self::Default(route) | Self::Service(route) => route.oneshot_inner(req),
             Self::BoxedHandler(handler) => {
