@@ -74,7 +74,9 @@ pub fn serve<'a, L, M, S, B>(listener: L, make_service: M) -> Serve<'a, L, M, S,
 where
     L: Listener,
     M: for<'b> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<HttpRequest<'a>, Response = HttpResponse<B>, Error = Infallible> + Clone + 'a,
+    S: TowerService<HttpRequest<'a>, Response = HttpResponse<'a, B>, Error = Infallible>
+        + Clone
+        + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -152,13 +154,15 @@ where
     L: Listener,
     L::Addr: std::fmt::Debug,
     M: for<'b> TowerService<IncomingStream<'b, L>, Response = S, Error = Infallible> + 'a,
-    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'a,
+    S: TowerService<HttpRequest<'a>, Response = HttpResponse<'a, B>, Error = Infallible>
+        + Clone
+        + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
     type Output = std::io::Result<()>;
 
-    type IntoFuture = ServeFuture;
+    type IntoFuture = ServeFuture<'a>;
 
     fn into_future(self) -> Self::IntoFuture {
         ServeFuture(Box::pin(async move { self.run().await }))
@@ -174,7 +178,7 @@ use std::{
 
 pub struct ServeFuture<'a>(futures_core::future::LocalBoxFuture<'a, io::Result<()>>);
 
-impl Future for ServeFuture {
+impl Future for ServeFuture<'_> {
     type Output = io::Result<()>;
 
     #[inline]
@@ -183,7 +187,7 @@ impl Future for ServeFuture {
     }
 }
 
-impl std::fmt::Debug for ServeFuture {
+impl std::fmt::Debug for ServeFuture<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ServeFuture").finish_non_exhaustive()
     }
