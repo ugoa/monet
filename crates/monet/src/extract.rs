@@ -26,7 +26,7 @@ impl<'a, S, T> FromRequest<'a, S, ViaParts> for T
 where
     T: FromRequestParts<'a, S>,
 {
-    type Rejection = <Self as FromRequestParts<S>>::Rejection;
+    type Rejection = <Self as FromRequestParts<'a, S>>::Rejection;
 
     async fn from_request(req: HttpRequest<'_>, state: &S) -> Result<Self, Self::Rejection> {
         let (mut parts, _) = req.into_parts();

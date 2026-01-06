@@ -8,11 +8,11 @@ use http::{Method, StatusCode};
 use std::convert::Infallible;
 use tower::{Layer, service_fn};
 
-pub fn get<H, X, S>(handler: H) -> MethodRouter<S, Infallible>
+pub fn get<'a, H, X, S>(handler: H) -> MethodRouter<S, Infallible>
 where
-    H: Handler<X, S>,
-    X: 'static,
-    S: Clone + 'static,
+    H: Handler<'a, X, S>,
+    X: 'a,
+    S: Clone + 'a,
 {
     MethodRouter::new().get(handler)
 }

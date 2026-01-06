@@ -6,8 +6,8 @@ use crate::{
 use std::pin::Pin;
 
 // X for Extractor
-pub trait Handler<'a, X, S>: Clone + Sized + 'a {
-    type Future: Future<Output = HttpResponse<'a>> + 'a;
+pub trait Handler<'a, X, S>: Clone + Sized {
+    type Future: Future<Output = HttpResponse<'static>> + 'a;
 
     fn call(self, req: HttpRequest, state: S) -> Self::Future;
 
@@ -36,7 +36,7 @@ where
     Fut: Future<Output = Res>,
     Res: IntoResponse,
 {
-    type Future = Pin<Box<dyn Future<Output = HttpResponse<'a>> + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = HttpResponse<'static>> + 'a>>;
 
     fn call(self, _req: HttpRequest, _state: S) -> Self::Future {
         Box::pin(async move { self().await.into_response() })
@@ -54,7 +54,7 @@ where
     T3: FromRequest<'a, S, M>,
     S: 'a,
 {
-    type Future = Pin<Box<dyn Future<Output = HttpResponse<'a>> + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = HttpResponse<'static>> + 'a>>;
     fn call(self, req: HttpRequest, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();
         Box::pin(async move {
