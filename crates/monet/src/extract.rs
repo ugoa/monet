@@ -13,20 +13,20 @@ pub enum ViaParts {}
 #[derive(Debug, Clone, Copy)]
 pub enum ViaRequest {}
 
-pub trait FromRequest<'a, S, M = ViaRequest>: Sized {
+pub trait FromRequest<S, M = ViaRequest>: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection>;
+    async fn from_request(req: HttpRequest<'_>, state: &S) -> Result<Self, Self::Rejection>;
 }
 
-impl<'a, S, T> FromRequest<'a, S, ViaParts> for T
+impl<S, T> FromRequest<S, ViaParts> for T
 where
-    T: FromRequestParts<'a, S>,
+    T: FromRequestParts<S>,
 {
-    type Rejection = <Self as FromRequestParts<'a, S>>::Rejection;
+    type Rejection = <Self as FromRequestParts<S>>::Rejection;
 
     async fn from_request(req: HttpRequest<'_>, state: &S) -> Result<Self, Self::Rejection> {
         let (mut parts, _) = req.into_parts();
@@ -34,9 +34,9 @@ where
     }
 }
 
-impl<'a, S, T> FromRequest<'a, S> for Result<T, T::Rejection>
+impl<S, T> FromRequest<S> for Result<T, T::Rejection>
 where
-    T: FromRequest<'a, S>,
+    T: FromRequest<S>,
 {
     type Rejection = Infallible;
 
@@ -45,7 +45,7 @@ where
     }
 }
 
-pub trait FromRequestParts<'a, S>: Sized {
+pub trait FromRequestParts<S>: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
@@ -54,9 +54,9 @@ pub trait FromRequestParts<'a, S>: Sized {
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection>;
 }
 
-impl<'a, S, T> FromRequestParts<'a, S> for Result<T, T::Rejection>
+impl<S, T> FromRequestParts<S> for Result<T, T::Rejection>
 where
-    T: FromRequestParts<'a, S>,
+    T: FromRequestParts<S>,
 {
     type Rejection = Infallible;
 
@@ -65,7 +65,7 @@ where
     }
 }
 
-impl<S> FromRequestParts<'_, S> for Method {
+impl<S> FromRequestParts<S> for Method {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
@@ -73,7 +73,7 @@ impl<S> FromRequestParts<'_, S> for Method {
     }
 }
 
-impl<S> FromRequestParts<'_, S> for Uri {
+impl<S> FromRequestParts<S> for Uri {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {

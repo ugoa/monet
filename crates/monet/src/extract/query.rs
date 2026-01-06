@@ -8,7 +8,7 @@ use crate::extract::FromRequestParts;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Query<T>(pub T);
 
-impl<T, S> FromRequestParts<'_, S> for Query<T>
+impl<T, S> FromRequestParts<S> for Query<T>
 where
     T: DeserializeOwned,
 {

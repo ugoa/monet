@@ -1,5 +1,8 @@
 //! For compat with tokio AsyncRead and AsyncWrite.
 
+#![allow(clippy::all)]
+#![allow(warnings)]
+
 pub mod box_future;
 mod buf;
 

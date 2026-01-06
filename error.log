@@ -1,0 +1,435 @@
+   Compiling mondayio v0.2.4 (/Users/dawei/way/monet/crates/monoio)
+   Compiling mondayio-compat v0.2.2 (/Users/dawei/way/monet/crates/monoio-compat)
+   Compiling monet v0.1.2 (/Users/dawei/way/monet/crates/monet)
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/router.rs:147:19
+    |
+147 |         H: Handler<T, S>,
+    |                   ^ expected named lifetime parameter
+    |
+    = note: for more information on higher-ranked polymorphism, visit https://doc.rust-lang.org/nomicon/hrtb.html
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+    |
+147 |         H: for<'a> Handler<'a, T, S>,
+    |            +++++++         +++
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+    |
+147 |         for<'a> H: Handler<'a, T, S>,
+    |         +++++++            +++
+help: consider introducing a named lifetime parameter
+    |
+145 ~     pub fn fallback<'a, H, T>(mut self, handler: H) -> Self
+146 |     where
+147 ~         H: Handler<'a, T, S>,
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/router.rs:242:11
+    |
+242 |     Route(Route),
+    |           ^^^^^ expected named lifetime parameter
+    |
+help: consider introducing a named lifetime parameter
+    |
+240 ~ pub enum Endpoint<'a, S> {
+241 |     MethodRouter(MethodRouter<S>),
+242 ~     Route(Route<'a>),
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/router.rs:327:18
+    |
+327 |     Default(Route<E>),
+    |                  ^ expected named lifetime parameter
+    |
+help: consider introducing a named lifetime parameter
+    |
+326 ~ pub(crate) enum Fallback<'a, S, E = Infallible> {
+327 ~     Default(Route<'a, E>),
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/router.rs:328:18
+    |
+328 |     Service(Route<E>),
+    |                  ^ expected named lifetime parameter
+    |
+help: consider introducing a named lifetime parameter
+    |
+326 ~ pub(crate) enum Fallback<'a, S, E = Infallible> {
+327 |     Default(Route<E>),
+328 ~     Service(Route<'a, E>),
+    |
+
+error[E0726]: implicit elided lifetime not allowed here
+  --> crates/monet/src/routing/router_tower_impl.rs:34:22
+   |
+34 | impl<B> TowerService<HttpRequest<B>> for Router<()>
+   |                      ^^^^^^^^^^^^^^ expected lifetime parameter
+   |
+help: indicate the anonymous lifetime
+   |
+34 | impl<B> TowerService<HttpRequest<'_, B>> for Router<()>
+   |                                  +++
+
+error[E0106]: missing lifetime specifier
+  --> crates/monet/src/routing/router_tower_impl.rs:39:21
+   |
+39 |     type Response = HttpResponse;
+   |                     ^^^^^^^^^^^^ expected named lifetime parameter
+   |
+help: consider introducing a named lifetime parameter
+   |
+39 |     type Response<'a> = HttpResponse<'a>;
+   |                  ++++               ++++
+
+error[E0726]: implicit elided lifetime not allowed here
+  --> crates/monet/src/routing/router_tower_impl.rs:61:22
+   |
+61 | impl<B> TowerService<HttpRequest<B>> for NotFound
+   |                      ^^^^^^^^^^^^^^ expected lifetime parameter
+   |
+help: indicate the anonymous lifetime
+   |
+61 | impl<B> TowerService<HttpRequest<'_, B>> for NotFound
+   |                                  +++
+
+error[E0106]: missing lifetime specifier
+  --> crates/monet/src/routing/router_tower_impl.rs:65:21
+   |
+65 |     type Response = HttpResponse;
+   |                     ^^^^^^^^^^^^ expected named lifetime parameter
+   |
+help: consider introducing a named lifetime parameter
+   |
+65 |     type Response<'a> = HttpResponse<'a>;
+   |                  ++++               ++++
+
+error[E0106]: missing lifetime specifier
+  --> crates/monet/src/routing/router_tower_impl.rs:67:45
+   |
+67 |     type Future = std::future::Ready<Result<HttpResponse, Self::Error>>;
+   |                                             ^^^^^^^^^^^^ expected named lifetime parameter
+   |
+help: consider introducing a named lifetime parameter
+   |
+67 |     type Future<'a> = std::future::Ready<Result<HttpResponse<'a>, Self::Error>>;
+   |                ++++                                         ++++
+
+error[E0726]: implicit elided lifetime not allowed here
+  --> crates/monet/src/routing/route.rs:54:19
+   |
+54 | impl<E> Clone for Route<E> {
+   |                   ^^^^^^^^ expected lifetime parameter
+   |
+help: indicate the anonymous lifetime
+   |
+54 | impl<E> Clone for Route<'_, E> {
+   |                         +++
+
+error[E0726]: implicit elided lifetime not allowed here
+  --> crates/monet/src/routing/route.rs:61:24
+   |
+61 | impl<E> fmt::Debug for Route<E> {
+   |                        ^^^^^^^^ expected lifetime parameter
+   |
+help: indicate the anonymous lifetime
+   |
+61 | impl<E> fmt::Debug for Route<'_, E> {
+   |                              +++
+
+error[E0106]: missing lifetime specifier
+  --> crates/monet/src/routing/route.rs:72:54
+   |
+72 |     fn into_route(self: Box<Self>, state: S) -> Route<E>;
+   |                                                      ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`, or if you will only have owned values
+   |
+72 |     fn into_route(self: Box<Self>, state: S) -> Route<'static, E>;
+   |                                                       ++++++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route.rs:132:54
+    |
+132 |     pub(crate) fn into_route(self, state: S) -> Route<E> {
+    |                                                      ^ expected named lifetime parameter
+    |
+    = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`, or if you will only have owned values
+    |
+132 |     pub(crate) fn into_route(self, state: S) -> Route<'static, E> {
+    |                                                       ++++++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route.rs:144:19
+    |
+144 |         H: Handler<X, S>,
+    |                   ^ expected named lifetime parameter
+    |
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+    |
+144 |         H: for<'a> Handler<'a, X, S>,
+    |            +++++++         +++
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+    |
+144 |         for<'a> H: Handler<'a, X, S>,
+    |         +++++++            +++
+help: consider introducing a named lifetime parameter
+    |
+142 ~     pub fn from_handler<'a, H, X>(handler: H) -> Self
+143 |     where
+144 ~         H: Handler<'a, X, S>,
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route.rs:166:36
+    |
+166 |     pub into_route_fn: fn(H, S) -> Route,
+    |                                    ^^^^^ expected named lifetime parameter
+    |
+    = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`, or if you will only have owned values
+    |
+166 |     pub into_route_fn: fn(H, S) -> Route<'static>,
+    |                                         +++++++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route.rs:178:54
+    |
+178 |     fn into_route(self: Box<Self>, state: S) -> Route<Infallible> {
+    |                                                      ^ expected named lifetime parameter
+    |
+    = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`, or if you will only have owned values
+    |
+178 |     fn into_route(self: Box<Self>, state: S) -> Route<'static, Infallible> {
+    |                                                       ++++++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:104:21
+    |
+104 |     type Response = HttpResponse;
+    |                     ^^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider using the `'a` lifetime
+    |
+104 |     type Response = HttpResponse<'a>;
+    |                                 ++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:131:26
+    |
+131 |     type Output = Result<HttpResponse, E>;
+    |                          ^^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider introducing a named lifetime parameter
+    |
+131 |     type Output<'a> = Result<HttpResponse<'a>, E>;
+    |                ++++                      ++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:145:54
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest>,
+    |                                                      ^^^^^^^^^^^ expected named lifetime parameter
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:145:66
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest>,
+    |                                                                  ^^^^^^^^^^^^ expected named lifetime parameter
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:145:84
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest>,
+    |                                                                                    ^^^^^^^^^^^ expected named lifetime parameter
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:145:54
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest>,
+    |                                                      ^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider using the `'__pin` lifetime
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest<'__pin>,HttpResponse,E> , HttpRequest>,
+    |                                                                 ++++++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:145:66
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest>,
+    |                                                                  ^^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider using the `'__pin` lifetime
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse<'__pin>,E> , HttpRequest>,
+    |                                                                              ++++++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:145:84
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest>,
+    |                                                                                    ^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider using the `'__pin` lifetime
+    |
+145 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest,HttpResponse,E> , HttpRequest<'__pin>>,
+    |                                                                                               ++++++++
+
+error[E0726]: implicit elided lifetime not allowed here
+   --> crates/monet/src/routing/route_tower_impl.rs:150:25
+    |
+150 | impl<B, E> TowerService<HttpRequest<B>> for Route<E>
+    |                         ^^^^^^^^^^^^^^ expected lifetime parameter
+    |
+help: indicate the anonymous lifetime
+    |
+150 | impl<B, E> TowerService<HttpRequest<'_, B>> for Route<E>
+    |                                     +++
+
+error[E0726]: implicit elided lifetime not allowed here
+   --> crates/monet/src/routing/route_tower_impl.rs:150:45
+    |
+150 | impl<B, E> TowerService<HttpRequest<B>> for Route<E>
+    |                                             ^^^^^^^^ expected lifetime parameter
+    |
+help: indicate the anonymous lifetime
+    |
+150 | impl<B, E> TowerService<HttpRequest<B>> for Route<'_, E>
+    |                                                   +++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:155:21
+    |
+155 |     type Response = HttpResponse;
+    |                     ^^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider introducing a named lifetime parameter
+    |
+155 |     type Response<'a> = HttpResponse<'a>;
+    |                  ++++               ++++
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/route_tower_impl.rs:180:26
+    |
+180 |     type Output = Result<HttpResponse, E>;
+    |                          ^^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider introducing a named lifetime parameter
+    |
+180 |     type Output<'a> = Result<HttpResponse<'a>, E>;
+    |                ++++                      ++++
+
+error[E0106]: missing lifetime specifier
+  --> crates/monet/src/routing/method_router.rs:85:25
+   |
+85 |         T: TowerService<HttpRequest, Error = E> + Clone + 'static,
+   |                         ^^^^^^^^^^^ expected named lifetime parameter
+   |
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+   |
+85 |         T: for<'a> TowerService<HttpRequest<'a>, Error = E> + Clone + 'static,
+   |            +++++++                         ++++
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+   |
+85 |         for<'a> T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'static,
+   |         +++++++                            ++++
+help: consider introducing a named lifetime parameter
+   |
+83 ~     pub fn get_service<'a, T>(mut self, svc: T) -> Self
+84 |     where
+85 ~         T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'static,
+   |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/method_router.rs:228:19
+    |
+228 |         H: Handler<X, S>,
+    |                   ^ expected named lifetime parameter
+    |
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+    |
+228 |         H: for<'a> Handler<'a, X, S>,
+    |            +++++++         +++
+help: consider making the bound lifetime-generic with a new `'a` lifetime
+    |
+228 |         for<'a> H: Handler<'a, X, S>,
+    |         +++++++            +++
+help: consider introducing a named lifetime parameter
+    |
+226 ~     pub fn get<'a, H, X>(mut self, handler: H) -> Self
+227 |     where
+228 ~         H: Handler<'a, X, S>,
+    |
+
+error[E0106]: missing lifetime specifier
+   --> crates/monet/src/routing/method_router.rs:262:16
+    |
+262 |     Route(Route<E>),
+    |                ^ expected named lifetime parameter
+    |
+help: consider introducing a named lifetime parameter
+    |
+260 ~ enum MethodEndpoint<'a, S, E> {
+261 |     BoxedHandler(BoxedIntoRoute<S, E>),
+262 ~     Route(Route<'a, E>),
+    |
+
+error[E0107]: trait takes 0 lifetime arguments but 1 lifetime argument was supplied
+  --> crates/monet/src/extract/state.rs:25:9
+   |
+25 | impl<S> FromRequestParts<'_, S> for State<S>
+   |         ^^^^^^^^^^^^^^^^ -- help: remove the lifetime argument
+   |         |
+   |         expected 0 lifetime arguments
+   |
+note: trait defined here, with 0 lifetime parameters
+  --> crates/monet/src/extract.rs:48:11
+   |
+48 | pub trait FromRequestParts<S>: Sized {
+   |           ^^^^^^^^^^^^^^^^
+
+error[E0623]: lifetime mismatch
+   --> crates/monet/src/routing/route_tower_impl.rs:173:16
+    |
+173 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest, HttpResponse, E>, HttpRequest>,
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------^^^^^^^^^^^^^^^^^^^^-----------^
+    |                |                                     |
+    |                |                                     these two types are declared with different lifetimes...
+    |                ...but data from `inner` flows into `inner` here
+    |
+    = note: each elided lifetime in input position becomes a distinct lifetime
+help: consider introducing a named lifetime parameter and update trait if needed
+    |
+171 ~     pub fn new<'a>(
+172 |         method: Method,
+173 ~         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest<'a>, HttpResponse, E>, HttpRequest<'a>>,
+    |
+
+error[E0623]: lifetime mismatch
+   --> crates/monet/src/routing/route_tower_impl.rs:173:16
+    |
+173 |         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest, HttpResponse, E>, HttpRequest>,
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------^^^^^^^^^^^^^^^^^^^^-----------^
+    |                |                                                                    |
+    |                |                                                                    these two types are declared with different lifetimes...
+    |                ...but data from `inner` flows into `inner` here
+    |
+    = note: each elided lifetime in input position becomes a distinct lifetime
+help: consider introducing a named lifetime parameter and update trait if needed
+    |
+171 ~     pub fn new<'a>(
+172 |         method: Method,
+173 ~         inner: Oneshot<LocalBoxCloneService<'static, HttpRequest<'a>, HttpResponse, E>, HttpRequest<'a>>,
+    |
+
+Some errors have detailed explanations: E0106, E0107, E0623, E0726.
+For more information about an error, try `rustc --explain E0106`.
+error: could not compile `monet` (lib) due to 34 previous errors

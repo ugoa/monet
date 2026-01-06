@@ -7,6 +7,8 @@
 #![cfg_attr(feature = "unstable", feature(lazy_cell))]
 #![cfg_attr(feature = "unstable", feature(stmt_expr_attributes))]
 #![cfg_attr(feature = "unstable", feature(thread_local))]
+#![allow(clippy::all)]
+#![allow(warnings)]
 
 #[macro_use]
 pub mod macros;

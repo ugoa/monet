@@ -48,14 +48,15 @@ impl<'a, F, Fut, S, Res, M, T1, T2, T3> Handler<'a, (M, T1, T2, T3), S> for F
 where
     F: FnOnce(T1, T2, T3) -> Fut + Clone + 'a,
     Fut: Future<Output = Res>,
-    Res: IntoResponse,
-    T1: FromRequestParts<'a, S>,
-    T2: FromRequestParts<'a, S>,
-    T3: FromRequest<'a, S, M>,
     S: 'a,
+    Res: IntoResponse,
+    T1: FromRequestParts<S>,
+    T2: FromRequestParts<S>,
+    T3: FromRequest<S, M>,
 {
     type Future = Pin<Box<dyn Future<Output = HttpResponse<'static>> + 'a>>;
-    fn call(self, req: HttpRequest, state: S) -> Self::Future {
+
+    fn call(self, req: HttpRequest<'_>, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();
         Box::pin(async move {
             let T1 = match T1::from_request_parts(&mut parts, &state).await {
@@ -66,7 +67,7 @@ where
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
             };
-            let req = HttpRequest::from_parts(parts, body);
+            let req = HttpRequest::<'a>::from_parts(parts, body);
             let T3 = match T3::from_request(req, &state).await {
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
