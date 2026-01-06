@@ -13,18 +13,18 @@ pub enum ViaParts {}
 #[derive(Debug, Clone, Copy)]
 pub enum ViaRequest {}
 
-pub trait FromRequest<S, M = ViaRequest>: Sized {
+pub trait FromRequest<'a, S, M = ViaRequest>: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
-    type Rejection: IntoResponse;
+    type Rejection: IntoResponse<'a>;
 
     /// Perform the extraction.
     async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection>;
 }
 
-impl<S, T> FromRequest<S, ViaParts> for T
+impl<'a, S, T> FromRequest<'a, S, ViaParts> for T
 where
-    T: FromRequestParts<S>,
+    T: FromRequestParts<'a, S>,
 {
     type Rejection = <Self as FromRequestParts<S>>::Rejection;
 
@@ -34,9 +34,9 @@ where
     }
 }
 
-impl<S, T> FromRequest<S> for Result<T, T::Rejection>
+impl<'a, S, T> FromRequest<'a, S> for Result<T, T::Rejection>
 where
-    T: FromRequest<S>,
+    T: FromRequest<'a, S>,
 {
     type Rejection = Infallible;
 
@@ -45,18 +45,18 @@ where
     }
 }
 
-pub trait FromRequestParts<S>: Sized {
+pub trait FromRequestParts<'a, S>: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
-    type Rejection: IntoResponse;
+    type Rejection: IntoResponse<'a>;
 
     /// Perform the extraction.
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection>;
 }
 
-impl<S, T> FromRequestParts<S> for Result<T, T::Rejection>
+impl<'a, S, T> FromRequestParts<'a, S> for Result<T, T::Rejection>
 where
-    T: FromRequestParts<S>,
+    T: FromRequestParts<'a, S>,
 {
     type Rejection = Infallible;
 
@@ -65,9 +65,9 @@ where
     }
 }
 
-impl<S> FromRequestParts<S> for Method
+impl<'a, S> FromRequestParts<'a, S> for Method
 where
-    S: Send + Sync,
+    S: 'a,
 {
     type Rejection = Infallible;
 
@@ -76,9 +76,9 @@ where
     }
 }
 
-impl<S> FromRequestParts<S> for Uri
+impl<'a, S> FromRequestParts<'a, S> for Uri
 where
-    S: Send + Sync,
+    S: 'a,
 {
     type Rejection = Infallible;
 
