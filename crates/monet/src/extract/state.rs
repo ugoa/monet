@@ -22,7 +22,7 @@ impl<S> DerefMut for State<S> {
     }
 }
 
-impl<S> FromRequestParts<'_, S> for State<S>
+impl<S> FromRequestParts<S> for State<S>
 where
     S: Clone,
 {
