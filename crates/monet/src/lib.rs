@@ -42,7 +42,7 @@ pub struct Body<'a>(Pin<Box<dyn HttpBody<Data = Bytes, Error = BoxError> + 'a>>)
 impl<'a> Body<'a> {
     pub fn new<B>(http_body: B) -> Self
     where
-        B: HttpBody<Data = Bytes> + 'static,
+        B: HttpBody<Data = Bytes> + 'a,
         B::Error: Into<BoxError>,
     {
         let body = http_body.map_err(Into::into);
