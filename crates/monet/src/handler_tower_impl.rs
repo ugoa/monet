@@ -14,14 +14,14 @@ use crate::{
     response::IntoResponse,
 };
 
-impl<H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<H, X, S>
+impl<'a, H, X, S, B> TowerService<HttpRequest<'a, B>> for HandlerService<'a, H, X, S>
 where
-    H: Handler<X, S> + Clone + 'static,
-    B: HttpBody<Data = bytes::Bytes> + 'static,
+    H: Handler<'a, X, S> + Clone + 'a,
+    B: HttpBody<Data = bytes::Bytes> + 'a,
     B::Error: Into<BoxError>,
-    S: Clone,
+    S: Clone + 'a,
 {
-    type Response = HttpResponse;
+    type Response = HttpResponse<'a>;
 
     type Error = Infallible;
 
@@ -31,7 +31,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
+    fn call(&mut self, req: HttpRequest<'a, B>) -> Self::Future {
         use futures_util::future::FutureExt;
         let req = req.map(Body::new);
         let handler = self.handler.clone();

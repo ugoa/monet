@@ -28,7 +28,7 @@ where
 {
     type Rejection = <Self as FromRequestParts<S>>::Rejection;
 
-    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: HttpRequest<'_>, state: &S) -> Result<Self, Self::Rejection> {
         let (mut parts, _) = req.into_parts();
         Self::from_request_parts(&mut parts, state).await
     }
@@ -40,7 +40,7 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: HttpRequest<'_>, state: &S) -> Result<Self, Self::Rejection> {
         Ok(T::from_request(req, state).await)
     }
 }

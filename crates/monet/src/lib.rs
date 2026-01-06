@@ -28,8 +28,8 @@ pub(crate) mod prelude {
     pub use std::fmt;
 }
 
-pub type HttpRequest<T = Body> = http::Request<T>;
-pub type HttpResponse<T = Body> = http::Response<T>;
+pub type HttpRequest<'a, T = Body<'a>> = http::Request<T>;
+pub type HttpResponse<'a, T = Body<'a>> = http::Response<T>;
 pub use tower::Layer as TowerLayer;
 pub use tower::Service as TowerService;
 
@@ -37,9 +37,9 @@ pub use tower::util::MapResponseLayer;
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
-pub struct Body(Pin<Box<dyn HttpBody<Data = Bytes, Error = BoxError>>>);
+pub struct Body<'a>(Pin<Box<dyn HttpBody<Data = Bytes, Error = BoxError> + 'a>>);
 
-impl Body {
+impl<'a> Body<'a> {
     pub fn new<B>(http_body: B) -> Self
     where
         B: HttpBody<Data = Bytes> + 'static,
@@ -54,49 +54,49 @@ impl Body {
     }
 }
 
-impl From<Cow<'static, str>> for Body {
+impl From<Cow<'static, str>> for Body<'_> {
     fn from(buf: Cow<'static, str>) -> Self {
         Self::new(http_body_util::Full::from(buf))
     }
 }
 
-impl From<String> for Body {
+impl From<String> for Body<'_> {
     fn from(buf: String) -> Self {
         Self::new(http_body_util::Full::from(buf))
     }
 }
 
-impl From<Vec<u8>> for Body {
+impl From<Vec<u8>> for Body<'_> {
     fn from(buf: Vec<u8>) -> Self {
         Self::new(http_body_util::Full::from(buf))
     }
 }
 
-impl From<&'static [u8]> for Body {
+impl From<&'static [u8]> for Body<'_> {
     fn from(buf: &'static [u8]) -> Self {
         Self::new(http_body_util::Full::from(buf))
     }
 }
 
-impl From<&'static str> for Body {
+impl From<&'static str> for Body<'_> {
     fn from(buf: &'static str) -> Self {
         Self::new(http_body_util::Full::from(buf))
     }
 }
 
-impl From<Cow<'static, [u8]>> for Body {
+impl From<Cow<'static, [u8]>> for Body<'_> {
     fn from(buf: Cow<'static, [u8]>) -> Self {
         Self::new(http_body_util::Full::from(buf))
     }
 }
 
-impl From<Bytes> for Body {
+impl From<Bytes> for Body<'_> {
     fn from(buf: Bytes) -> Self {
         Self::new(http_body_util::Full::from(buf))
     }
 }
 
-impl http_body::Body for Body {
+impl http_body::Body for Body<'_> {
     type Data = Bytes;
     type Error = BoxError;
 
