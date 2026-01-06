@@ -25,7 +25,7 @@ where
 
     type Error = Infallible;
 
-    type Future = IntoServiceFuture<H::Future>;
+    type Future = IntoServiceFuture<H::Future + 'a>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

@@ -228,24 +228,6 @@ error[E0605]: non-primitive cast: `fn(_) -> Result<_, _> {Result::<_, _>::Ok}` a
    |                                 ^^^^^^^ invalid cast
 
 error: lifetime may not live long enough
-  --> crates/monet/src/handler.rs:61:9
-   |
-47 |   impl<'a, F, Fut, S, Res, M, T1, T2, T3> Handler<'a, (M, T1, T2, T3), S> for F
-   |        -- lifetime `'a` defined here
-...
-59 |       fn call(self, req: HttpRequest<'_>, state: S) -> Self::Future {
-   |                     --- has type `http::Request<Body<'1>>`
-60 |           let (mut parts, body) = req.into_parts();
-61 | /         Box::pin(async move {
-62 | |             let T1 = match T1::from_request_parts(&mut parts, &state).await {
-63 | |                 Ok(value) => value,
-64 | |                 Err(rejection) => return rejection.into_response(),
-...  |
-75 | |             self(T1, T2, T3).await.into_response()
-76 | |         })
-   | |__________^ method was supposed to return data with lifetime `'a` but it is returning data with lifetime `'1`
-
-error: lifetime may not live long enough
    --> crates/monet/src/routing/route.rs:150:24
     |
 138 | impl<'a, S> BoxedIntoRoute<'a, S, Infallible>
@@ -256,4 +238,4 @@ error: lifetime may not live long enough
 
 Some errors have detailed explanations: E0106, E0308, E0605, E0726.
 For more information about an error, try `rustc --explain E0106`.
-error: could not compile `monet` (lib) due to 19 previous errors
+error: could not compile `monet` (lib) due to 18 previous errors

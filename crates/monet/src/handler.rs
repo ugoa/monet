@@ -9,7 +9,7 @@ use std::pin::Pin;
 pub trait Handler<'a, X, S>: Clone + Sized {
     type Future: Future<Output = HttpResponse<'static>> + 'a;
 
-    fn call(self, req: HttpRequest, state: S) -> Self::Future;
+    fn call(self, req: HttpRequest<'a>, state: S) -> Self::Future;
 
     fn to_service(self, state: S) -> HandlerService<'a, Self, X, S> {
         HandlerService::new(self, state)
@@ -56,7 +56,7 @@ where
 {
     type Future = Pin<Box<dyn Future<Output = HttpResponse<'static>> + 'a>>;
 
-    fn call(self, req: HttpRequest<'_>, state: S) -> Self::Future {
+    fn call(self, req: HttpRequest<'a>, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();
         Box::pin(async move {
             let T1 = match T1::from_request_parts(&mut parts, &state).await {
