@@ -17,15 +17,15 @@ where
     MethodRouter::new().get(handler)
 }
 
-pub fn get_service<T, S>(filter: MethodFilter, svc: T) -> MethodRouter<S, T::Error>
-where
-    T: TowerService<HttpRequest> + Clone + 'static,
-    T::Response: IntoResponse + 'static,
-    T::Future: 'static,
-    S: Clone,
-{
-    MethodRouter::new().get_service(svc)
-}
+// pub fn get_service<T, S>(filter: MethodFilter, svc: T) -> MethodRouter<S, T::Error>
+// where
+//     T: TowerService<HttpRequest> + Clone + 'static,
+//     T::Response: IntoResponse + 'static,
+//     T::Future: 'static,
+//     S: Clone,
+// {
+//     MethodRouter::new().get_service(svc)
+// }
 
 pub struct MethodRouter<S = (), E = Infallible> {
     get: MethodEndpoint<S, E>,

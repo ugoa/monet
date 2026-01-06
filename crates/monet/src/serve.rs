@@ -70,11 +70,11 @@ where
     remote_addr: L::Addr,
 }
 
-pub fn serve<L, M, S, B>(listener: L, make_service: M) -> Serve<L, M, S, B>
+pub fn serve<'a, L, M, S, B>(listener: L, make_service: M) -> Serve<'a, L, M, S, B>
 where
     L: Listener,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
+    M: for<'b> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
+    S: TowerService<HttpRequest<'a>, Response = HttpResponse<B>, Error = Infallible> + Clone + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -82,21 +82,25 @@ where
         listener,
         make_service,
         _marker: PhantomData,
+        _lt: PhantomData,
     }
 }
 
-pub struct Serve<L, M, S, B> {
+pub struct Serve<'a, L, M, S, B> {
     listener: L,
     make_service: M,
     _marker: PhantomData<fn(B) -> S>,
+    _lt: PhantomData<&'a ()>,
 }
 
-impl<L, M, S, B> Serve<L, M, S, B>
+impl<'a, L, M, S, B> Serve<'a, L, M, S, B>
 where
     L: Listener,
     L::Addr: Debug,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
+    M: for<'b> TowerService<IncomingStream<'b, L>, Response = S, Error = Infallible>,
+    S: TowerService<HttpRequest<'a>, Response = HttpResponse<'a, B>, Error = Infallible>
+        + Clone
+        + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -105,6 +109,7 @@ where
             mut listener,
             mut make_service,
             _marker,
+            _lt,
         } = self;
 
         loop {
@@ -142,12 +147,12 @@ where
     }
 }
 
-impl<L, M, S, B> IntoFuture for Serve<L, M, S, B>
+impl<'a, L, M, S, B> IntoFuture for Serve<'a, L, M, S, B>
 where
     L: Listener,
     L::Addr: std::fmt::Debug,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible> + 'static,
-    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
+    M: for<'b> TowerService<IncomingStream<'b, L>, Response = S, Error = Infallible> + 'a,
+    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -167,7 +172,7 @@ use std::{
     task::{Context, Poll},
 };
 
-pub struct ServeFuture(futures_core::future::LocalBoxFuture<'static, io::Result<()>>);
+pub struct ServeFuture<'a>(futures_core::future::LocalBoxFuture<'a, io::Result<()>>);
 
 impl Future for ServeFuture {
     type Output = io::Result<()>;

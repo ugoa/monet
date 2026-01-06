@@ -6,13 +6,15 @@ use crate::{
 use std::convert::Infallible;
 use tower::{ServiceExt, util::MapErrLayer};
 
-pub struct Route<E = Infallible>(LocalBoxCloneService<'static, HttpRequest, HttpResponse, E>);
+pub struct Route<'a, E = Infallible>(
+    LocalBoxCloneService<'a, HttpRequest<'a>, HttpResponse<'a>, E>,
+);
 
-impl<E> Route<E> {
+impl<'a, E> Route<'a, E> {
     pub fn new<T>(svc: T) -> Self
     where
-        T: TowerService<HttpRequest, Error = E> + Clone + 'static,
-        T::Response: IntoResponse + 'static,
+        T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'a,
+        T::Response: IntoResponse + 'a,
         T::Future: 'static,
     {
         Self(LocalBoxCloneService::new(MapIntoResponse::new(svc)))

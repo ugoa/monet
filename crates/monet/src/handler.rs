@@ -34,7 +34,7 @@ impl<'a, F, Fut, Res, S> Handler<'a, ((),), S> for F
 where
     F: FnOnce() -> Fut + Clone + 'a,
     Fut: Future<Output = Res>,
-    Res: IntoResponse<'a>,
+    Res: IntoResponse,
 {
     type Future = Pin<Box<dyn Future<Output = HttpResponse<'a>> + 'a>>;
 
@@ -48,7 +48,7 @@ impl<'a, F, Fut, S, Res, M, T1, T2, T3> Handler<'a, (M, T1, T2, T3), S> for F
 where
     F: FnOnce(T1, T2, T3) -> Fut + Clone + 'a,
     Fut: Future<Output = Res>,
-    Res: IntoResponse<'a>,
+    Res: IntoResponse,
     T1: FromRequestParts<'a, S>,
     T2: FromRequestParts<'a, S>,
     T3: FromRequest<'a, S, M>,
