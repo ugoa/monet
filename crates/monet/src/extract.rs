@@ -65,10 +65,7 @@ where
     }
 }
 
-impl<'a, S> FromRequestParts<'a, S> for Method
-where
-    S: 'a,
-{
+impl<S> FromRequestParts<'_, S> for Method {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
@@ -76,10 +73,7 @@ where
     }
 }
 
-impl<'a, S> FromRequestParts<'a, S> for Uri
-where
-    S: 'a,
-{
+impl<S> FromRequestParts<'_, S> for Uri {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
