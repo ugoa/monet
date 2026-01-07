@@ -56,7 +56,7 @@ impl<T, U, E> Clone for LocalBoxCloneService<'_, T, U, E> {
     }
 }
 
-trait ClonableService<'a, S>: TowerService<S> {
+pub trait ClonableService<'a, S>: TowerService<S> {
     fn clone_box(
         &self,
     ) -> Box<

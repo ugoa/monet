@@ -2,20 +2,40 @@ use super::route_tower_impl::{LocalBoxCloneService, MapIntoResponse, RouteFuture
 use crate::{
     handler::{Handler, HandlerService},
     prelude::*,
+    routing::route_tower_impl::ClonableService,
 };
-use std::convert::Infallible;
+use std::{convert::Infallible, pin::Pin};
 use tower::{ServiceExt, util::MapErrLayer};
 
-pub struct Route<E = Infallible>(LocalBoxCloneService<'static, HttpRequest, HttpResponse, E>);
+// pub struct Route<E = Infallible>(LocalBoxCloneService<'static, HttpRequest, HttpResponse, E>);
+
+pub struct Route<E = Infallible>(
+    Box<
+        dyn ClonableService<
+                'static,
+                HttpRequest,
+                Response = HttpResponse,
+                Error = E,
+                Future = Pin<Box<dyn Future<Output = Result<HttpResponse, E>> + 'static>>,
+            > + 'static,
+    >,
+);
+
+impl<E> Clone for Route<E> {
+    #[track_caller]
+    fn clone(&self) -> Self {
+        Self(self.0.clone_box())
+    }
+}
 
 impl<E> Route<E> {
-    pub fn new<T>(svc: T) -> Self
+    pub fn new<S>(inner: S) -> Self
     where
-        T: TowerService<HttpRequest, Error = E> + Clone + 'static,
-        T::Response: IntoResponse + 'static,
-        T::Future: 'static,
+        S: TowerService<T, Response = U, Error = E> + Clone + 'svc,
+        <S as tower::Service<T>>::Future: 'svc,
     {
-        Self(LocalBoxCloneService::new(MapIntoResponse::new(svc)))
+        let inner = inner.map_future(|fut| Box::pin(fut) as _);
+        Self(Box::new(MapIntoResponse::new(inner)))
     }
 
     /// Variant of [`Route::call`] that takes ownership of the route to avoid cloning.
@@ -49,12 +69,12 @@ impl<E> Route<E> {
     // }
 }
 
-impl<E> Clone for Route<E> {
-    #[track_caller]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
+// impl<E> Clone for Route<E> {
+//     #[track_caller]
+//     fn clone(&self) -> Self {
+//         Self(self.0.clone())
+//     }
+// }
 
 impl<E> fmt::Debug for Route<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
