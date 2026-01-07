@@ -1,77 +1,14 @@
    Compiling monet v0.1.2 (/Users/dawei/way/monet/crates/monet)
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/router.rs:147:19
-    |
-147 |         H: Handler<T, S>,
-    |                   ^ expected named lifetime parameter
-    |
-    = note: for more information on higher-ranked polymorphism, visit https://doc.rust-lang.org/nomicon/hrtb.html
-help: consider making the bound lifetime-generic with a new `'a` lifetime
-    |
-147 |         H: for<'a> Handler<'a, T, S>,
-    |            +++++++         +++
-help: consider making the bound lifetime-generic with a new `'a` lifetime
-    |
-147 |         for<'a> H: Handler<'a, T, S>,
-    |         +++++++            +++
-help: consider introducing a named lifetime parameter
-    |
-145 ~     pub fn fallback<'a, H, T>(mut self, handler: H) -> Self
-146 |     where
-147 ~         H: Handler<'a, T, S>,
-    |
-
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/router.rs:242:11
-    |
-242 |     Route(Route),
-    |           ^^^^^ expected named lifetime parameter
-    |
-help: consider introducing a named lifetime parameter
-    |
-240 ~ pub enum Endpoint<'a, S> {
-241 |     MethodRouter(MethodRouter<S>),
-242 ~     Route(Route<'a>),
-    |
-
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/router.rs:327:18
-    |
-327 |     Default(Route<E>),
-    |                  ^ expected named lifetime parameter
-    |
-help: consider introducing a named lifetime parameter
-    |
-326 ~ pub(crate) enum Fallback<'a, S, E = Infallible> {
-327 ~     Default(Route<'a, E>),
-    |
-
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/router.rs:328:18
-    |
-328 |     Service(Route<E>),
-    |                  ^ expected named lifetime parameter
-    |
-help: consider introducing a named lifetime parameter
-    |
-326 ~ pub(crate) enum Fallback<'a, S, E = Infallible> {
-327 |     Default(Route<E>),
-328 ~     Service(Route<'a, E>),
-    |
-
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/router.rs:329:32
-    |
-329 |     BoxedHandler(BoxedIntoRoute<S, E>),
-    |                                ^ expected named lifetime parameter
-    |
-help: consider introducing a named lifetime parameter
-    |
-326 ~ pub(crate) enum Fallback<'a, S, E = Infallible> {
-327 |     Default(Route<E>),
-328 |     Service(Route<E>),
-329 ~     BoxedHandler(BoxedIntoRoute<'a, S, E>),
-    |
+error[E0726]: implicit elided lifetime not allowed here
+  --> crates/monet/src/routing/router_tower_impl.rs:15:49
+   |
+15 | impl<L> TowerService<IncomingStream<'_, L>> for Router<()>
+   |                                                 ^^^^^^^^^^ expected lifetime parameter
+   |
+help: indicate the anonymous lifetime
+   |
+15 | impl<L> TowerService<IncomingStream<'_, L>> for Router<'_, ()>
+   |                                                        +++
 
 error[E0726]: implicit elided lifetime not allowed here
   --> crates/monet/src/routing/router_tower_impl.rs:34:22
@@ -83,6 +20,17 @@ help: indicate the anonymous lifetime
    |
 34 | impl<B> TowerService<HttpRequest<'_, B>> for Router<()>
    |                                  +++
+
+error[E0726]: implicit elided lifetime not allowed here
+  --> crates/monet/src/routing/router_tower_impl.rs:34:42
+   |
+34 | impl<B> TowerService<HttpRequest<B>> for Router<()>
+   |                                          ^^^^^^^^^^ expected lifetime parameter
+   |
+help: indicate the anonymous lifetime
+   |
+34 | impl<B> TowerService<HttpRequest<B>> for Router<'_, ()>
+   |                                                 +++
 
 error[E0106]: missing lifetime specifier
   --> crates/monet/src/routing/router_tower_impl.rs:39:21
@@ -140,11 +88,27 @@ help: consider introducing a named lifetime parameter
    |                ++++                                         ++++
 
 error[E0106]: missing lifetime specifier
+  --> crates/monet/src/routing/method_router.rs:40:23
+   |
+40 |     fallback: Fallback<S, E>,
+   |                       ^ expected named lifetime parameter
+   |
+help: consider introducing a named lifetime parameter
+   |
+30 ~ pub struct MethodRouter<'a, S = (), E = Infallible> {
+31 |     get: MethodEndpoint<S, E>,
+...
+39 |     connect: MethodEndpoint<S, E>,
+40 ~     fallback: Fallback<'a, S, E>,
+   |
+
+error[E0106]: missing lifetime specifier
   --> crates/monet/src/routing/method_router.rs:85:25
    |
 85 |         T: TowerService<HttpRequest, Error = E> + Clone + 'static,
    |                         ^^^^^^^^^^^ expected named lifetime parameter
    |
+   = note: for more information on higher-ranked polymorphism, visit https://doc.rust-lang.org/nomicon/hrtb.html
 help: consider making the bound lifetime-generic with a new `'a` lifetime
    |
 85 |         T: for<'a> TowerService<HttpRequest<'a>, Error = E> + Clone + 'static,
@@ -206,36 +170,50 @@ help: consider introducing a named lifetime parameter
 262 ~     Route(Route<'a, E>),
     |
 
-error[E0308]: mismatched types
-  --> crates/monet/src/handler_tower_impl.rs:28:19
+error[E0405]: cannot find trait `Future` in `H`
+  --> crates/monet/src/handler_tower_impl.rs:28:40
    |
-28 |     type Future = IntoServiceFuture<H::Future>;
-   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ lifetime mismatch
+28 |     type Future = IntoServiceFuture<H::Future + 'a>;
+   |                                        ^^^^^^ not found in `H`
    |
-   = note: expected enum `Result<Response<Body<'static>>, _>`
-              found enum `Result<Response<Body<'a>>, _>`
-note: the lifetime `'a` as defined here...
-  --> crates/monet/src/handler_tower_impl.rs:17:6
+help: consider importing one of these traits
    |
-17 | impl<'a, H, X, S, B> TowerService<HttpRequest<'a, B>> for HandlerService<'a, H, X, S>
-   |      ^^
-   = note: ...does not necessarily outlive the static lifetime
+ 1 + use std::future::Future;
+   |
+ 1 + use futures::Future;
+   |
+ 1 + use futures_core::Future;
+   |
+ 1 + use futures_util::Future;
+   |
+help: if you import `Future`, refer to it directly
+   |
+28 -     type Future = IntoServiceFuture<H::Future + 'a>;
+28 +     type Future = IntoServiceFuture<Future + 'a>;
+   |
 
-error[E0605]: non-primitive cast: `fn(_) -> Result<_, _> {Result::<_, _>::Ok}` as `for<'a> fn(Response<Body<'a>>) -> Result<Response<Body<'a>>, Infallible>`
-  --> crates/monet/src/handler_tower_impl.rs:41:33
+error[E0782]: expected a type, found a trait
+  --> crates/monet/src/handler_tower_impl.rs:28:37
    |
-41 |         let future = future.map(Ok as _);
-   |                                 ^^^^^^^ invalid cast
+28 |     type Future = IntoServiceFuture<H::Future + 'a>;
+   |                                     ^^^^^^^^^^^^^^
 
 error: lifetime may not live long enough
-   --> crates/monet/src/routing/route.rs:150:24
+   --> crates/monet/src/routing/router.rs:237:17
     |
-138 | impl<'a, S> BoxedIntoRoute<'a, S, Infallible>
+ 41 | impl<'a, S> Router<'a, S>
     |      -- lifetime `'a` defined here
 ...
-150 |             let lbcs = LocalBoxCloneService::new(resp_map);
-    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^ requires that `'a` must outlive `'static`
+210 |         &self,
+    |         - let's call the lifetime of this reference `'1`
+...
+237 |                 self.catch_all_fallback.clone().call_with_state(req, state)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method was supposed to return data with lifetime `'a` but it is returning data with lifetime `'1`
+    |
+    = note: requirement occurs because of the type `RouteFuture<'_, Infallible>`, which makes the generic argument `'_` invariant
+    = note: the struct `RouteFuture<'a, E>` is invariant over the parameter `'a`
+    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 
-Some errors have detailed explanations: E0106, E0308, E0605, E0726.
+Some errors have detailed explanations: E0106, E0405, E0726, E0782.
 For more information about an error, try `rustc --explain E0106`.
-error: could not compile `monet` (lib) due to 18 previous errors
+error: could not compile `monet` (lib) due to 16 previous errors
