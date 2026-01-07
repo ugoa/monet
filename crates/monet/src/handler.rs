@@ -7,7 +7,7 @@ use std::pin::Pin;
 
 // X for Extractor
 pub trait Handler<'a, X, S>: Clone + Sized {
-    type Future: Future<Output = HttpResponse<'static>> + 'a;
+    type Future: Future<Output = HttpResponse<'a>> + 'a;
 
     fn call(self, req: HttpRequest<'a>, state: S) -> Self::Future;
 
@@ -36,7 +36,7 @@ where
     Fut: Future<Output = Res>,
     Res: IntoResponse,
 {
-    type Future = Pin<Box<dyn Future<Output = HttpResponse<'static>> + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = HttpResponse<'a>> + 'a>>;
 
     fn call(self, _req: HttpRequest, _state: S) -> Self::Future {
         Box::pin(async move { self().await.into_response() })
@@ -54,7 +54,7 @@ where
     T2: FromRequestParts<S>,
     T3: FromRequest<S, M>,
 {
-    type Future = Pin<Box<dyn Future<Output = HttpResponse<'static>> + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = HttpResponse<'a>> + 'a>>;
 
     fn call(self, req: HttpRequest<'a>, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();

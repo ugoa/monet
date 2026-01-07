@@ -1,174 +1,14 @@
    Compiling monet v0.1.2 (/Users/dawei/way/monet/crates/monet)
-error[E0726]: implicit elided lifetime not allowed here
-  --> crates/monet/src/routing/router_tower_impl.rs:15:49
-   |
-15 | impl<L> TowerService<IncomingStream<'_, L>> for Router<()>
-   |                                                 ^^^^^^^^^^ expected lifetime parameter
-   |
-help: indicate the anonymous lifetime
-   |
-15 | impl<L> TowerService<IncomingStream<'_, L>> for Router<'_, ()>
-   |                                                        +++
-
-error[E0726]: implicit elided lifetime not allowed here
-  --> crates/monet/src/routing/router_tower_impl.rs:34:22
-   |
-34 | impl<B> TowerService<HttpRequest<B>> for Router<()>
-   |                      ^^^^^^^^^^^^^^ expected lifetime parameter
-   |
-help: indicate the anonymous lifetime
-   |
-34 | impl<B> TowerService<HttpRequest<'_, B>> for Router<()>
-   |                                  +++
-
-error[E0726]: implicit elided lifetime not allowed here
-  --> crates/monet/src/routing/router_tower_impl.rs:34:42
-   |
-34 | impl<B> TowerService<HttpRequest<B>> for Router<()>
-   |                                          ^^^^^^^^^^ expected lifetime parameter
-   |
-help: indicate the anonymous lifetime
-   |
-34 | impl<B> TowerService<HttpRequest<B>> for Router<'_, ()>
-   |                                                 +++
-
-error[E0106]: missing lifetime specifier
-  --> crates/monet/src/routing/router_tower_impl.rs:39:21
-   |
-39 |     type Response = HttpResponse;
-   |                     ^^^^^^^^^^^^ expected named lifetime parameter
-   |
-help: consider introducing a named lifetime parameter
-   |
-39 |     type Response<'a> = HttpResponse<'a>;
-   |                  ++++               ++++
-
-error[E0106]: missing lifetime specifier
-  --> crates/monet/src/routing/router_tower_impl.rs:43:30
-   |
-43 |     type Future = RouteFuture<Infallible>;
-   |                              ^ expected named lifetime parameter
-   |
-help: consider introducing a named lifetime parameter
-   |
-43 |     type Future<'a> = RouteFuture<'a, Infallible>;
-   |                ++++               +++
-
-error[E0726]: implicit elided lifetime not allowed here
-  --> crates/monet/src/routing/router_tower_impl.rs:61:22
-   |
-61 | impl<B> TowerService<HttpRequest<B>> for NotFound
-   |                      ^^^^^^^^^^^^^^ expected lifetime parameter
-   |
-help: indicate the anonymous lifetime
-   |
-61 | impl<B> TowerService<HttpRequest<'_, B>> for NotFound
-   |                                  +++
-
-error[E0106]: missing lifetime specifier
-  --> crates/monet/src/routing/router_tower_impl.rs:65:21
-   |
-65 |     type Response = HttpResponse;
-   |                     ^^^^^^^^^^^^ expected named lifetime parameter
-   |
-help: consider introducing a named lifetime parameter
-   |
-65 |     type Response<'a> = HttpResponse<'a>;
-   |                  ++++               ++++
-
-error[E0106]: missing lifetime specifier
-  --> crates/monet/src/routing/router_tower_impl.rs:67:45
-   |
-67 |     type Future = std::future::Ready<Result<HttpResponse, Self::Error>>;
-   |                                             ^^^^^^^^^^^^ expected named lifetime parameter
-   |
-help: consider introducing a named lifetime parameter
-   |
-67 |     type Future<'a> = std::future::Ready<Result<HttpResponse<'a>, Self::Error>>;
-   |                ++++                                         ++++
-
-error[E0106]: missing lifetime specifier
-  --> crates/monet/src/routing/method_router.rs:40:23
-   |
-40 |     fallback: Fallback<S, E>,
-   |                       ^ expected named lifetime parameter
-   |
-help: consider introducing a named lifetime parameter
-   |
-30 ~ pub struct MethodRouter<'a, S = (), E = Infallible> {
-31 |     get: MethodEndpoint<S, E>,
-...
-39 |     connect: MethodEndpoint<S, E>,
-40 ~     fallback: Fallback<'a, S, E>,
-   |
-
-error[E0106]: missing lifetime specifier
-  --> crates/monet/src/routing/method_router.rs:85:25
-   |
-85 |         T: TowerService<HttpRequest, Error = E> + Clone + 'static,
-   |                         ^^^^^^^^^^^ expected named lifetime parameter
-   |
-   = note: for more information on higher-ranked polymorphism, visit https://doc.rust-lang.org/nomicon/hrtb.html
-help: consider making the bound lifetime-generic with a new `'a` lifetime
-   |
-85 |         T: for<'a> TowerService<HttpRequest<'a>, Error = E> + Clone + 'static,
-   |            +++++++                         ++++
-help: consider making the bound lifetime-generic with a new `'a` lifetime
-   |
-85 |         for<'a> T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'static,
-   |         +++++++                            ++++
-help: consider introducing a named lifetime parameter
-   |
-83 ~     pub fn get_service<'a, T>(mut self, svc: T) -> Self
-84 |     where
-85 ~         T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'static,
-   |
-
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/method_router.rs:228:19
+error[E0261]: use of undeclared lifetime name `'a`
+   --> crates/monet/src/routing/method_router.rs:243:35
     |
-228 |         H: Handler<X, S>,
-    |                   ^ expected named lifetime parameter
+243 | impl<S, E> Clone for MethodRouter<'a, S, E> {
+    |                                   ^^ undeclared lifetime
     |
-help: consider making the bound lifetime-generic with a new `'a` lifetime
+help: consider introducing lifetime `'a` here
     |
-228 |         H: for<'a> Handler<'a, X, S>,
-    |            +++++++         +++
-help: consider making the bound lifetime-generic with a new `'a` lifetime
-    |
-228 |         for<'a> H: Handler<'a, X, S>,
-    |         +++++++            +++
-help: consider introducing a named lifetime parameter
-    |
-226 ~     pub fn get<'a, H, X>(mut self, handler: H) -> Self
-227 |     where
-228 ~         H: Handler<'a, X, S>,
-    |
-
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/method_router.rs:261:32
-    |
-261 |     BoxedHandler(BoxedIntoRoute<S, E>),
-    |                                ^ expected named lifetime parameter
-    |
-help: consider introducing a named lifetime parameter
-    |
-260 ~ enum MethodEndpoint<'a, S, E> {
-261 ~     BoxedHandler(BoxedIntoRoute<'a, S, E>),
-    |
-
-error[E0106]: missing lifetime specifier
-   --> crates/monet/src/routing/method_router.rs:262:16
-    |
-262 |     Route(Route<E>),
-    |                ^ expected named lifetime parameter
-    |
-help: consider introducing a named lifetime parameter
-    |
-260 ~ enum MethodEndpoint<'a, S, E> {
-261 |     BoxedHandler(BoxedIntoRoute<S, E>),
-262 ~     Route(Route<'a, E>),
-    |
+243 | impl<'a, S, E> Clone for MethodRouter<'a, S, E> {
+    |      +++
 
 error[E0405]: cannot find trait `Future` in `H`
   --> crates/monet/src/handler_tower_impl.rs:28:40
@@ -198,22 +38,41 @@ error[E0782]: expected a type, found a trait
 28 |     type Future = IntoServiceFuture<H::Future + 'a>;
    |                                     ^^^^^^^^^^^^^^
 
-error: lifetime may not live long enough
-   --> crates/monet/src/routing/router.rs:237:17
-    |
- 41 | impl<'a, S> Router<'a, S>
-    |      -- lifetime `'a` defined here
-...
-210 |         &self,
-    |         - let's call the lifetime of this reference `'1`
-...
-237 |                 self.catch_all_fallback.clone().call_with_state(req, state)
-    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method was supposed to return data with lifetime `'a` but it is returning data with lifetime `'1`
-    |
-    = note: requirement occurs because of the type `RouteFuture<'_, Infallible>`, which makes the generic argument `'_` invariant
-    = note: the struct `RouteFuture<'a, E>` is invariant over the parameter `'a`
-    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+error[E0207]: the lifetime parameter `'a` is not constrained by the impl trait, self type, or predicates
+  --> crates/monet/src/routing/router_tower_impl.rs:61:6
+   |
+61 | impl<'a, B> TowerService<HttpRequest<'a, B>> for NotFound
+   |      ^^ unconstrained lifetime parameter
 
-Some errors have detailed explanations: E0106, E0405, E0726, E0782.
-For more information about an error, try `rustc --explain E0106`.
-error: could not compile `monet` (lib) due to 16 previous errors
+error: lifetime may not live long enough
+  --> crates/monet/src/routing/router.rs:50:33
+   |
+41 | impl<'a, S> Router<'a, S>
+   |      -- lifetime `'a` defined here
+...
+50 |             catch_all_fallback: Fallback::Default(Route::new(NotFound)),
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this usage requires that `'a` must outlive `'static`
+   |
+   = note: requirement occurs because of the type `Fallback<'_, S>`, which makes the generic argument `'_` invariant
+   = note: the enum `Fallback<'a, S, E>` is invariant over the parameter `'a`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> crates/monet/src/routing/router_tower_impl.rs:57:9
+   |
+34 | impl<'a, B> TowerService<HttpRequest<'a, B>> for Router<'a, ()>
+   |      -- lifetime `'a` defined here
+...
+55 |     fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
+   |             - let's call the lifetime of this reference `'1`
+56 |         let req = req.map(Body::new);
+57 |         self.call_with_state(req, ())
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method was supposed to return data with lifetime `'a` but it is returning data with lifetime `'1`
+   |
+   = note: requirement occurs because of the type `RouteFuture<'_, Infallible>`, which makes the generic argument `'_` invariant
+   = note: the struct `RouteFuture<'a, E>` is invariant over the parameter `'a`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+Some errors have detailed explanations: E0207, E0261, E0405, E0782.
+For more information about an error, try `rustc --explain E0207`.
+error: could not compile `monet` (lib) due to 6 previous errors

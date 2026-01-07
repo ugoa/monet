@@ -40,7 +40,7 @@ pub(super) struct NotFound;
 
 impl<'a, S> Router<'a, S>
 where
-    S: Clone + 'static,
+    S: Clone + 'a,
 {
     pub fn new() -> Self {
         Self {
@@ -192,7 +192,7 @@ where
             .into_iter()
             .map(|endpoint| match endpoint {
                 Endpoint::MethodRouter(method_router) => {
-                    Endpoint::MethodRouter(method_router.with_state(state.clone()))
+                    Endpoint::MethodRouter(method_router.with_state(&state.clone()))
                 }
                 Endpoint::Route(route) => Endpoint::Route(route),
             })
@@ -202,7 +202,7 @@ where
             routes,
             node: self.node,
             default_fallback: self.default_fallback,
-            catch_all_fallback: self.catch_all_fallback.with_state(state),
+            catch_all_fallback: self.catch_all_fallback.with_state(&state),
         }
     }
 
@@ -242,7 +242,7 @@ where
 
 #[allow(clippy::large_enum_variant)]
 pub enum Endpoint<'a, S> {
-    MethodRouter(MethodRouter<S>),
+    MethodRouter(MethodRouter<'a, S>),
     Route(Route<'a>),
 }
 
@@ -354,7 +354,7 @@ impl<S, E> fmt::Debug for Fallback<'_, S, E> {
 
 impl<'a, S, E> Fallback<'a, S, E>
 where
-    S: Clone,
+    S: Clone + 'a,
 {
     pub fn merge(self, other: Self) -> Option<Self> {
         match (self, other) {
@@ -380,11 +380,11 @@ where
     //     }
     // }
 
-    pub fn with_state<S2>(self, state: S) -> Fallback<'a, S2, E> {
+    pub fn with_state<S2>(self, state: &S) -> Fallback<'a, S2, E> {
         match self {
             Self::Default(route) => Fallback::Default(route),
             Self::Service(route) => Fallback::Service(route),
-            Self::BoxedHandler(handler) => Fallback::Service(handler.into_route(state)),
+            Self::BoxedHandler(handler) => Fallback::Service(handler.into_route(state.clone())),
         }
     }
 
