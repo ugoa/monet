@@ -10,7 +10,7 @@ use tower::{Layer, service_fn};
 
 pub fn get<'a, H, X, S>(handler: H) -> MethodRouter<'a, S, Infallible>
 where
-    H: Handler<'a, X, S>,
+    H: Handler<'a, X, S> + 'a,
     X: 'a,
     S: Clone + 'a,
 {
@@ -111,7 +111,7 @@ where
         }
     }
 
-    pub fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(&self, req: HttpRequest<'a>, state: S) -> RouteFuture<E> {
         let call_branches = [
             (Method::HEAD, &self.head),
             (Method::HEAD, &self.get),
@@ -225,7 +225,7 @@ where
 {
     pub fn get<H, X>(mut self, handler: H) -> Self
     where
-        H: Handler<'a, X, S>,
+        H: Handler<'a, X, S> + 'a,
         X: 'a,
         S: 'a,
     {
@@ -240,7 +240,7 @@ where
     }
 }
 
-impl<S, E> Clone for MethodRouter<'a, S, E> {
+impl<S, E> Clone for MethodRouter<'_, S, E> {
     fn clone(&self) -> Self {
         Self {
             get: self.get.clone(),
@@ -295,7 +295,7 @@ where
     //     }
     // }
 
-    fn with_state<S2>(self, state: &S) -> MethodEndpoint<S2, E> {
+    fn with_state<S2>(self, state: &'a S) -> MethodEndpoint<S2, E> {
         match self {
             Self::None => MethodEndpoint::None,
             Self::Route(route) => MethodEndpoint::Route(route),
