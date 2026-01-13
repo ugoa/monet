@@ -2,7 +2,8 @@
 resolver = "3"
 
 members = [
-  "crates/monet",
+  # "crates/monet",
+  "crates/gogh",
   "examples/*",
   "crates/monoio",
   "crates/monoio-compat",
