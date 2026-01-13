@@ -106,7 +106,7 @@ where
     S::Response: IntoResponse + 'a,
     S::Future: 'a,
 {
-    type Response = HttpResponse<'a>;
+    type Response = HttpResponse;
     type Error = S::Error;
     type Future = MapIntoResponseFuture<'a, S::Future>;
 
@@ -135,7 +135,7 @@ where
     F: Future<Output = Result<T, E>> + 'a,
     T: IntoResponse,
 {
-    type Output = Result<HttpResponse<'a>, E>;
+    type Output = Result<HttpResponse, E>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let res = ready!(self.project().inner.poll(cx)?);
@@ -149,7 +149,7 @@ pin_project! {
     /// Response future for [`Route`].
     pub struct RouteFuture<'a, E> {
         #[pin]
-        inner: Oneshot<LocalBoxCloneService<'a, HttpRequest<'a>,HttpResponse<'a>,E> , HttpRequest<'a>>,
+        inner: Oneshot<LocalBoxCloneService<'a, HttpRequest, HttpResponse, E> , HttpRequest>,
         method: Method,
     }
 }

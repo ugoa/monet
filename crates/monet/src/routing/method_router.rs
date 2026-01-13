@@ -111,7 +111,7 @@ where
         }
     }
 
-    pub fn call_with_state(&self, req: HttpRequest<'a>, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<E> {
         let call_branches = [
             (Method::HEAD, &self.head),
             (Method::HEAD, &self.get),

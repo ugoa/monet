@@ -6,14 +6,12 @@ use crate::{
 use std::convert::Infallible;
 use tower::{ServiceExt, util::MapErrLayer};
 
-pub struct Route<'a, E = Infallible>(
-    LocalBoxCloneService<'a, HttpRequest<'a>, HttpResponse<'a>, E>,
-);
+pub struct Route<'a, E = Infallible>(LocalBoxCloneService<'a, HttpRequest, HttpResponse, E>);
 
 impl<'a, E> Route<'a, E> {
     pub fn new<T>(svc: T) -> Self
     where
-        T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'a,
+        T: TowerService<HttpRequest, Error = E> + Clone + 'a,
         T::Response: IntoResponse + 'a,
         T::Future: 'a,
     {
@@ -21,17 +19,17 @@ impl<'a, E> Route<'a, E> {
     }
 
     /// Variant of [`Route::call`] that takes ownership of the route to avoid cloning.
-    pub(crate) fn call_owned(self, req: HttpRequest<'a>) -> RouteFuture<'a, E> {
+    pub(crate) fn call_owned(self, req: HttpRequest) -> RouteFuture<'a, E> {
         self.oneshot_inner(req.map(Body::new))
     }
 
-    pub fn oneshot_inner(&self, req: HttpRequest<'a>) -> RouteFuture<'a, E> {
+    pub fn oneshot_inner(&self, req: HttpRequest) -> RouteFuture<'a, E> {
         let method = req.method().clone();
         RouteFuture::new(method, self.0.clone().oneshot(req))
     }
 
     /// Variant of [`Route::oneshot_inner`] that takes ownership of the route to avoid cloning.
-    pub(crate) fn oneshot_inner_owned(self, req: HttpRequest<'a>) -> RouteFuture<'a, E> {
+    pub(crate) fn oneshot_inner_owned(self, req: HttpRequest) -> RouteFuture<'a, E> {
         let method = req.method().clone();
         RouteFuture::new(method, self.0.oneshot(req))
     }

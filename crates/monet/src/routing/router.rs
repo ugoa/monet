@@ -384,7 +384,7 @@ where
         }
     }
 
-    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<'a, E> {
         match self {
             Self::Default(route) | Self::Service(route) => route.oneshot_inner(req),
             Self::BoxedHandler(handler) => {
