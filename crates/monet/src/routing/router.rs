@@ -206,11 +206,7 @@ where
         }
     }
 
-    pub(crate) fn call_with_state(
-        &self,
-        req: HttpRequest<'a>,
-        state: S,
-    ) -> RouteFuture<Infallible> {
+    pub(crate) fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<Infallible> {
         let (mut parts, body) = req.into_parts();
 
         println!("{:?}", &self);
@@ -388,7 +384,7 @@ where
         }
     }
 
-    pub fn call_with_state(self, req: HttpRequest<'a>, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<E> {
         match self {
             Self::Default(route) | Self::Service(route) => route.oneshot_inner(req),
             Self::BoxedHandler(handler) => {

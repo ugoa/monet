@@ -82,7 +82,7 @@ where
     #[track_caller]
     pub fn get_service<T>(mut self, svc: T) -> Self
     where
-        T: TowerService<HttpRequest<'a>, Error = E> + Clone + 'a,
+        T: TowerService<HttpRequest, Error = E> + Clone + 'a,
         T::Response: IntoResponse + 'a,
         T::Future: 'a,
     {

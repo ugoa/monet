@@ -74,9 +74,7 @@ pub fn serve<'a, L, M, S, B>(listener: L, make_service: M) -> Serve<'a, L, M, S,
 where
     L: Listener,
     M: for<'b> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<HttpRequest<'a>, Response = HttpResponse<'a, B>, Error = Infallible>
-        + Clone
-        + 'a,
+    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -100,9 +98,7 @@ where
     L: Listener,
     L::Addr: Debug,
     M: for<'b> TowerService<IncomingStream<'b, L>, Response = S, Error = Infallible>,
-    S: TowerService<HttpRequest<'a>, Response = HttpResponse<'a, B>, Error = Infallible>
-        + Clone
-        + 'a,
+    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {
@@ -154,9 +150,7 @@ where
     L: Listener,
     L::Addr: std::fmt::Debug,
     M: for<'b> TowerService<IncomingStream<'b, L>, Response = S, Error = Infallible> + 'a,
-    S: TowerService<HttpRequest<'a>, Response = HttpResponse<'a, B>, Error = Infallible>
-        + Clone
-        + 'a,
+    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'a,
     B: HttpBody + 'static,
     B::Error: Into<BoxError>,
 {

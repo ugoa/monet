@@ -14,24 +14,24 @@ use crate::{
     response::IntoResponse,
 };
 
-impl<'a, H, X, S, B> TowerService<HttpRequest<'a, B>> for HandlerService<'a, H, X, S>
+impl<'a, H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<'a, H, X, S>
 where
-    H: Handler<'a, X, S> + Clone + 'a,
+    H: Handler<'a, X, S>,
     B: HttpBody<Data = bytes::Bytes> + 'a,
     B::Error: Into<BoxError>,
     S: Clone + 'a,
 {
-    type Response = HttpResponse<'a>;
+    type Response = HttpResponse;
 
     type Error = Infallible;
 
-    type Future = IntoServiceFuture<H::Future + 'a>;
+    type Future = IntoServiceFuture<H::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: HttpRequest<'a, B>) -> Self::Future {
+    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
         use futures_util::future::FutureExt;
         let req = req.map(Body::new);
         let handler = self.handler.clone();

@@ -31,12 +31,12 @@ where
     }
 }
 
-impl<'a, B> TowerService<HttpRequest<'a, B>> for Router<'a, ()>
+impl<'a, B> TowerService<HttpRequest<B>> for Router<'a, ()>
 where
     B: HttpBody<Data = bytes::Bytes> + 'a,
     B::Error: Into<BoxError>,
 {
-    type Response = HttpResponse<'a>;
+    type Response = HttpResponse;
 
     type Error = Infallible;
 
@@ -58,13 +58,13 @@ where
     }
 }
 
-impl<'a, B> TowerService<HttpRequest<'a, B>> for NotFound
+impl<'a, B> TowerService<HttpRequest<B>> for NotFound
 where
     B: 'a,
 {
-    type Response = HttpResponse<'a>;
+    type Response = HttpResponse;
     type Error = Infallible;
-    type Future = std::future::Ready<Result<HttpResponse<'a>, Self::Error>>;
+    type Future = std::future::Ready<Result<HttpResponse, Self::Error>>;
 
     #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

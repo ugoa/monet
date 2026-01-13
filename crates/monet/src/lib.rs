@@ -28,8 +28,8 @@ pub(crate) mod prelude {
     pub use std::fmt;
 }
 
-pub type HttpRequest<'a, T = Body<'a>> = http::Request<T>;
-pub type HttpResponse<'a, T = Body<'a>> = http::Response<T>;
+pub type HttpRequest<T = Body<'static>> = http::Request<T>;
+pub type HttpResponse<T = Body<'static>> = http::Response<T>;
 pub use tower::Layer as TowerLayer;
 pub use tower::Service as TowerService;
 

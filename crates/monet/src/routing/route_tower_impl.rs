@@ -154,12 +154,12 @@ pin_project! {
     }
 }
 
-impl<'a, B, E> TowerService<HttpRequest<'a, B>> for Route<'a, E>
+impl<'a, B, E> TowerService<HttpRequest<B>> for Route<'a, E>
 where
     B: HttpBody<Data = bytes::Bytes> + 'a,
     B::Error: Into<BoxError>,
 {
-    type Response = HttpResponse<'a>;
+    type Response = HttpResponse;
     type Error = E;
     type Future = RouteFuture<'a, E>;
 
@@ -169,7 +169,7 @@ where
     }
 
     #[inline]
-    fn call(&mut self, req: HttpRequest<'a, B>) -> Self::Future {
+    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
         self.oneshot_inner(req.map(Body::new))
     }
 }
@@ -177,17 +177,14 @@ where
 impl<'a, E> RouteFuture<'a, E> {
     pub fn new(
         method: Method,
-        inner: Oneshot<
-            LocalBoxCloneService<'a, HttpRequest<'a>, HttpResponse<'a>, E>,
-            HttpRequest<'a>,
-        >,
+        inner: Oneshot<LocalBoxCloneService<'a, HttpRequest, HttpResponse, E>, HttpRequest>,
     ) -> Self {
         Self { inner, method }
     }
 }
 
 impl<'a, E> Future for RouteFuture<'a, E> {
-    type Output = Result<HttpResponse<'a>, E>;
+    type Output = Result<HttpResponse, E>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();

@@ -7,9 +7,9 @@ use std::pin::Pin;
 
 // X for Extractor
 pub trait Handler<'a, X, S>: Clone + Sized {
-    type Future: Future<Output = HttpResponse<'a>> + 'a;
+    type Future: Future<Output = HttpResponse> + 'a;
 
-    fn call(self, req: HttpRequest<'a>, state: S) -> Self::Future;
+    fn call(self, req: HttpRequest, state: S) -> Self::Future;
 
     fn to_service(self, state: S) -> HandlerService<'a, Self, X, S> {
         HandlerService::new(self, state)
@@ -36,7 +36,7 @@ where
     Fut: Future<Output = Res>,
     Res: IntoResponse,
 {
-    type Future = Pin<Box<dyn Future<Output = HttpResponse<'a>> + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = HttpResponse> + 'a>>;
 
     fn call(self, _req: HttpRequest, _state: S) -> Self::Future {
         Box::pin(async move { self().await.into_response() })
@@ -54,9 +54,9 @@ where
     T2: FromRequestParts<S>,
     T3: FromRequest<S, M>,
 {
-    type Future = Pin<Box<dyn Future<Output = HttpResponse<'a>> + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = HttpResponse> + 'a>>;
 
-    fn call(self, req: HttpRequest<'a>, state: S) -> Self::Future {
+    fn call(self, req: HttpRequest, state: S) -> Self::Future {
         let (mut parts, body) = req.into_parts();
         Box::pin(async move {
             let T1 = match T1::from_request_parts(&mut parts, &state).await {
@@ -67,7 +67,7 @@ where
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
             };
-            let req = HttpRequest::<'a>::from_parts(parts, body);
+            let req = HttpRequest::from_parts(parts, body);
             let T3 = match T3::from_request(req, &state).await {
                 Ok(value) => value,
                 Err(rejection) => return rejection.into_response(),
