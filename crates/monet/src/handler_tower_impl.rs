@@ -17,7 +17,7 @@ use crate::{
 impl<'a, H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<'a, H, X, S>
 where
     H: Handler<'a, X, S>,
-    B: HttpBody<Data = bytes::Bytes> + 'a,
+    B: HttpBody<Data = bytes::Bytes> + 'static,
     B::Error: Into<BoxError>,
     S: Clone + 'a,
 {
