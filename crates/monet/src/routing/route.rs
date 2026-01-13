@@ -146,7 +146,8 @@ where
     {
         let svc_fn = |handler, state| {
             let svc = HandlerService::new(handler, state);
-            let lbcs = LocalBoxCloneService::new(svc);
+            let resp_map = MapIntoResponse::new(svc);
+            let lbcs = LocalBoxCloneService::new(resp_map);
             Route(lbcs)
         };
         let erased = ErasedHandler {
