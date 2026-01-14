@@ -96,17 +96,17 @@ where
         self
     }
 
-    pub fn with_state<S2>(self, state: S) -> MethodRouter<S2, E> {
+    pub fn into_route<S2>(self, state: S) -> MethodRouter<S2, E> {
         MethodRouter {
-            get: self.get.with_state(&state),
-            head: self.head.with_state(&state),
-            delete: self.delete.with_state(&state),
-            options: self.options.with_state(&state),
-            patch: self.patch.with_state(&state),
-            post: self.post.with_state(&state),
-            put: self.put.with_state(&state),
-            trace: self.trace.with_state(&state),
-            connect: self.connect.with_state(&state),
+            get: self.get.into_route(&state),
+            head: self.head.into_route(&state),
+            delete: self.delete.into_route(&state),
+            options: self.options.into_route(&state),
+            patch: self.patch.into_route(&state),
+            post: self.post.into_route(&state),
+            put: self.put.into_route(&state),
+            trace: self.trace.into_route(&state),
+            connect: self.connect.into_route(&state),
             fallback: self.fallback.with_state(state),
         }
     }
@@ -295,7 +295,7 @@ where
         }
     }
 
-    fn with_state<S2>(self, state: &S) -> MethodEndpoint<S2, E> {
+    fn into_route<S2>(self, state: &S) -> MethodEndpoint<S2, E> {
         match self {
             Self::None => MethodEndpoint::None,
             Self::Route(route) => MethodEndpoint::Route(route),

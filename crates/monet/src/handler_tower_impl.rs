@@ -10,6 +10,7 @@ use crate::{
     Body, BoxError, HttpBody, HttpRequest, HttpResponse, TowerService,
     extract::{FromRequest, FromRequestParts},
     handler::{Handler, HandlerService},
+    handler_future::IntoServiceFuture,
     opaque_future,
     response::IntoResponse,
 };
@@ -42,13 +43,4 @@ where
 
         IntoServiceFuture::new(future)
     }
-}
-
-opaque_future! {
-    /// The response future for [`IntoService`](super::IntoService).
-    pub type IntoServiceFuture<F> =
-        Map<
-            F,
-            fn(HttpResponse) -> Result<HttpResponse, Infallible>,
-        >;
 }

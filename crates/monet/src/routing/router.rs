@@ -192,7 +192,7 @@ where
             .into_iter()
             .map(|endpoint| match endpoint {
                 Endpoint::MethodRouter(method_router) => {
-                    Endpoint::MethodRouter(method_router.with_state(state.clone()))
+                    Endpoint::MethodRouter(method_router.into_route(state.clone()))
                 }
                 Endpoint::Route(route) => Endpoint::Route(route),
             })

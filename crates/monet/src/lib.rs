@@ -14,6 +14,7 @@ use std::task::{Context, Poll};
 
 pub mod extract;
 pub mod handler;
+pub mod handler_future;
 pub mod handler_tower_impl;
 pub mod response;
 pub mod routing;
