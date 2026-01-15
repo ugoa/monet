@@ -10,11 +10,17 @@ use futures::future::Map;
 use pin_project_lite::pin_project;
 use std::future::Future;
 
-pin_project! {
-    pub struct IntoServiceFuture<F> {
-        #[pin]
-        future: Map<F, fn(HttpResponse) -> Result<HttpResponse, Infallible>>,
-    }
+// pin_project! {
+//     pub struct IntoServiceFuture<F> {
+//         #[pin]
+//         future: Map<F, fn(HttpResponse) -> Result<HttpResponse, Infallible>>,
+//     }
+// }
+
+#[pin_project::pin_project]
+pub struct IntoServiceFuture<F> {
+    #[pin]
+    future: Map<F, fn(HttpResponse) -> Result<HttpResponse, Infallible>>,
 }
 
 impl<F> IntoServiceFuture<F> {

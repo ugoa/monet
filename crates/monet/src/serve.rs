@@ -153,7 +153,7 @@ where
 {
     type Output = std::io::Result<()>;
 
-    type IntoFuture = ServeFuture;
+    type IntoFuture = ServeFuture<'static>;
 
     fn into_future(self) -> Self::IntoFuture {
         ServeFuture(Box::pin(async move { self.run().await }))
@@ -167,9 +167,9 @@ use std::{
     task::{Context, Poll},
 };
 
-pub struct ServeFuture(futures_core::future::LocalBoxFuture<'static, io::Result<()>>);
+pub struct ServeFuture<'a>(futures_core::future::LocalBoxFuture<'a, io::Result<()>>);
 
-impl Future for ServeFuture {
+impl<'a> Future for ServeFuture<'a> {
     type Output = io::Result<()>;
 
     #[inline]
@@ -178,7 +178,7 @@ impl Future for ServeFuture {
     }
 }
 
-impl std::fmt::Debug for ServeFuture {
+impl std::fmt::Debug for ServeFuture<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ServeFuture").finish_non_exhaustive()
     }

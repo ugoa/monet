@@ -743,6 +743,7 @@ dependencies = [
  "matchit",
  "mondayio",
  "mondayio-compat",
+ "pin-project 1.1.10",
  "pin-project-lite",
  "serde",
  "serde_core",
