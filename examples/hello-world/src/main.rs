@@ -10,7 +10,7 @@ use hyper::{Method, StatusCode};
 use hyper::{server::conn::http1, service::service_fn};
 use monoio::net::TcpListener;
 
-use monet::{HttpResponse, MapResponseLayer, Router, State, extract::query::Query, get};
+use monet::{HttpResponse, MapResponseLayer, Router, extract::query::Query, get};
 
 #[derive(Clone, Debug)]
 struct AppState {
@@ -66,13 +66,13 @@ async fn dont_worry() -> &'static str {
 
 async fn sub(
     Query(q): Query<DummyParams>,
-    State(app_state): State<AppState>,
+    // State(app_state): State<AppState>,
     m: http::Method,
     path: http::Uri,
 ) -> String {
     format!(
-        "You `{:?}` query at path `{:?}` has param {:?}, with state {:?}\n",
-        m, path, q, app_state
+        "You `{:?}` query at path `{:?}` has param {:?}, with state later\n",
+        m, path, q,
     )
 }
 
@@ -109,11 +109,11 @@ async fn main() {
         .route("/sub", get(sub))
         .merge(user_routes)
         .merge(team_routes)
-        .fallback(dont_worry)
-        // .layer(dummy_middleware)
-        .with_state(AppState {
-            data: "no arc".to_string(),
-        });
+        .fallback(dont_worry);
+    // .layer(dummy_middleware)
+    // .with_state(AppState {
+    //     data: "no arc".to_string(),
+    // });
     monet::serve(listener, app).await;
 }
 

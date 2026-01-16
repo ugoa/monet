@@ -186,26 +186,6 @@ where
         self
     }
 
-    pub fn with_state<S2>(mut self, state: S) -> Router<S2> {
-        let routes = self
-            .routes
-            .into_iter()
-            .map(|endpoint| match endpoint {
-                Endpoint::MethodRouter(method_router) => {
-                    Endpoint::MethodRouter(method_router.with_state(state.clone()))
-                }
-                Endpoint::Route(route) => Endpoint::Route(route),
-            })
-            .collect();
-
-        Router {
-            routes,
-            node: self.node,
-            default_fallback: self.default_fallback,
-            catch_all_fallback: self.catch_all_fallback.with_state(state),
-        }
-    }
-
     pub(crate) fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<Infallible> {
         let (mut parts, body) = req.into_parts();
 

@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use crate::{HttpRequest, response::IntoResponse};
 use http::{Method, Uri, request::Parts};
 
-pub mod state;
+// pub mod state;
 
 pub mod query;
 
@@ -13,76 +13,70 @@ pub enum ViaParts {}
 #[derive(Debug, Clone, Copy)]
 pub enum ViaRequest {}
 
-pub trait FromRequest<S, M = ViaRequest>: Sized {
+pub trait FromRequest<M = ViaRequest>: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection>;
+    async fn from_request(req: HttpRequest) -> Result<Self, Self::Rejection>;
 }
 
-impl<S, T> FromRequest<S, ViaParts> for T
+impl<T> FromRequest<ViaParts> for T
 where
-    T: FromRequestParts<S>,
+    T: FromRequestParts,
 {
-    type Rejection = <Self as FromRequestParts<S>>::Rejection;
+    type Rejection = <Self as FromRequestParts>::Rejection;
 
-    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: HttpRequest) -> Result<Self, Self::Rejection> {
         let (mut parts, _) = req.into_parts();
-        Self::from_request_parts(&mut parts, state).await
+        Self::from_request_parts(&mut parts).await
     }
 }
 
-impl<S, T> FromRequest<S> for Result<T, T::Rejection>
+impl<T> FromRequest for Result<T, T::Rejection>
 where
-    T: FromRequest<S>,
+    T: FromRequest,
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: HttpRequest, state: &S) -> Result<Self, Self::Rejection> {
-        Ok(T::from_request(req, state).await)
+    async fn from_request(req: HttpRequest) -> Result<Self, Self::Rejection> {
+        Ok(T::from_request(req).await)
     }
 }
 
-pub trait FromRequestParts<S>: Sized {
+pub trait FromRequestParts: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection>;
+    async fn from_request_parts(parts: &mut Parts) -> Result<Self, Self::Rejection>;
 }
 
-impl<S, T> FromRequestParts<S> for Result<T, T::Rejection>
+impl<T> FromRequestParts for Result<T, T::Rejection>
 where
-    T: FromRequestParts<S>,
+    T: FromRequestParts,
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        Ok(T::from_request_parts(parts, state).await)
+    async fn from_request_parts(parts: &mut Parts) -> Result<Self, Self::Rejection> {
+        Ok(T::from_request_parts(parts).await)
     }
 }
 
-impl<S> FromRequestParts<S> for Method
-where
-    S: Send + Sync,
-{
+impl FromRequestParts for Method {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts) -> Result<Self, Self::Rejection> {
         Ok(parts.method.clone())
     }
 }
 
-impl<S> FromRequestParts<S> for Uri
-where
-    S: Send + Sync,
-{
+impl FromRequestParts for Uri {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts) -> Result<Self, Self::Rejection> {
         Ok(parts.uri.clone())
     }
 }

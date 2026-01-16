@@ -54,8 +54,8 @@ macro_rules! impl_handler {
             Fut: Future<Output = Res>,
             S: 'static,
             Res: IntoResponse,
-            $( $ty: FromRequestParts<S>, )*
-            $last: FromRequest<S, M>,
+            $( $ty: FromRequestParts, )*
+            $last: FromRequest<M>,
         {
             type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
 
@@ -63,7 +63,7 @@ macro_rules! impl_handler {
                 let (mut parts, body) = req.into_parts();
                 Box::pin(async move {
                     $(
-                        let $ty = match $ty::from_request_parts(&mut parts, &state).await {
+                        let $ty = match $ty::from_request_parts(&mut parts).await {
                             Ok(value) => value,
                             Err(rejection) => return rejection.into_response(),
                         };
@@ -71,7 +71,7 @@ macro_rules! impl_handler {
 
                     let req = HttpRequest::from_parts(parts, body);
 
-                    let $last = match $last::from_request(req, &state).await {
+                    let $last = match $last::from_request(req).await {
                         Ok(value) => value,
                         Err(rejection) => return rejection.into_response(),
                     };
@@ -86,9 +86,9 @@ macro_rules! impl_handler {
 #[rustfmt::skip]
 macro_rules! all_the_tuples {
     ($name:ident) => {
-        // $name!([], T1);
-        // $name!([T1], T2);
-        // $name!([T1, T2], T3);
+        $name!([], T1);
+        $name!([T1], T2);
+        $name!([T1, T2], T3);
         $name!([T1, T2, T3], T4);
         $name!([T1, T2, T3, T4], T5);
         $name!([T1, T2, T3, T4, T5], T6);
@@ -106,88 +106,6 @@ macro_rules! all_the_tuples {
 }
 
 all_the_tuples!(impl_handler);
-
-#[allow(non_snake_case, unused_mut)]
-impl<F, Fut, S, Res, M, T1> Handler<(M, T1), S> for F
-where
-    F: FnOnce(T1) -> Fut + Clone + 'static,
-    Fut: Future<Output = Res>,
-    S: 'static,
-    Res: IntoResponse,
-    T1: FromRequest<S, M>,
-{
-    type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
-    fn call(self, req: HttpRequest, state: S) -> Self::Future {
-        let (mut parts, body) = req.into_parts();
-        Box::pin(async move {
-            let req = HttpRequest::from_parts(parts, body);
-            let T1 = match T1::from_request(req, &state).await {
-                Ok(value) => value,
-                Err(rejection) => return rejection.into_response(),
-            };
-            self(T1).await.into_response()
-        })
-    }
-}
-#[allow(non_snake_case, unused_mut)]
-impl<F, Fut, S, Res, M, T1, T2> Handler<(M, T1, T2), S> for F
-where
-    F: FnOnce(T1, T2) -> Fut + Clone + 'static,
-    Fut: Future<Output = Res>,
-    S: 'static,
-    Res: IntoResponse,
-    T1: FromRequestParts<S>,
-    T2: FromRequest<S, M>,
-{
-    type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
-    fn call(self, req: HttpRequest, state: S) -> Self::Future {
-        let (mut parts, body) = req.into_parts();
-        Box::pin(async move {
-            let T1 = match T1::from_request_parts(&mut parts, &state).await {
-                Ok(value) => value,
-                Err(rejection) => return rejection.into_response(),
-            };
-            let req = HttpRequest::from_parts(parts, body);
-            let T2 = match T2::from_request(req, &state).await {
-                Ok(value) => value,
-                Err(rejection) => return rejection.into_response(),
-            };
-            self(T1, T2).await.into_response()
-        })
-    }
-}
-#[allow(non_snake_case, unused_mut)]
-impl<F, Fut, S, Res, M, T1, T2, T3> Handler<(M, T1, T2, T3), S> for F
-where
-    F: FnOnce(T1, T2, T3) -> Fut + Clone + 'static,
-    Fut: Future<Output = Res>,
-    S: 'static,
-    Res: IntoResponse,
-    T1: FromRequestParts<S>,
-    T2: FromRequestParts<S>,
-    T3: FromRequest<S, M>,
-{
-    type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
-    fn call(self, req: HttpRequest, state: S) -> Self::Future {
-        let (mut parts, body) = req.into_parts();
-        Box::pin(async move {
-            let T1 = match T1::from_request_parts(&mut parts, &state).await {
-                Ok(value) => value,
-                Err(rejection) => return rejection.into_response(),
-            };
-            let T2 = match T2::from_request_parts(&mut parts, &state).await {
-                Ok(value) => value,
-                Err(rejection) => return rejection.into_response(),
-            };
-            let req = HttpRequest::from_parts(parts, body);
-            let T3 = match T3::from_request(req, &state).await {
-                Ok(value) => value,
-                Err(rejection) => return rejection.into_response(),
-            };
-            self(T1, T2, T3).await.into_response()
-        })
-    }
-}
 
 use std::{fmt, marker::PhantomData};
 

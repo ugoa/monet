@@ -27,7 +27,7 @@ where
     }
 
     fn call(&mut self, req: IncomingStream<'_, L>) -> Self::Future {
-        std::future::ready(Ok(self.clone().with_state(())))
+        std::future::ready(Ok(self.clone()))
     }
 }
 
