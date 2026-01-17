@@ -319,10 +319,9 @@ impl<E> fmt::Debug for Fallback<E> {
 impl<E> Fallback<E> {
     pub fn merge(self, other: Self) -> Option<Self> {
         match (self, other) {
-            // If either are `Default`, return the opposite one.
+            // If either are `Default`, return the other one, otherwise return None
             (Self::Default(_), pick) => Some(pick),
             (pick, Self::Default(_)) => Some(pick),
-            // Otherwise, return None
             _ => None,
         }
     }
