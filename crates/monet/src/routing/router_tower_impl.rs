@@ -12,7 +12,7 @@ use std::{
     task::{Context, Poll},
 };
 
-impl<L> TowerService<IncomingStream<'_, L>> for Router<()>
+impl<L> TowerService<IncomingStream<'_, L>> for Router
 where
     L: Listener,
 {
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<B> TowerService<HttpRequest<B>> for Router<()>
+impl<B> TowerService<HttpRequest<B>> for Router
 where
     B: HttpBody<Data = bytes::Bytes> + 'static,
     B::Error: Into<BoxError>,
@@ -48,7 +48,7 @@ where
 
     fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
         let req = req.map(Body::new);
-        self.call_with_state(req, ())
+        self.call_with_state(req)
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::handler::HandlerService;
 use crate::prelude::*;
 use crate::routing::method_router::MethodRouter;
 use crate::routing::route_tower_impl::RouteFuture;
@@ -8,14 +9,14 @@ use std::{collections::HashMap, convert::Infallible};
 
 #[must_use]
 #[derive(Clone)]
-pub struct Router<S = ()> {
-    pub routes: Vec<Endpoint<S>>,
+pub struct Router {
+    pub routes: Vec<Endpoint>,
     pub node: Node,
     pub default_fallback: bool,
-    pub catch_all_fallback: Fallback<S>,
+    pub catch_all_fallback: Fallback,
 }
 
-impl<S> fmt::Debug for Router<S> {
+impl fmt::Debug for Router {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Router")
             .field("routes", &self.routes)
@@ -26,10 +27,7 @@ impl<S> fmt::Debug for Router<S> {
     }
 }
 
-impl<S> Default for Router<S>
-where
-    S: Clone + 'static,
-{
+impl Default for Router {
     fn default() -> Self {
         Self::new()
     }
@@ -38,10 +36,7 @@ where
 #[derive(Clone, Copy, Debug)]
 pub(super) struct NotFound;
 
-impl<S> Router<S>
-where
-    S: Clone + 'static,
-{
+impl Router {
     pub fn new() -> Self {
         Self {
             routes: Default::default(),
@@ -51,11 +46,11 @@ where
         }
     }
 
-    pub fn chain(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
+    pub fn chain(mut self, path: &str, method_router: MethodRouter) -> Self {
         todo!()
     }
 
-    pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
+    pub fn route(mut self, path: &str, method_router: MethodRouter) -> Self {
         match (self.process_route(path, method_router)) {
             Ok(x) => x,
             Err(err) => {
@@ -66,14 +61,15 @@ where
         self
     }
 
-    fn process_route(&mut self, path: &str, method_router: MethodRouter<S>) -> Result<(), String> {
+    fn process_route(&mut self, path: &str, method_router: MethodRouter) -> Result<(), String> {
         if let Some(route_id) = self.node.path_to_route_id.get(path) {
             if let Some(Endpoint::MethodRouter(prev_method_router)) = self.routes.get(route_id.0) {
                 let service = Endpoint::MethodRouter(
-                    prev_method_router
-                        .clone()
-                        .merge_for_path(Some(path), method_router)
-                        .unwrap(),
+                    todo!(), // add back later
+                             // prev_method_router
+                             //     .clone()
+                             //     .merge_for_path(Some(path), method_router)
+                             //     .unwrap(),
                 );
                 self.routes[route_id.0] = service;
             }
@@ -84,7 +80,7 @@ where
         Ok(())
     }
 
-    fn new_route(&mut self, path: &str, endpoint: Endpoint<S>) -> Result<(), String> {
+    fn new_route(&mut self, path: &str, endpoint: Endpoint) -> Result<(), String> {
         let id = RouteId(self.routes.len());
         self.set_node(path, id)?;
         self.routes.push(endpoint);
@@ -144,49 +140,49 @@ where
 
     pub fn fallback<H, T>(mut self, handler: H) -> Self
     where
-        H: Handler<T, S>,
+        H: Handler<T>,
         T: 'static,
     {
-        self.catch_all_fallback =
-            Fallback::BoxedHandler(BoxedIntoRoute::from_handler(handler.clone()));
+        self.catch_all_fallback = Fallback::Default(Route::new(HandlerService::new(handler)));
+        // Fallback::BoxedHandler(BoxedIntoRoute::from_handler(handler.clone()));
         self
     }
 
-    pub fn layer<L>(mut self, layer: L) -> Self
-    where
-        L: TowerLayer<Route> + Clone + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-    {
-        self.routes = self
-            .routes
-            .into_iter()
-            .map(|endpoint| endpoint.layer(layer.clone()))
-            .collect();
+    // pub fn layer<L>(mut self, layer: L) -> Self
+    // where
+    //     L: TowerLayer<Route> + Clone + 'static,
+    //     L::Service: TowerService<HttpRequest> + Clone + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Future: 'static,
+    // {
+    //     self.routes = self
+    //         .routes
+    //         .into_iter()
+    //         .map(|endpoint| endpoint.layer(layer.clone()))
+    //         .collect();
+    //
+    //     self.catch_all_fallback = self.catch_all_fallback.map(|route| route.layer(layer));
+    //     self
+    // }
 
-        self.catch_all_fallback = self.catch_all_fallback.map(|route| route.layer(layer));
-        self
-    }
+    // pub fn route_layer<L>(mut self, layer: L) -> Self
+    // where
+    //     L: TowerLayer<Route> + Clone + 'static,
+    //     L::Service: TowerService<HttpRequest> + Clone + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+    //     <L::Service as TowerService<HttpRequest>>::Future: 'static,
+    // {
+    //     self.routes = self
+    //         .routes
+    //         .into_iter()
+    //         .map(|endpoint| endpoint.layer(layer.clone()))
+    //         .collect();
+    //     self
+    // }
 
-    pub fn route_layer<L>(mut self, layer: L) -> Self
-    where
-        L: TowerLayer<Route> + Clone + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-    {
-        self.routes = self
-            .routes
-            .into_iter()
-            .map(|endpoint| endpoint.layer(layer.clone()))
-            .collect();
-        self
-    }
-
-    pub(crate) fn call_with_state(&self, req: HttpRequest, state: S) -> RouteFuture<Infallible> {
+    pub(crate) fn call_with_state(&self, req: HttpRequest) -> RouteFuture<Infallible> {
         let (mut parts, body) = req.into_parts();
 
         println!("{:?}", &self);
@@ -202,27 +198,25 @@ where
                 let req = HttpRequest::from_parts(parts, body);
 
                 match endpoint {
-                    Endpoint::MethodRouter(method_router) => {
-                        method_router.call_with_state(req, state)
-                    }
+                    Endpoint::MethodRouter(method_router) => method_router.call_with_state(req),
                     Endpoint::Route(route) => route.clone().call_owned(req),
                 }
             }
             Err(MatchError::NotFound) => {
                 let req = HttpRequest::from_parts(parts, body);
-                self.catch_all_fallback.clone().call_with_state(req, state)
+                self.catch_all_fallback.clone().call_with_state(req)
             }
         }
     }
 }
 
 #[allow(clippy::large_enum_variant)]
-pub enum Endpoint<S> {
-    MethodRouter(MethodRouter<S>),
+pub enum Endpoint {
+    MethodRouter(MethodRouter),
     Route(Route),
 }
 
-impl<S> fmt::Debug for Endpoint<S> {
+impl fmt::Debug for Endpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MethodRouter(method_router) => {
@@ -233,26 +227,23 @@ impl<S> fmt::Debug for Endpoint<S> {
     }
 }
 
-impl<S> Endpoint<S>
-where
-    S: Clone + 'static,
-{
-    pub fn layer<L>(self, layer: L) -> Self
-    where
-        L: TowerLayer<Route> + Clone + 'static,
-        L::Service: TowerService<HttpRequest> + Clone + 'static,
-        <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
-        <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
-        <L::Service as TowerService<HttpRequest>>::Future: 'static,
-    {
-        match self {
-            Self::Route(route) => Self::Route(route.layer(layer)),
-            Self::MethodRouter(method_router) => Self::MethodRouter(method_router.layer(layer)),
-        }
-    }
-}
+// impl Endpoint {
+//     pub fn layer<L>(self, layer: L) -> Self
+//     where
+//         L: TowerLayer<Route> + Clone + 'static,
+//         L::Service: TowerService<HttpRequest> + Clone + 'static,
+//         <L::Service as TowerService<HttpRequest>>::Response: IntoResponse + 'static,
+//         <L::Service as TowerService<HttpRequest>>::Error: Into<Infallible> + 'static,
+//         <L::Service as TowerService<HttpRequest>>::Future: 'static,
+//     {
+//         match self {
+//             Self::Route(route) => Self::Route(route.layer(layer)),
+//             Self::MethodRouter(method_router) => Self::MethodRouter(method_router.layer(layer)),
+//         }
+//     }
+// }
 
-impl<S> Clone for Endpoint<S> {
+impl Clone for Endpoint {
     fn clone(&self) -> Self {
         match self {
             Self::MethodRouter(inner) => Self::MethodRouter(inner.clone()),
@@ -303,35 +294,29 @@ impl Node {
     }
 }
 
-pub(crate) enum Fallback<S, E = Infallible> {
+pub(crate) enum Fallback<E = Infallible> {
     Default(Route<E>),
     Service(Route<E>),
-    BoxedHandler(BoxedIntoRoute<S, E>),
 }
 
-impl<S, E> Clone for Fallback<S, E> {
+impl<E> Clone for Fallback<E> {
     fn clone(&self) -> Self {
         match self {
             Self::Default(inner) => Self::Default(inner.clone()),
             Self::Service(inner) => Self::Service(inner.clone()),
-            Self::BoxedHandler(inner) => Self::BoxedHandler(inner.clone()),
         }
     }
 }
-impl<S, E> fmt::Debug for Fallback<S, E> {
+impl<E> fmt::Debug for Fallback<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Default(inner) => f.debug_tuple("Default").field(inner).finish(),
             Self::Service(inner) => f.debug_tuple("Service").field(inner).finish(),
-            Self::BoxedHandler(_) => f.debug_tuple("BoxedHandler").finish(),
         }
     }
 }
 
-impl<S, E> Fallback<S, E>
-where
-    S: Clone,
-{
+impl<E> Fallback<E> {
     pub fn merge(self, other: Self) -> Option<Self> {
         match (self, other) {
             // If either are `Default`, return the opposite one.
@@ -342,9 +327,8 @@ where
         }
     }
 
-    pub fn map<F, E2>(self, f: F) -> Fallback<S, E2>
+    pub fn map<F, E2>(self, f: F) -> Fallback<E2>
     where
-        S: 'static,
         E: 'static,
         F: FnOnce(Route<E>) -> Route<E2> + Clone + 'static,
         E2: 'static,
@@ -352,25 +336,12 @@ where
         match self {
             Self::Default(route) => Fallback::Default(f(route)),
             Self::Service(route) => Fallback::Service(f(route)),
-            Self::BoxedHandler(handler) => Fallback::BoxedHandler(handler.map(f)),
         }
     }
 
-    pub fn with_state<S2>(self, state: S) -> Fallback<S2, E> {
-        match self {
-            Self::Default(route) => Fallback::Default(route),
-            Self::Service(route) => Fallback::Service(route),
-            Self::BoxedHandler(handler) => Fallback::Service(handler.into_route(state)),
-        }
-    }
-
-    pub fn call_with_state(self, req: HttpRequest, state: S) -> RouteFuture<E> {
+    pub fn call_with_state(self, req: HttpRequest) -> RouteFuture<E> {
         match self {
             Self::Default(route) | Self::Service(route) => route.oneshot_inner(req),
-            Self::BoxedHandler(handler) => {
-                let route = handler.into_route(state);
-                route.oneshot_inner(req)
-            }
         }
     }
 }

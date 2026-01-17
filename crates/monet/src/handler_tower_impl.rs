@@ -14,12 +14,11 @@ use crate::{
     response::IntoResponse,
 };
 
-impl<H, X, S, B> TowerService<HttpRequest<B>> for HandlerService<H, X, S>
+impl<H, X, B> TowerService<HttpRequest<B>> for HandlerService<H, X>
 where
-    H: Handler<X, S> + Clone + 'static,
+    H: Handler<X> + Clone + 'static,
     B: HttpBody<Data = bytes::Bytes> + 'static,
     B::Error: Into<BoxError>,
-    S: Clone,
 {
     type Response = HttpResponse;
 
@@ -36,7 +35,7 @@ where
         let req = req.map(Body::new);
         let handler = self.handler.clone();
 
-        let future = Handler::call(handler, req, self.state.clone());
+        let future = Handler::call(handler, req);
 
         let future = future.map(Ok as _);
 

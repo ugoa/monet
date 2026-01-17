@@ -1,33 +1,111 @@
-use crate::handler::Handler;
+use crate::handler::{Handler, HandlerService};
 use crate::prelude::*;
 use crate::routing::method_filter::MethodFilter;
 use crate::routing::route::{BoxedIntoRoute, ErasedIntoRoute, Route};
 use crate::routing::route_tower_impl::RouteFuture;
 use crate::routing::router::Fallback;
 use http::{Method, StatusCode};
+use std::collections::HashMap;
 use std::convert::Infallible;
 use tower::{Layer, service_fn};
 
-pub fn get<H, X, S>(handler: H) -> MethodRouter<S, Infallible>
+pub fn get<H, X>(handler: H) -> MethodRouter<Infallible>
 where
-    H: Handler<X, S>,
+    H: Handler<X>,
     X: 'static,
-    S: Clone + 'static,
 {
     MethodRouter::new().get(handler)
 }
 
-pub fn get_service<T, S>(filter: MethodFilter, svc: T) -> MethodRouter<S, T::Error>
+pub fn post<H, X>(handler: H) -> MethodRouter<Infallible>
+where
+    H: Handler<X>,
+    X: 'static,
+{
+    MethodRouter::new().post(handler)
+}
+
+pub fn get_service<T, S>(filter: MethodFilter, svc: T) -> LegacyMethodRouter<S, T::Error>
 where
     T: TowerService<HttpRequest> + Clone + 'static,
     T::Response: IntoResponse + 'static,
     T::Future: 'static,
     S: Clone,
 {
-    MethodRouter::new().get_service(svc)
+    LegacyMethodRouter::new().get_service(svc)
 }
 
-pub struct MethodRouter<S = (), E = Infallible> {
+#[derive(Clone, Debug)]
+pub struct MethodRouter<E = Infallible> {
+    mapping: HashMap<Method, Route<E>>,
+    fallback: Fallback<E>,
+}
+
+// impl<E> Clone for MethodRouter<E> {
+//     fn clone(&self) -> Self {
+//         Self {
+//             mapping: self.mapping.clone(),
+//             fallback: self.fallback.clone(),
+//         }
+//     }
+// }
+
+impl<E> MethodRouter<E> {
+    pub fn call_with_state(&self, req: HttpRequest) -> RouteFuture<E> {
+        todo!()
+    }
+}
+
+impl MethodRouter {
+    pub fn get<H, X>(mut self, handler: H) -> Self
+    where
+        H: Handler<X>,
+        X: 'static,
+    {
+        self.on(Method::GET, handler)
+    }
+
+    pub fn post<H, X>(mut self, handler: H) -> Self
+    where
+        H: Handler<X>,
+        X: 'static,
+    {
+        self.on(Method::POST, handler)
+    }
+
+    pub fn on<H, X>(mut self, method: Method, handler: H) -> Self
+    where
+        H: Handler<X>,
+        X: 'static,
+    {
+        let route = Route::new(HandlerService::new(handler));
+        if self.mapping.contains_key(&method) {
+            panic!("Overlapping method route. Cannot add two routes that both handle `{method}`");
+        } else {
+            self.mapping.insert(method, route);
+        }
+
+        self
+    }
+
+    pub(crate) fn merge_for_path(&self, path: Option<&str>, method_router: MethodRouter) -> Self {
+        todo!()
+    }
+}
+
+impl<E> MethodRouter<E> {
+    pub fn new() -> Self {
+        let fallback = Route::new(service_fn(|_: HttpRequest| async {
+            Ok(StatusCode::METHOD_NOT_ALLOWED)
+        }));
+        Self {
+            mapping: HashMap::default(),
+            fallback: Fallback::Default(fallback),
+        }
+    }
+}
+
+pub struct LegacyMethodRouter<S = (), E = Infallible> {
     get: MethodEndpoint<S, E>,
     head: MethodEndpoint<S, E>,
     delete: MethodEndpoint<S, E>,
@@ -37,10 +115,9 @@ pub struct MethodRouter<S = (), E = Infallible> {
     put: MethodEndpoint<S, E>,
     trace: MethodEndpoint<S, E>,
     connect: MethodEndpoint<S, E>,
-    fallback: Fallback<S, E>,
 }
 
-impl<S, E> fmt::Debug for MethodRouter<S, E> {
+impl<S, E> fmt::Debug for LegacyMethodRouter<S, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MethodRouter")
             .field("get", &self.get)
@@ -52,19 +129,18 @@ impl<S, E> fmt::Debug for MethodRouter<S, E> {
             .field("put", &self.put)
             .field("trace", &self.trace)
             .field("connect", &self.connect)
-            .field("fallback", &self.fallback)
             .finish()
     }
 }
 
-impl<S, E> MethodRouter<S, E>
+impl<S, E> LegacyMethodRouter<S, E>
 where
     S: Clone,
 {
     pub fn new() -> Self {
-        let fallback = Route::new(service_fn(|_: HttpRequest| async {
-            Ok(StatusCode::METHOD_NOT_ALLOWED)
-        }));
+        // let fallback: Route<_> = Route::new(service_fn(|_: HttpRequest| async {
+        //     Ok(StatusCode::METHOD_NOT_ALLOWED)
+        // }));
         Self {
             get: MethodEndpoint::None,
             head: MethodEndpoint::None,
@@ -75,7 +151,6 @@ where
             put: MethodEndpoint::None,
             trace: MethodEndpoint::None,
             connect: MethodEndpoint::None,
-            fallback: Fallback::Default(fallback),
         }
     }
 
@@ -96,8 +171,8 @@ where
         self
     }
 
-    pub fn with_state<S2>(self, state: S) -> MethodRouter<S2, E> {
-        MethodRouter {
+    pub fn with_state<S2>(self, state: S) -> LegacyMethodRouter<S2, E> {
+        LegacyMethodRouter {
             get: self.get.with_state(&state),
             head: self.head.with_state(&state),
             delete: self.delete.with_state(&state),
@@ -107,7 +182,6 @@ where
             put: self.put.with_state(&state),
             trace: self.trace.with_state(&state),
             connect: self.connect.with_state(&state),
-            fallback: self.fallback.with_state(state),
         }
     }
 
@@ -141,12 +215,13 @@ where
 
         // If reached here, it means there is no endpoint found for current request,
         // we use fallback to such case.
-        self.fallback.clone().call_with_state(req, state)
+        // self.fallback.clone().call_with_state(req, state)
+        todo!()
 
         // todo add allow_header
     }
 
-    pub fn layer<L, E2>(self, layer: L) -> MethodRouter<S, E2>
+    pub fn layer<L, E2>(self, layer: L) -> LegacyMethodRouter<S, E2>
     where
         L: Layer<Route<E>> + Clone + 'static,
         L::Service: TowerService<HttpRequest> + Clone + 'static,
@@ -159,7 +234,7 @@ where
     {
         let layer_fn = move |route: Route<E>| route.layer(layer.clone());
 
-        MethodRouter {
+        LegacyMethodRouter {
             get: self.get.map(layer_fn.clone()),
             head: self.head.map(layer_fn.clone()),
             delete: self.delete.map(layer_fn.clone()),
@@ -169,7 +244,6 @@ where
             put: self.put.map(layer_fn.clone()),
             trace: self.trace.map(layer_fn.clone()),
             connect: self.connect.map(layer_fn.clone()),
-            fallback: self.fallback.map(layer_fn),
         }
     }
 
@@ -210,22 +284,22 @@ where
         self.trace = merge_inner(path, "TRACE", self.trace, other.trace)?;
         self.connect = merge_inner(path, "CONNECT", self.connect, other.connect)?;
 
-        self.fallback = self
-            .fallback
-            .merge(other.fallback)
-            .ok_or("Cannot merge two `MethodRouter`s that both have a fallback")?;
+        // self.fallback = self
+        //     .fallback
+        //     .merge(other.fallback)
+        //     .ok_or("Cannot merge two `MethodRouter`s that both have a fallback")?;
 
         Ok(self)
     }
 }
 
-impl<S> MethodRouter<S, Infallible>
+impl<S> LegacyMethodRouter<S, Infallible>
 where
     S: Clone,
 {
     pub fn get<H, X>(mut self, handler: H) -> Self
     where
-        H: Handler<X, S>,
+        H: Handler<X>,
         X: 'static,
         S: 'static,
     {
@@ -240,7 +314,7 @@ where
     }
 }
 
-impl<S, E> Clone for MethodRouter<S, E> {
+impl<S, E> Clone for LegacyMethodRouter<S, E> {
     fn clone(&self) -> Self {
         Self {
             get: self.get.clone(),
@@ -252,7 +326,6 @@ impl<S, E> Clone for MethodRouter<S, E> {
             put: self.put.clone(),
             trace: self.trace.clone(),
             connect: self.connect.clone(),
-            fallback: self.fallback.clone(),
         }
     }
 }

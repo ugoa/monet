@@ -6,31 +6,31 @@ use crate::{
 use std::pin::Pin;
 
 // X for Extractor
-pub trait Handler<X, S>: Clone + Sized + 'static {
+pub trait Handler<X>: Clone + Sized + 'static {
     type Future: Future<Output = HttpResponse> + 'static;
 
-    fn call(self, req: HttpRequest, state: S) -> Self::Future;
+    fn call(self, req: HttpRequest) -> Self::Future;
 
-    fn to_service(self, state: S) -> HandlerService<Self, X, S> {
-        HandlerService::new(self, state)
+    fn to_service(self) -> HandlerService<Self, X> {
+        HandlerService::new(self)
     }
 }
 
-pub trait HandlerWithoutStateExt<T>: Handler<T, ()> {
-    /// Convert the handler into a [`Service`] and no state.
-    fn into_service(self) -> HandlerService<Self, T, ()>;
-}
+// pub trait HandlerWithoutStateExt<T>: Handler<T> {
+//     /// Convert the handler into a [`Service`] and no state.
+//     fn into_service(self) -> HandlerService<Self, T, ()>;
+// }
+//
+// impl<H, T> HandlerWithoutStateExt<T> for H
+// where
+//     H: Handler<T>,
+// {
+//     fn into_service(self) -> HandlerService<Self, T, ()> {
+//         self.to_service(())
+//     }
+// }
 
-impl<H, T> HandlerWithoutStateExt<T> for H
-where
-    H: Handler<T, ()>,
-{
-    fn into_service(self) -> HandlerService<Self, T, ()> {
-        self.to_service(())
-    }
-}
-
-impl<F, Fut, Res, S> Handler<((),), S> for F
+impl<F, Fut, Res> Handler<((),)> for F
 where
     F: FnOnce() -> Fut + Clone + 'static,
     Fut: Future<Output = Res>,
@@ -38,7 +38,7 @@ where
 {
     type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
 
-    fn call(self, _req: HttpRequest, _state: S) -> Self::Future {
+    fn call(self, _req: HttpRequest) -> Self::Future {
         Box::pin(async move { self().await.into_response() })
     }
 }
@@ -48,18 +48,17 @@ macro_rules! impl_handler {
         [$($ty:ident),*], $last:ident
     ) => {
         #[allow(non_snake_case, unused_mut)]
-        impl<F, Fut, S, Res, M, $($ty,)* $last> Handler<(M, $($ty,)* $last,), S> for F
+        impl<F, Fut, Res, M, $($ty,)* $last> Handler<(M, $($ty,)* $last,)> for F
         where
             F: FnOnce($($ty,)* $last,) -> Fut + Clone +  'static,
             Fut: Future<Output = Res>,
-            S: 'static,
             Res: IntoResponse,
             $( $ty: FromRequestParts, )*
             $last: FromRequest<M>,
         {
             type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
 
-            fn call(self, req: HttpRequest, state: S) -> Self::Future {
+            fn call(self, req: HttpRequest) -> Self::Future {
                 let (mut parts, body) = req.into_parts();
                 Box::pin(async move {
                     $(
@@ -88,7 +87,7 @@ macro_rules! all_the_tuples {
     ($name:ident) => {
         $name!([], T1);
         $name!([T1], T2);
-        $name!([T1, T2], T3);
+        // $name!([T1, T2], T3);
         $name!([T1, T2, T3], T4);
         $name!([T1, T2, T3, T4], T5);
         $name!([T1, T2, T3, T4, T5], T6);
@@ -105,44 +104,69 @@ macro_rules! all_the_tuples {
     };
 }
 
+#[allow(non_snake_case, unused_mut)]
+impl<F, Fut, Res, M, T1, T2, T3> Handler<(M, T1, T2, T3)> for F
+where
+    F: FnOnce(T1, T2, T3) -> Fut + Clone + 'static,
+    Fut: Future<Output = Res>,
+    Res: IntoResponse,
+    T1: FromRequestParts,
+    T2: FromRequestParts,
+    T3: FromRequest<M>,
+{
+    type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
+    fn call(self, req: HttpRequest) -> Self::Future {
+        let (mut parts, body) = req.into_parts();
+        Box::pin(async move {
+            let T1 = match T1::from_request_parts(&mut parts).await {
+                Ok(value) => value,
+                Err(rejection) => return rejection.into_response(),
+            };
+            let T2 = match T2::from_request_parts(&mut parts).await {
+                Ok(value) => value,
+                Err(rejection) => return rejection.into_response(),
+            };
+            let req = HttpRequest::from_parts(parts, body);
+            let T3 = match T3::from_request(req).await {
+                Ok(value) => value,
+                Err(rejection) => return rejection.into_response(),
+            };
+            self(T1, T2, T3).await.into_response()
+        })
+    }
+}
+
 all_the_tuples!(impl_handler);
 
 use std::{fmt, marker::PhantomData};
 
-pub struct HandlerService<H, X, S> {
+pub struct HandlerService<H, X> {
     pub handler: H,
-    pub state: S,
     pub(crate) _marker: PhantomData<fn() -> X>,
 }
 
-impl<H, X, S> Clone for HandlerService<H, X, S>
+impl<H, X> Clone for HandlerService<H, X>
 where
     H: Clone,
-    S: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             handler: self.handler.clone(),
-            state: self.state.clone(),
             _marker: PhantomData,
         }
     }
 }
 
-impl<H, X, S> HandlerService<H, X, S> {
-    pub(super) fn new(handler: H, state: S) -> Self {
+impl<H, X> HandlerService<H, X> {
+    pub(super) fn new(handler: H) -> Self {
         Self {
             handler,
-            state,
             _marker: PhantomData,
         }
     }
-    pub fn state(&self) -> &S {
-        &self.state
-    }
 }
 
-impl<H, T, S> fmt::Debug for HandlerService<H, T, S> {
+impl<H, T> fmt::Debug for HandlerService<H, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("IntoService").finish_non_exhaustive()
     }

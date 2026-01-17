@@ -139,12 +139,12 @@ where
 {
     pub fn from_handler<H, X>(handler: H) -> Self
     where
-        H: Handler<X, S>,
+        H: Handler<X>,
         X: 'static,
     {
         Self(Box::new(ErasedHandler {
             handler: handler,
-            into_route_fn: |handler, state| Route::new(HandlerService::new(handler, state)),
+            into_route_fn: |handler, state| Route::new(HandlerService::new(handler)),
         }))
     }
 }
