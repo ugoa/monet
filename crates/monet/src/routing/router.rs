@@ -11,7 +11,7 @@ use std::{collections::HashMap, convert::Infallible};
 #[derive(Clone)]
 pub struct Router {
     pub routes: Vec<Endpoint>,
-    pub node: Node,
+    pub graph: Graph,
     pub default_fallback: bool,
     pub catch_all_fallback: Fallback,
 }
@@ -20,7 +20,7 @@ impl fmt::Debug for Router {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Router")
             .field("routes", &self.routes)
-            .field("node", &self.node)
+            .field("graph", &self.graph)
             .field("default_fallback", &self.default_fallback)
             .field("catch_all_fallback", &self.catch_all_fallback)
             .finish()
@@ -40,7 +40,7 @@ impl Router {
     pub fn new() -> Self {
         Self {
             routes: Default::default(),
-            node: Default::default(),
+            graph: Default::default(),
             default_fallback: true,
             catch_all_fallback: Fallback::Default(Route::new(NotFound)),
         }
@@ -62,7 +62,7 @@ impl Router {
     }
 
     fn process_route(&mut self, path: &str, method_router: MethodRouter) -> Result<(), String> {
-        if let Some(route_id) = self.node.path_to_route_id.get(path) {
+        if let Some(route_id) = self.graph.path_to_route_id.get(path) {
             if let Some(Endpoint::MethodRouter(prev_method_router)) = self.routes.get(route_id.0) {
                 let service = Endpoint::MethodRouter(
                     todo!(), // add back later
@@ -88,7 +88,7 @@ impl Router {
     }
 
     fn set_node(&mut self, path: &str, id: RouteId) -> Result<(), String> {
-        self.node
+        self.graph
             .insert(path, id)
             .map_err(|err| format!("Invalid route {path:?}: {err}"))
     }
@@ -118,7 +118,7 @@ impl Router {
         for (id, route) in other.routes.into_iter().enumerate() {
             let route_id = RouteId(id);
             let path = other
-                .node
+                .graph
                 .route_id_to_path
                 .get(&route_id)
                 .expect("no path for route id. This is a bug in axum. Please file an issue");
@@ -132,7 +132,7 @@ impl Router {
         }
         Router {
             routes: this.routes,
-            node: this.node,
+            graph: this.graph,
             default_fallback: default_fallback,
             catch_all_fallback: catch_all_fallback,
         }
@@ -187,7 +187,7 @@ impl Router {
 
         println!("{:?}", &self);
 
-        match self.node.at(parts.uri.path()) {
+        match self.graph.at(parts.uri.path()) {
             Ok(matched) => {
                 let route_id = matched.value;
 
@@ -256,13 +256,13 @@ impl Clone for Endpoint {
 pub struct RouteId(pub usize);
 
 #[derive(Clone, Default)]
-pub struct Node {
+pub struct Graph {
     pub inner: matchit::Router<RouteId>,
     pub route_id_to_path: HashMap<RouteId, String>,
     pub path_to_route_id: HashMap<String, RouteId>,
 }
 
-impl fmt::Debug for Node {
+impl fmt::Debug for Graph {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Node")
             .field("paths", &self.route_id_to_path)
@@ -270,7 +270,7 @@ impl fmt::Debug for Node {
     }
 }
 
-impl Node {
+impl Graph {
     pub fn insert(
         &mut self,
         path: impl Into<String>,
