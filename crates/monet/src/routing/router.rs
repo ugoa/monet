@@ -3,7 +3,6 @@ use crate::handler::HandlerService;
 use crate::prelude::*;
 use crate::routing::method_router::MethodRouter;
 use crate::routing::route_tower_impl::RouteFuture;
-use core::panic;
 use matchit::MatchError;
 use std::rc::Rc;
 use std::{collections::HashMap, convert::Infallible};
