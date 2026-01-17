@@ -1,8 +1,9 @@
+use crate::handler::Handler;
 use crate::handler::HandlerService;
 use crate::prelude::*;
 use crate::routing::method_router::MethodRouter;
 use crate::routing::route_tower_impl::RouteFuture;
-use crate::{handler::Handler, routing::route::BoxedIntoRoute};
+use core::panic;
 use matchit::MatchError;
 use std::rc::Rc;
 use std::{collections::HashMap, convert::Infallible};
@@ -51,12 +52,7 @@ impl Router {
     }
 
     pub fn route(mut self, path: &str, method_router: MethodRouter) -> Self {
-        match (self.process_route(path, method_router)) {
-            Ok(x) => x,
-            Err(err) => {
-                panic!("{err}")
-            }
-        };
+        self.process_route(path, method_router).unwrap();
 
         self
     }
@@ -64,13 +60,10 @@ impl Router {
     fn process_route(&mut self, path: &str, method_router: MethodRouter) -> Result<(), String> {
         if let Some(route_id) = self.graph.path_to_route_id.get(path) {
             if let Some(Endpoint::MethodRouter(prev_method_router)) = self.routes.get(route_id.0) {
-                let service = Endpoint::MethodRouter(
-                    todo!(), // add back later
-                             // prev_method_router
-                             //     .clone()
-                             //     .merge_for_path(Some(path), method_router)
-                             //     .unwrap(),
-                );
+                let service = prev_method_router
+                    .clone()
+                    .merge_for_path(Some(path), method_router)?;
+                let service = Endpoint::MethodRouter(service);
                 self.routes[route_id.0] = service;
             }
         } else {

@@ -1,7 +1,7 @@
 use crate::handler::{Handler, HandlerService};
 use crate::prelude::*;
 use crate::routing::method_filter::MethodFilter;
-use crate::routing::route::{BoxedIntoRoute, ErasedIntoRoute, Route};
+use crate::routing::route::Route;
 use crate::routing::route_tower_impl::RouteFuture;
 use crate::routing::router::Fallback;
 use http::{Method, StatusCode};
@@ -27,13 +27,42 @@ where
 
 #[derive(Clone, Debug)]
 pub struct MethodRouter<E = Infallible> {
-    mapping: HashMap<Method, Route<E>>,
-    fallback: Fallback<E>,
+    pub(crate) mapping: HashMap<Method, Route<E>>,
+    pub(crate) fallback: Fallback<E>,
 }
 
 impl<E> MethodRouter<E> {
     pub fn call_with_state(&self, req: HttpRequest) -> RouteFuture<E> {
         todo!()
+    }
+
+    pub(crate) fn merge_for_path(
+        mut self,
+        path: Option<&str>,
+        other: Self,
+    ) -> Result<Self, String> {
+        for method in self.mapping.keys() {
+            if other.mapping.contains_key(&method) {
+                let error_message = if let Some(path) = path {
+                    format!(
+                        "Overlapping method route. Handler for `{method} {path}` already exists",
+                    )
+                } else {
+                    format!(
+                        "Overlapping method route. Cannot merge two method routes that both define `{method}`"
+                    )
+                };
+                return Err(error_message);
+            }
+        }
+
+        self.mapping.extend(other.mapping);
+        self.fallback = self
+            .fallback
+            .merge(other.fallback)
+            .ok_or("Cannot merge two `MethodRouter`s that both have a fallback")?;
+
+        Ok(self)
     }
 }
 
@@ -67,10 +96,6 @@ impl MethodRouter {
         }
 
         self
-    }
-
-    pub(crate) fn merge_for_path(&self, path: Option<&str>, method_router: MethodRouter) -> Self {
-        todo!()
     }
 }
 
