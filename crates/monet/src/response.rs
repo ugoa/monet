@@ -15,7 +15,7 @@ where
     B::Error: Into<BoxError>,
 {
     fn into_response(self) -> HttpResponse {
-        self.map(Body::new)
+        self.map(|http_body| Body::new(http_body))
     }
 }
 
