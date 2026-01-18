@@ -32,8 +32,22 @@ pub struct MethodRouter<E = Infallible> {
 }
 
 impl<E> MethodRouter<E> {
-    pub fn call_with_state(&self, req: HttpRequest) -> RouteFuture<E> {
-        todo!()
+    pub fn call(&self, req: HttpRequest) -> RouteFuture<E> {
+        if *req.method() == Method::HEAD {
+            if let Some(route) = self
+                .mapping
+                .get(&Method::HEAD)
+                .or_else(|| self.mapping.get(&Method::GET))
+            {
+                return route.clone().oneshot_inner_owned(req);
+            }
+        } else {
+            if let Some(route) = self.mapping.get(req.method()) {
+                return route.clone().oneshot_inner_owned(req);
+            }
+        }
+
+        self.fallback.clone().call_with_state(req)
     }
 
     pub(crate) fn merge_for_path(

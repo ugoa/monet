@@ -190,7 +190,7 @@ impl Router {
                 let req = HttpRequest::from_parts(parts, body);
 
                 match endpoint {
-                    Endpoint::MethodRouter(method_router) => method_router.call_with_state(req),
+                    Endpoint::MethodRouter(method_router) => method_router.call(req),
                     Endpoint::Route(route) => route.clone().call_owned(req),
                 }
             }
