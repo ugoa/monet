@@ -1,6 +1,7 @@
 #![allow(clippy::all)]
 #![allow(warnings)]
 
+use std::cell::LazyCell;
 use std::net::SocketAddr;
 
 use bytes::Bytes;
@@ -16,6 +17,10 @@ use monet::{HttpResponse, MapResponseLayer, Router, extract::query::Query, get};
 struct AppState {
     data: String,
 }
+
+const LAZY_STATE: LazyCell<AppState> = LazyCell::new(|| AppState {
+    data: "Lazy Inited".to_string(),
+});
 
 use rand::RngCore;
 use rand::seq::IndexedMutRandom;
@@ -71,8 +76,8 @@ async fn sub(
     path: http::Uri,
 ) -> String {
     format!(
-        "You `{:?}` query at path `{:?}` has param {:?}, with state later\n",
-        m, path, q,
+        "You `{:?}` query at path `{:?}` has param {:?}, with state {:?}\n",
+        m, path, q, *LAZY_STATE,
     )
 }
 

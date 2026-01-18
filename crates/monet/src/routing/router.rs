@@ -136,7 +136,6 @@ impl Router {
         T: 'static,
     {
         self.catch_all_fallback = Fallback::Default(Route::new(HandlerService::new(handler)));
-        // Fallback::BoxedHandler(BoxedIntoRoute::from_handler(handler.clone()));
         self
     }
 
