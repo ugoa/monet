@@ -1,4 +1,4 @@
-pub mod handler;
+// pub mod handler;
 pub mod serve;
 
 use bytes::Bytes;
@@ -8,5 +8,9 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
-pub type Request<T = Body> = http::Request<T>;
-pub type Response<T = Body> = http::Response<T>;
+pub type Request = http::Request<Body>;
+pub type Response = http::Response<Body>;
+
+pub(crate) trait Handler {
+    async fn call(&self, req: &mut Request, resp: &mut Response);
+}
