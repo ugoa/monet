@@ -38,8 +38,8 @@ pub struct Endpoint {
 #[derive(Default)]
 pub struct Node {
     pub inner: matchit::Router<usize>,
-    pub route_id_to_path: HashMap<usize, String>,
-    pub path_to_route_id: HashMap<String, usize>,
+    pub id_to_path: HashMap<usize, String>,
+    pub path_to_id: HashMap<String, usize>,
 }
 
 impl Default for Router {
