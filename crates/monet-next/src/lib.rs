@@ -1,8 +1,8 @@
-// pub mod handler;
+pub mod handler;
 pub mod serve;
 
 use bytes::Bytes;
-use std::{net::ToSocketAddrs, pin::Pin};
+use std::pin::Pin;
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
