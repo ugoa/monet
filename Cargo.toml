@@ -3,9 +3,8 @@ resolver = "3"
 
 members = [
   "crates/monet",
+  "crates/monet-next",
   "examples/*",
-  "crates/monoio",
-  "crates/monoio-compat",
 ]
 
 [workspace.lints.clippy]
