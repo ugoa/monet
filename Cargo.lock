@@ -613,6 +613,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-compio"
+version = "0.1.0"
+dependencies = [
+ "monet-next",
+]
+
+[[package]]
 name = "hello-world"
 version = "0.1.0"
 dependencies = [

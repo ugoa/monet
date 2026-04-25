@@ -1,6 +1,8 @@
 // #![doc = include_str!("../../README.md")]
 // #![cfg_attr(docsrs, feature(doc_cfg))]
 // #![warn(missing_docs, unreachable_pub)]
+#![allow(clippy::all)]
+#![allow(warnings)]
 #![allow(stable_features)]
 #![allow(clippy::macro_metavars_in_unsafe)]
 #![cfg_attr(feature = "unstable", feature(io_error_more))]
