@@ -133,12 +133,10 @@ impl<S: AsyncWrite + Unpin + 'static> hyper::rt::Write for HyperStream<S> {
     }
 }
 
-pub fn serve<L, M>(mut listener: TcpListener)
-where
-    L: Listener,
-{
+pub fn serve(addr: SocketAddr) {
     let cache = RefCell::new(0);
     let app = async {
+        let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
         let mut group = FutureGroup::new();
         loop {
             tokio::select! {

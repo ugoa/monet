@@ -1028,6 +1028,8 @@ dependencies = [
  "futures-concurrency",
  "futures-lite",
  "futures-util",
+ "http",
+ "http-body",
  "http-body-util",
  "hyper",
  "jiff",

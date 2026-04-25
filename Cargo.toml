@@ -10,6 +10,8 @@ members = [
 [workspace.dependencies]
 monet = { package = "monet-next", path = "crates/monet-next/" }
 
+
+
 [workspace.lints.clippy]
 macro_use_imports = "warn"
 
