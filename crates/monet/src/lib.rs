@@ -26,7 +26,7 @@ pub use async_trait::async_trait;
 
 #[async_trait(?Send)]
 pub trait Handler {
-    async fn call(&self, req: &mut Request, resp: &mut Response);
+    async fn handle(&self, req: &mut Request, resp: &mut Response);
 }
 
 #[async_trait(?Send)]
@@ -35,7 +35,7 @@ where
     F: FnMut() -> Fut + Clone,
     Fut: Future<Output = ()>,
 {
-    async fn call(&self, req: &mut Request, resp: &mut Response) {
+    async fn handle(&self, req: &mut Request, resp: &mut Response) {
         self.clone()();
     }
 }
@@ -43,7 +43,7 @@ where
 struct DefaultOk;
 #[async_trait(?Send)]
 impl Handler for DefaultOk {
-    async fn call(&self, _req: &mut Request, resp: &mut Response) {
+    async fn handle(&self, _req: &mut Request, resp: &mut Response) {
         *resp.status_mut() = StatusCode::OK;
     }
 }
