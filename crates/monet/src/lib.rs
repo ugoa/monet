@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+#![allow(warnings)]
 // pub mod handler;
 pub mod serve;
 
@@ -97,6 +99,8 @@ impl Router {
 }
 
 #[test]
-fn works() {
-    Router::new();
+fn route_initiate() {
+    let mut router = Router::new();
+    let route = router.at("/");
+    assert_eq!(&*route.path, "/");
 }
