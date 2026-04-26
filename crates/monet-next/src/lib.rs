@@ -39,10 +39,11 @@ pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
     pub path_to_index: HashMap<Rc<str>, usize>,
-    pub index_to_path: HashMap<usize, String>,
+    pub index_to_path: HashMap<usize, Rc<str>>,
 }
 
 pub struct Route {
+    pub path: Rc<str>,
     pub handlers: HashMap<Method, Box<dyn Handler>>,
 }
 
@@ -75,6 +76,7 @@ impl Router {
             .insert(path, new_index)
             .expect("should add new path successfully");
         self.routes.push(Route {
+            path: path.into(),
             handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
         });
         self.path_to_index.insert(path.into(), new_index);
