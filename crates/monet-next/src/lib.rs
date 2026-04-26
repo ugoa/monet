@@ -32,14 +32,9 @@ impl Handler for DefaultOk {
     }
 }
 
-/// Cached DefaultStatusOK handler to avoid Arc allocation per request.
-static DEFAULT_OK_HANDLER: LazyLock<Arc<DefaultOk>> = LazyLock::new(|| Arc::new(DefaultOk));
-
-pub(crate) struct RouteIndex(usize);
-
 pub struct Router {
     pub routes: Vec<Route>,
-    pub map: matchit::Router<usize>,
+    pub graph: matchit::Router<usize>,
     pub index_to_path: HashMap<usize, String>,
     pub path_to_index: HashMap<String, usize>,
 }
@@ -58,7 +53,7 @@ impl Router {
     pub fn new() -> Self {
         Self {
             routes: Default::default(),
-            map: Default::default(),
+            graph: Default::default(),
             index_to_path: Default::default(),
             path_to_index: Default::default(),
         }
@@ -70,7 +65,12 @@ impl Router {
                 self.merge_for_path(path)
             }
         } else {
-            todo!()
+            self.graph
+                .insert(path, self.routes.len())
+                .expect("should add new path successfully");
+            self.routes.push(Route {
+                handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
+            });
         }
         self
     }
