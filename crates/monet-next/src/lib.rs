@@ -62,12 +62,12 @@ impl Router {
     pub fn at(mut self, path: &str) -> Self {
         if self.inner.at(path).is_err() {
             let new_index = self.routes.len();
-            let expection = "should add new path successfully";
-            self.inner.insert(path, new_index).expect(expection);
+            self.inner
+                .insert(path, new_index)
+                .expect("should add new path successfully");
 
-            let default_handler: Box<dyn Handler> = Box::new(DefaultOk);
             self.routes.push(Route {
-                handlers: HashMap::from([(Method::GET, default_handler)]),
+                handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
             });
         }
         self
