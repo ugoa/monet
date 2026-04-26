@@ -60,11 +60,7 @@ impl Router {
     }
 
     pub fn at(mut self, path: &str) -> Self {
-        if let Some(idx) = self.path_to_index.get(path) {
-            if let Some(route) = self.routes.get(*idx) {
-                self.merge_for_path(path)
-            }
-        } else {
+        if self.graph.at(path).is_err() {
             let new_index = self.routes.len();
             let expection = "should add new path successfully";
             self.graph.insert(path, new_index).expect(expection);
