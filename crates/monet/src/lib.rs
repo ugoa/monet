@@ -127,11 +127,11 @@ impl Router {
 }
 
 async fn get_handler() {
-    println!("should work")
+    println!("should get")
 }
 
 async fn post_handler() {
-    println!("should work")
+    println!("should post")
 }
 
 #[test]
