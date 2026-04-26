@@ -10,12 +10,13 @@ use std::{
     marker::PhantomData,
     path,
     pin::Pin,
+    process::Output,
     rc::Rc,
     sync::{Arc, LazyLock},
 };
 
 use bytes::Bytes;
-use http::{Method, StatusCode, uri};
+use http::{HeaderValue, Method, StatusCode, uri};
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -43,6 +44,27 @@ where
         self.clone()();
     }
 }
+
+// #[async_trait(?Send)]
+// impl<F, Fut> Handler for F
+// where
+//     F: FnMut(&mut Response) -> Fut + Clone,
+//     Fut: Future<Output = ()>,
+// {
+//     fn handle<'life0, 'life1, 'life2, 'async_trait>(
+//         &'life0 self,
+//         __macro_gen_req: &'life1 mut Request,
+//         resp: &'life2 mut Response,
+//     ) -> Pin<Box<dyn Future<Output = ()> + 'async_trait>>
+//     where
+//         'life0: 'async_trait,
+//         'life1: 'async_trait,
+//         'life2: 'async_trait,
+//         Self: 'async_trait,
+//     {
+//         Box::pin(async move { self.clone()(resp).await })
+//     }
+// }
 
 struct DefaultOk;
 #[async_trait(?Send)]
@@ -91,15 +113,15 @@ impl Route {
         self
     }
 
-    pub fn post(&self, handler: impl Handler + 'static) -> &Self {
-        match self.handlers.borrow_mut().entry(Method::POST) {
-            Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
-            Entry::Occupied(_) => panic!(
-                "Overlapping method route. Cannot add two method routes that both handle `POST`"
-            ),
-        };
-        self
-    }
+    // pub fn post(&self, handler: impl Handler + 'static) -> &Self {
+    //     match self.handlers.borrow_mut().entry(Method::POST) {
+    //         Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
+    //         Entry::Occupied(_) => panic!(
+    //             "Overlapping method route. Cannot add two method routes that both handle `POST`"
+    //         ),
+    //     };
+    //     self
+    // }
 }
 
 impl Default for Router {
@@ -133,6 +155,7 @@ impl Router {
         let mut resp = HyperResponse::new(Full::new(Bytes::from("original")));
 
         async move {
+            compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
             handler.handle(&mut req, &mut resp).await;
             Ok(resp)
         }
@@ -166,11 +189,17 @@ impl Router {
     }
 }
 
+async fn get_handler(resp: &mut Response) {
+    resp.headers_mut()
+        .insert("mark", HeaderValue::from_static("modified"));
+}
+
+async fn simple_hello() {
+    "he";
+}
+
 #[test]
 fn route_initiate() {
     let mut router = Router::new();
-    router
-        .at("/")
-        .get(async || println!("get"))
-        .post(async || println!("post"));
+    router.at("/").get(simple_hello);
 }
