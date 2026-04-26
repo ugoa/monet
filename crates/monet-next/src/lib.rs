@@ -4,7 +4,9 @@ pub mod serve;
 use std::{
     cell::{Cell, LazyCell},
     collections::HashMap,
+    path,
     pin::Pin,
+    rc::Rc,
     sync::{Arc, LazyLock},
 };
 
@@ -36,8 +38,8 @@ impl Handler for DefaultOk {
 pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
+    pub path_to_index: HashMap<Rc<str>, usize>,
     pub index_to_path: HashMap<usize, String>,
-    pub path_to_index: HashMap<String, usize>,
 }
 
 pub struct Route {
@@ -55,24 +57,29 @@ impl Router {
         Self {
             inner: Default::default(),
             routes: Default::default(),
-            index_to_path: Default::default(),
             path_to_index: Default::default(),
+            index_to_path: Default::default(),
         }
     }
 
-    pub fn at(mut self, path: &str) -> Self {
-        if !self.path_to_index.contains_key(path) {
-            let new_index = self.routes.len();
-            self.inner
-                .insert(path, new_index)
-                .expect("should add new path successfully");
-
-            self.routes.push(Route {
-                handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
-            });
+    pub fn at(self, path: &str) -> Self {
+        if self.path_to_index.contains_key(path) {
+            self
+        } else {
+            self.insert(path)
         }
+    }
+
+    fn insert(mut self, path: &str) -> Self {
+        let new_index = self.routes.len();
+        self.inner
+            .insert(path, new_index)
+            .expect("should add new path successfully");
+        self.routes.push(Route {
+            handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
+        });
+        self.path_to_index.insert(path.into(), new_index);
+        self.index_to_path.insert(new_index, path.into());
         self
     }
-
-    pub fn merge_for_path(&mut self, path: &str) {}
 }
