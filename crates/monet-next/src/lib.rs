@@ -33,8 +33,8 @@ impl Handler for DefaultOk {
 }
 
 pub struct Router {
+    pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
-    pub graph: matchit::Router<usize>,
     pub index_to_path: HashMap<usize, String>,
     pub path_to_index: HashMap<String, usize>,
 }
@@ -52,18 +52,18 @@ impl Default for Router {
 impl Router {
     pub fn new() -> Self {
         Self {
+            inner: Default::default(),
             routes: Default::default(),
-            graph: Default::default(),
             index_to_path: Default::default(),
             path_to_index: Default::default(),
         }
     }
 
     pub fn at(mut self, path: &str) -> Self {
-        if self.graph.at(path).is_err() {
+        if self.inner.at(path).is_err() {
             let new_index = self.routes.len();
             let expection = "should add new path successfully";
-            self.graph.insert(path, new_index).expect(expection);
+            self.inner.insert(path, new_index).expect(expection);
 
             let default_handler: Box<dyn Handler> = Box::new(DefaultOk);
             self.routes.push(Route {
