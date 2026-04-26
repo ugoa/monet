@@ -5,7 +5,7 @@ pub mod serve;
 
 use std::{
     cell::{Cell, LazyCell},
-    collections::HashMap,
+    collections::{HashMap, hash_map::Entry},
     path,
     pin::Pin,
     rc::Rc,
@@ -50,8 +50,14 @@ pub struct Route {
 }
 
 impl Route {
-    fn get(&mut self, handler: impl Handler) -> Self {
-        todo!();
+    fn get(&mut self, handler: Box<dyn Handler>) -> &Self {
+        match self.handlers.entry(Method::GET) {
+            Entry::Vacant(entry) => entry.insert(handler),
+            Entry::Occupied(_) => panic!(
+                "Overlapping method route. Cannot add two method routes that both handle `GET`"
+            ),
+        };
+        self
     }
 }
 
