@@ -130,7 +130,7 @@ impl Router {
         let route = self.routes.get(idx).expect("should be in router");
         let handler = route.handlers.borrow().get(req.method()).unwrap().clone();
 
-        let mut resp = HyperResponse::new(Full::new(Bytes::from("asdf")));
+        let mut resp = HyperResponse::new(Full::new(Bytes::from("original")));
 
         async move {
             handler.handle(&mut req, &mut resp).await;

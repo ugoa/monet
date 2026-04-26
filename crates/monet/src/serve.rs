@@ -134,7 +134,7 @@ impl<S: AsyncWrite + Unpin + 'static> hyper::rt::Write for HyperStream<S> {
     }
 }
 
-pub fn serve(addr: SocketAddr, app: Router) {
+pub fn serve(addr: SocketAddr, router: Router) {
     let cache = RefCell::new(0);
     let app = async {
         let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
@@ -148,7 +148,7 @@ pub fn serve(addr: SocketAddr, app: Router) {
                         http1::Builder::new()
                             .serve_connection(
                                 HyperStream::new(stream.0),
-                                service_fn(async |req| app.run(req).await),
+                                service_fn(async |req| router.run(req).await),
                             )
                             .await
                             .expect("Should handle request successfully")
