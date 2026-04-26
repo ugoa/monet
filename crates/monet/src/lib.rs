@@ -81,7 +81,7 @@ pub struct Route {
 }
 
 impl Route {
-    fn get(&self, handler: impl Handler + 'static) -> &Self {
+    pub fn get(&self, handler: impl Handler + 'static) -> &Self {
         match self.handlers.borrow_mut().entry(Method::GET) {
             Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
             Entry::Occupied(_) => panic!(
@@ -91,7 +91,7 @@ impl Route {
         self
     }
 
-    fn post(&self, handler: impl Handler + 'static) -> &Self {
+    pub fn post(&self, handler: impl Handler + 'static) -> &Self {
         match self.handlers.borrow_mut().entry(Method::POST) {
             Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
             Entry::Occupied(_) => panic!(
@@ -166,16 +166,11 @@ impl Router {
     }
 }
 
-async fn get_handler() {
-    println!("should get")
-}
-
-async fn post_handler() {
-    println!("should post")
-}
-
 #[test]
 fn route_initiate() {
     let mut router = Router::new();
-    router.at("/").get(get_handler).post(post_handler);
+    router
+        .at("/")
+        .get(async || println!("get"))
+        .post(async || println!("post"));
 }

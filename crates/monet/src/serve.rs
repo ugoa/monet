@@ -1,15 +1,3 @@
-use bytes::Bytes;
-use compio::{
-    io::{AsyncRead, AsyncWrite, compat::AsyncStream},
-    net::{TcpListener, TcpStream, UnixListener, UnixStream},
-};
-
-use futures_concurrency::future::FutureGroup;
-use http_body_util::Full;
-use hyper::{
-    Method, Request, Response, StatusCode, body::Incoming, server::conn::http1, service::service_fn,
-};
-use send_wrapper::SendWrapper;
 use std::{
     cell::RefCell,
     convert::Infallible,
@@ -21,7 +9,20 @@ use std::{
     task::{Context, Poll, ready},
 };
 
+use bytes::Bytes;
+use compio::{
+    io::{AsyncRead, AsyncWrite, compat::AsyncStream},
+    net::{TcpListener, TcpStream, UnixListener, UnixStream},
+};
 use futures::stream::StreamExt;
+use futures_concurrency::future::FutureGroup;
+use http_body_util::Full;
+use hyper::{
+    Method, Request, Response, StatusCode, body::Incoming, server::conn::http1, service::service_fn,
+};
+use send_wrapper::SendWrapper;
+
+use crate::Router;
 
 /// Types that can listen for connections.
 pub trait Listener: 'static {
@@ -133,7 +134,7 @@ impl<S: AsyncWrite + Unpin + 'static> hyper::rt::Write for HyperStream<S> {
     }
 }
 
-pub fn serve(addr: SocketAddr) {
+pub fn serve(addr: SocketAddr, app: Router) {
     let cache = RefCell::new(0);
     let app = async {
         let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
@@ -143,7 +144,15 @@ pub fn serve(addr: SocketAddr) {
                 biased;
                 stream = listener.accepts() => {
                     println!("Received at {}", jiff::Timestamp::now());
-                    group.insert(handle_request(stream.0, &cache));
+                    group.insert(async {
+                        http1::Builder::new()
+                            .serve_connection(
+                                HyperStream::new(stream.0),
+                                service_fn(async |req| app.run(req).await),
+                            )
+                            .await
+                            .expect("Should handle request successfully")
+                    });
                 },
                 _ =  group.next(), if !group.is_empty()  => (),
             }
