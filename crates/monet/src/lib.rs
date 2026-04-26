@@ -101,14 +101,6 @@ impl Route {
     }
 }
 
-// impl Router {
-//     fn new() -> Self {
-//         Self {
-//             inner: Default::default(),
-//         }
-//     }
-// }
-
 impl Default for Router {
     fn default() -> Self {
         Self::new()
