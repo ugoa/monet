@@ -6,6 +6,8 @@ pub mod serve;
 use std::{
     cell::{Cell, LazyCell, RefCell},
     collections::{HashMap, hash_map::Entry},
+    convert::Infallible,
+    marker::PhantomData,
     path,
     pin::Pin,
     rc::Rc,
@@ -19,10 +21,12 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
-pub type Request = http::Request<Body>;
-pub type Response = http::Response<Body>;
+// pub type Request = http::Request<Body>;
+// pub type Response = http::Response<Body>;
 
 pub use async_trait::async_trait;
+use http_body_util::Full;
+use hyper::service::Service as HyperService;
 
 #[async_trait(?Send)]
 pub trait Handler {
@@ -48,11 +52,27 @@ impl Handler for DefaultOk {
     }
 }
 
-pub struct Router {
+pub struct Router<'a> {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
     pub path_to_index: HashMap<Rc<str>, usize>,
     pub index_to_path: HashMap<usize, Rc<str>>,
+    _marker: PhantomData<&'a ()>,
+}
+
+use hyper::{Request as HyperRequest, Response as HyperResponse, body::Incoming as IncomingBody};
+
+pub type Request = HyperRequest<IncomingBody>;
+pub type Response = HyperResponse<Full<Bytes>>;
+
+impl<'a> HyperService<Request> for Router<'a> {
+    type Response = Response;
+    type Error = hyper::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + 'a>>;
+
+    fn call(&self, req: Request) -> Self::Future {
+        Box::pin(self.run(req))
+    }
 }
 
 pub struct Route {
@@ -82,6 +102,14 @@ impl Route {
     }
 }
 
+// impl Router {
+//     fn new() -> Self {
+//         Self {
+//             inner: Default::default(),
+//         }
+//     }
+// }
+
 impl Default for Router {
     fn default() -> Self {
         Self::new()
@@ -96,6 +124,18 @@ impl Router {
             path_to_index: Default::default(),
             index_to_path: Default::default(),
         }
+    }
+
+    pub async fn run(&self, req: Request) -> Result<Response, hyper::Error> {
+        fn mk_response(s: String) -> Result<Response, hyper::Error> {
+            Ok(HyperResponse::new(Full::new(Bytes::from(s))))
+        }
+        let res = match req.uri().path() {
+            "/" => mk_response(format!("home! counter")),
+            "/posts" => mk_response(format!("posts, of course! counter")),
+            _ => mk_response("oh no! not found".into()),
+        };
+        res
     }
 
     pub fn at(&mut self, path: &str) -> &Route {
