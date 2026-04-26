@@ -52,12 +52,11 @@ impl Handler for DefaultOk {
     }
 }
 
-pub struct Router<'a> {
+pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
     pub path_to_index: HashMap<Rc<str>, usize>,
     pub index_to_path: HashMap<usize, Rc<str>>,
-    _marker: PhantomData<&'a ()>,
 }
 
 use hyper::{Request as HyperRequest, Response as HyperResponse, body::Incoming as IncomingBody};
@@ -65,10 +64,10 @@ use hyper::{Request as HyperRequest, Response as HyperResponse, body::Incoming a
 pub type Request = HyperRequest<IncomingBody>;
 pub type Response = HyperResponse<Full<Bytes>>;
 
-impl<'a> HyperService<Request> for Router<'a> {
+impl HyperService<Request> for Router {
     type Response = Response;
     type Error = hyper::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
     fn call(&self, req: Request) -> Self::Future {
         Box::pin(self.run(req))
@@ -126,7 +125,10 @@ impl Router {
         }
     }
 
-    pub async fn run(&self, req: Request) -> Result<Response, hyper::Error> {
+    pub fn run(
+        &self,
+        mut req: Request,
+    ) -> impl Future<Output = Result<Response, hyper::Error>> + 'static {
         fn mk_response(s: String) -> Result<Response, hyper::Error> {
             Ok(HyperResponse::new(Full::new(Bytes::from(s))))
         }
@@ -135,7 +137,7 @@ impl Router {
             "/posts" => mk_response(format!("posts, of course! counter")),
             _ => mk_response("oh no! not found".into()),
         };
-        res
+        async { res }
     }
 
     pub fn at(&mut self, path: &str) -> &Route {
