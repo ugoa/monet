@@ -15,7 +15,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use http::{Method, StatusCode};
+use http::{Method, StatusCode, uri};
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -60,6 +60,7 @@ pub struct Router {
 }
 
 use hyper::{Request as HyperRequest, Response as HyperResponse, body::Incoming as IncomingBody};
+use matchit::MatchError;
 
 pub type Request = HyperRequest<IncomingBody>;
 pub type Response = HyperResponse<Full<Bytes>>;
@@ -76,13 +77,13 @@ impl HyperService<Request> for Router {
 
 pub struct Route {
     pub path: Rc<str>,
-    pub handlers: RefCell<HashMap<Method, Box<dyn Handler>>>,
+    pub handlers: RefCell<HashMap<Method, Rc<dyn Handler>>>,
 }
 
 impl Route {
     fn get(&self, handler: impl Handler + 'static) -> &Self {
         match self.handlers.borrow_mut().entry(Method::GET) {
-            Entry::Vacant(entry) => entry.insert(Box::new(handler)),
+            Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
             Entry::Occupied(_) => panic!(
                 "Overlapping method route. Cannot add two method routes that both handle `GET`"
             ),
@@ -92,7 +93,7 @@ impl Route {
 
     fn post(&self, handler: impl Handler + 'static) -> &Self {
         match self.handlers.borrow_mut().entry(Method::POST) {
-            Entry::Vacant(entry) => entry.insert(Box::new(handler)),
+            Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
             Entry::Occupied(_) => panic!(
                 "Overlapping method route. Cannot add two method routes that both handle `POST`"
             ),
@@ -121,15 +122,20 @@ impl Router {
         &self,
         mut req: Request,
     ) -> impl Future<Output = Result<Response, hyper::Error>> + 'static {
-        fn mk_response(s: String) -> Result<Response, hyper::Error> {
-            Ok(HyperResponse::new(Full::new(Bytes::from(s))))
+        let method = req.method();
+        let path = req.uri().path();
+        // let (mut parts, body) = req.into_parts();
+        let match_ = self.inner.at(req.uri().path()).unwrap();
+        let idx = *match_.value;
+        let route = self.routes.get(idx).expect("should be in router");
+        let handler = route.handlers.borrow().get(req.method()).unwrap().clone();
+
+        let mut resp = HyperResponse::new(Full::new(Bytes::from("asdf")));
+
+        async move {
+            handler.handle(&mut req, &mut resp).await;
+            Ok(resp)
         }
-        let res = match req.uri().path() {
-            "/" => mk_response(format!("home! counter")),
-            "/posts" => mk_response(format!("posts, of course! counter")),
-            _ => mk_response("oh no! not found".into()),
-        };
-        async { res }
     }
 
     pub fn at(&mut self, path: &str) -> &Route {
