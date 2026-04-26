@@ -62,15 +62,14 @@ impl Router {
         }
     }
 
-    pub fn at(self, path: &str) -> Self {
-        if self.path_to_index.contains_key(path) {
-            self
-        } else {
-            self.insert(path)
+    pub fn at(mut self, path: &str) -> Self {
+        if !self.path_to_index.contains_key(path) {
+            self.insert(path);
         }
+        self
     }
 
-    fn insert(mut self, path: &str) -> Self {
+    fn insert(&mut self, path: &str) {
         let new_index = self.routes.len();
         self.inner
             .insert(path, new_index)
@@ -80,6 +79,5 @@ impl Router {
         });
         self.path_to_index.insert(path.into(), new_index);
         self.index_to_path.insert(new_index, path.into());
-        self
     }
 }
