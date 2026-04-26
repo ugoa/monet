@@ -1,14 +1,15 @@
 // pub mod handler;
 pub mod serve;
 
-use bytes::Bytes;
-use http::{Method, StatusCode};
 use std::{
     cell::{Cell, LazyCell},
     collections::HashMap,
     pin::Pin,
     sync::{Arc, LazyLock},
 };
+
+use bytes::Bytes;
+use http::{Method, StatusCode};
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -60,7 +61,7 @@ impl Router {
     }
 
     pub fn at(mut self, path: &str) -> Self {
-        if self.inner.at(path).is_err() {
+        if !self.path_to_index.contains_key(path) {
             let new_index = self.routes.len();
             self.inner
                 .insert(path, new_index)
