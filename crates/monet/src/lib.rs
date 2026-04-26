@@ -126,12 +126,16 @@ impl Router {
     }
 }
 
-async fn dummy_handler() {
+async fn get_handler() {
+    println!("should work")
+}
+
+async fn post_handler() {
     println!("should work")
 }
 
 #[test]
 fn route_initiate() {
     let mut router = Router::new();
-    router.at("/").get(dummy_handler).post(dummy_handler);
+    router.at("/").get(get_handler).post(post_handler);
 }
