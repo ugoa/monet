@@ -3,12 +3,11 @@ resolver = "3"
 
 members = [
   "crates/monet",
-  "crates/monet-next",
   "examples/*",
 ]
 
 [workspace.dependencies]
-monet = { package = "monet-next", path = "crates/monet-next/" }
+monet = { path = "crates/monet" }
 
 [workspace.lints.clippy]
 macro_use_imports = "warn"
