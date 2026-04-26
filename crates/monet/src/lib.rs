@@ -89,6 +89,7 @@ impl Router {
 
         let route = Route {
             path: path.into(),
+            // handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
             handlers: Default::default(),
         };
 
