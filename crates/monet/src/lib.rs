@@ -4,7 +4,7 @@
 pub mod serve;
 
 use std::{
-    cell::{Cell, LazyCell},
+    cell::{Cell, LazyCell, RefCell},
     collections::{HashMap, hash_map::Entry},
     path,
     pin::Pin,
@@ -29,6 +29,17 @@ pub trait Handler {
     async fn call(&self, req: &mut Request, resp: &mut Response);
 }
 
+#[async_trait(?Send)]
+impl<F, Fut> Handler for F
+where
+    F: FnMut() -> Fut + Clone,
+    Fut: Future<Output = ()>,
+{
+    async fn call(&self, req: &mut Request, resp: &mut Response) {
+        self.clone()();
+    }
+}
+
 struct DefaultOk;
 #[async_trait(?Send)]
 impl Handler for DefaultOk {
@@ -46,15 +57,25 @@ pub struct Router {
 
 pub struct Route {
     pub path: Rc<str>,
-    pub handlers: HashMap<Method, Box<dyn Handler>>,
+    pub handlers: RefCell<HashMap<Method, Box<dyn Handler>>>,
 }
 
 impl Route {
-    fn get(&mut self, handler: Box<dyn Handler>) -> &Self {
-        match self.handlers.entry(Method::GET) {
-            Entry::Vacant(entry) => entry.insert(handler),
+    fn get(&self, handler: impl Handler + 'static) -> &Self {
+        match self.handlers.borrow_mut().entry(Method::GET) {
+            Entry::Vacant(entry) => entry.insert(Box::new(handler)),
             Entry::Occupied(_) => panic!(
                 "Overlapping method route. Cannot add two method routes that both handle `GET`"
+            ),
+        };
+        self
+    }
+
+    fn post(&self, handler: impl Handler + 'static) -> &Self {
+        match self.handlers.borrow_mut().entry(Method::POST) {
+            Entry::Vacant(entry) => entry.insert(Box::new(handler)),
+            Entry::Occupied(_) => panic!(
+                "Overlapping method route. Cannot add two method routes that both handle `POST`"
             ),
         };
         self
@@ -105,9 +126,12 @@ impl Router {
     }
 }
 
+async fn dummy_handler() {
+    println!("should work")
+}
+
 #[test]
 fn route_initiate() {
     let mut router = Router::new();
-    let route = router.at("/");
-    assert_eq!(&*route.path, "/");
+    router.at("/").get(dummy_handler).post(dummy_handler);
 }
