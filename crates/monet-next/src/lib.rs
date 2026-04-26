@@ -65,11 +65,13 @@ impl Router {
                 self.merge_for_path(path)
             }
         } else {
-            self.graph
-                .insert(path, self.routes.len())
-                .expect("should add new path successfully");
+            let new_index = self.routes.len();
+            let expection = "should add new path successfully";
+            self.graph.insert(path, new_index).expect(expection);
+
+            let default_handler: Box<dyn Handler> = Box::new(DefaultOk);
             self.routes.push(Route {
-                handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
+                handlers: HashMap::from([(Method::GET, default_handler)]),
             });
         }
         self
