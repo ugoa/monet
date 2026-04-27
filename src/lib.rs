@@ -1,5 +1,6 @@
 #![allow(clippy::all)]
 #![allow(warnings)]
+pub mod macros;
 pub mod serve;
 
 use std::{
