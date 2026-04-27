@@ -54,7 +54,7 @@ async fn post_handler() {
 
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    println!("Running http server on {}", addr);
+    println!("Running http server from sub crate on {}", addr);
 
     let mut app = Router::new();
     app.at("/").get(index);

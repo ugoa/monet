@@ -3,7 +3,7 @@ resolver = "3"
 
 members = [
   "crates/monet",
-  "examples/*",
+  "crates/monet-macros",
 ]
 
 [workspace.dependencies]

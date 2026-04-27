@@ -1,11 +1,9 @@
 [package]
-name = "hello-compio"
+name = "monet-macros"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-http = "1.4.0"
-monet = { workspace = true }
 
 [lints]
 workspace = true
