@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use http::header::HeaderValue;
-use monet::{Response, Router, serve::serve};
+use monet::{Response, Router, handler, serve::serve};
 
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
@@ -43,11 +43,13 @@ impl monet::Handler for index {
     }
 }
 
+#[handler]
 async fn get_handler(resp: &mut Response) {
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
 }
 
+#[handler]
 async fn post_handler() {
     println!("should post")
 }
@@ -57,6 +59,6 @@ fn main() {
     println!("Running http server from sub crate on {}", addr);
 
     let mut app = Router::new();
-    app.at("/").get(index);
+    app.at("/").get(get_handler);
     serve(addr, app);
 }

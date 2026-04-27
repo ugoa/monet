@@ -56,7 +56,7 @@ pub(crate) fn generate(input: Item) -> syn::Result<TokenStream2> {
 
             Ok(quote! {
                 #struct_impl
-                #[#this::async_trait]
+                #[#this::async_trait(?Send)]
                 impl #this::Handler for #name {
                     #handler_impl
                 }

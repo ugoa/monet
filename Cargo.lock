@@ -734,6 +734,7 @@ dependencies = [
  "hyper",
  "jiff",
  "matchit",
+ "monet-macros",
  "send_wrapper",
  "socket2",
  "tokio",

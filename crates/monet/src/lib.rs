@@ -24,10 +24,10 @@ pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
 // pub type Request = http::Request<Body>;
 // pub type Response = http::Response<Body>;
-
 pub use async_trait::async_trait;
 use http_body_util::Full;
 use hyper::service::Service as HyperService;
+pub use monet_macros::handler;
 
 #[async_trait(?Send)]
 pub trait Handler {

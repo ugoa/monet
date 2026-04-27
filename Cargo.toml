@@ -12,9 +12,9 @@ authors = [
     "Dawei Hu <hoodavy@gmail.com>",
 ]
 
-
 [workspace.dependencies]
 monet = { path = "crates/monet" }
+monet-macros = { path = "crates/monet-macros" }
 
 [workspace.lints.clippy]
 macro_use_imports = "warn"

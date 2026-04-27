@@ -5,6 +5,7 @@ edition = { workspace = true }
 authers  = { workspace = true }
 
 [dependencies]
+monet-macros = { workspace = true }
 compio = { version = "0.18.0", features = ["io-compat", "net", "macros", "time"] }
 bytes = "1.11.1"
 futures = "0.3.32"
