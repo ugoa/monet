@@ -733,6 +733,7 @@ dependencies = [
  "hyper",
  "jiff",
  "matchit",
+ "proc-macro-crate",
  "proc-macro2",
  "send_wrapper",
  "socket2",
