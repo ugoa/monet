@@ -115,23 +115,22 @@ impl Route {
     }
 
     pub fn get(mut self, h: impl Handler + 'static) -> Self {
-        match self.0.borrow_mut().entry(Method::GET) {
-            Entry::Vacant(e) => e.insert(Rc::new(h)),
-            Entry::Occupied(_) => {
-                panic!("Overlapping method route. Cannot add two methods that both handle `GET`",)
-            }
-        };
+        self.register(h, Method::GET);
         self
     }
 
     pub fn post(mut self, h: impl Handler + 'static) -> Self {
-        match self.0.borrow_mut().entry(Method::POST) {
+        self.register(h, Method::POST);
+        self
+    }
+
+    fn register(&mut self, h: impl Handler + 'static, m: Method) {
+        match self.0.borrow_mut().entry(m.clone()) {
             Entry::Vacant(e) => e.insert(Rc::new(h)),
             Entry::Occupied(_) => {
-                panic!("Overlapping method route. Cannot add two methods that both handle `POST`",)
+                panic!("Overlapping method route. Cannot add two methods that both handle `{m}`",)
             }
         };
-        self
     }
 }
 
