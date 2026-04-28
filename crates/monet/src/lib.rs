@@ -98,10 +98,6 @@ impl HyperService<Request> for Router {
     }
 }
 
-// pub struct Route {
-//     pub handlers: RefCell<HashMap<Method, Rc<dyn Handler>>>,
-// }
-
 #[derive(Default)]
 pub struct Route(RefCell<HashMap<Method, Rc<dyn Handler>>>);
 
