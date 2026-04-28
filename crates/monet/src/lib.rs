@@ -181,7 +181,7 @@ impl Router {
     }
 }
 
-async fn get_handler(resp: &mut Response) {
+async fn post_handler(resp: &mut Response) {
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
 }
