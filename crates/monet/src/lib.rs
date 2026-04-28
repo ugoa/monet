@@ -102,31 +102,21 @@ pub struct Route {
     pub handlers: RefCell<HashMap<Method, Rc<dyn Handler>>>,
 }
 
-impl Route {
-    pub fn get(&self, handler: impl Handler + 'static) -> &Self {
-        match self.handlers.borrow_mut().entry(Method::GET) {
-            Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
-            Entry::Occupied(_) => panic!(
-                "Overlapping method route. Cannot add two method routes that both handle `GET`"
-            ),
-        };
-        self
-    }
-
-    // pub fn post(&self, handler: impl Handler + 'static) -> &Self {
-    //     match self.handlers.borrow_mut().entry(Method::POST) {
-    //         Entry::Vacant(entry) => entry.insert(Rc::new(handler)),
-    //         Entry::Occupied(_) => panic!(
-    //             "Overlapping method route. Cannot add two method routes that both handle `POST`"
-    //         ),
-    //     };
-    //     self
-    // }
-}
-
 impl Default for Router {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct MethodHandler {
+    method: Method,
+    handler: Rc<dyn Handler>,
+}
+
+pub fn get(handler: impl Handler + 'static) -> MethodHandler {
+    MethodHandler {
+        method: Method::GET,
+        handler: Rc::new(handler),
     }
 }
 
@@ -161,26 +151,28 @@ impl Router {
         }
     }
 
-    pub fn at(&mut self, path: &str) -> &Route {
+    pub fn at(mut self, path: &str, mh: MethodHandler) -> Router {
         if !self.path_to_index.contains_key(path) {
-            self.insert(path);
+            self.new_path(path, mh);
         }
         self.routes
             .iter()
             .find(|r| *r.path == *path)
-            .expect("should succeed")
+            .expect("should succeed");
+        self
     }
 
-    fn insert(&mut self, path: &str) {
+    fn new_path(&mut self, path: &str, mh: MethodHandler) {
         let new_index = self.routes.len();
         self.inner
             .insert(path, new_index)
             .expect("should add new path successfully");
 
+        let handlers = HashMap::from([(mh.method, mh.handler)]);
+
         let route = Route {
             path: path.into(),
-            // handlers: HashMap::from([(Method::GET, Box::new(DefaultOk) as Box<dyn Handler>)]),
-            handlers: Default::default(),
+            handlers: RefCell::new(handlers),
         };
 
         self.routes.push(route);
@@ -201,5 +193,5 @@ async fn simple_hello() {
 #[test]
 fn route_initiate() {
     let mut router = Router::new();
-    router.at("/").get(simple_hello);
+    router.at("/", get(simple_hello));
 }

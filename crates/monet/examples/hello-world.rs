@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use http::header::HeaderValue;
-use monet::{Response, Router, handler, serve::serve};
+use monet::{Response, Router, get, handler, serve::serve};
 
 #[handler]
 async fn get_handler(resp: &mut Response) {
@@ -18,7 +18,6 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Running http server from sub crate on {}", addr);
 
-    let mut app = Router::new();
-    app.at("/").get(get_handler);
+    let app = Router::new().at("/", get(get_handler));
     serve(addr, app);
 }
