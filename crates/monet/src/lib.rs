@@ -98,9 +98,44 @@ impl HyperService<Request> for Router {
     }
 }
 
-pub struct Route {
-    pub path: Rc<str>,
-    pub handlers: RefCell<HashMap<Method, Rc<dyn Handler>>>,
+// pub struct Route {
+//     pub handlers: RefCell<HashMap<Method, Rc<dyn Handler>>>,
+// }
+
+#[derive(Default)]
+pub struct Route(RefCell<HashMap<Method, Rc<dyn Handler>>>);
+
+pub fn get(handler: impl Handler + 'static) -> MethodHandler {
+    MethodHandler {
+        method: Method::GET,
+        handler: Rc::new(handler),
+    }
+}
+
+impl Route {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn get(mut self, mh: MethodHandler) -> Self {
+        match self.0.borrow_mut().entry(mh.method) {
+            Entry::Vacant(e) => e.insert(mh.handler),
+            Entry::Occupied(_) => {
+                panic!("Overlapping method route. Cannot add two methods that both handle `GET`",)
+            }
+        };
+        self
+    }
+
+    pub fn post(mut self, mh: MethodHandler) -> Self {
+        match self.0.borrow_mut().entry(mh.method) {
+            Entry::Vacant(e) => e.insert(mh.handler),
+            Entry::Occupied(_) => {
+                panic!("Overlapping method route. Cannot add two methods that both handle `POST`",)
+            }
+        };
+        self
+    }
 }
 
 impl Default for Router {
@@ -112,13 +147,6 @@ impl Default for Router {
 pub struct MethodHandler {
     method: Method,
     handler: Rc<dyn Handler>,
-}
-
-pub fn get(handler: impl Handler + 'static) -> MethodHandler {
-    MethodHandler {
-        method: Method::GET,
-        handler: Rc::new(handler),
-    }
 }
 
 impl Router {
@@ -141,7 +169,7 @@ impl Router {
         let match_ = self.inner.at(req.uri().path()).unwrap();
         let idx = *match_.value;
         let route = self.routes.get(idx).expect("should be in router");
-        let handler = route.handlers.borrow().get(req.method()).unwrap().clone();
+        let handler = route.0.borrow().get(req.method()).unwrap().clone();
 
         let mut resp = HyperResponse::new(Full::new(Bytes::from("original")));
 
@@ -156,10 +184,6 @@ impl Router {
         if !self.path_to_index.contains_key(path) {
             self.new_path(path, mh);
         }
-        self.routes
-            .iter()
-            .find(|r| *r.path == *path)
-            .expect("should succeed");
         self
     }
 
@@ -169,12 +193,7 @@ impl Router {
             .insert(path, new_index)
             .expect("should add new path successfully");
 
-        let handlers = HashMap::from([(mh.method, mh.handler)]);
-
-        let route = Route {
-            path: path.into(),
-            handlers: RefCell::new(handlers),
-        };
+        let route = Route(RefCell::new(HashMap::from([(mh.method, mh.handler)])));
 
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
