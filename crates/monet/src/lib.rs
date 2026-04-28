@@ -109,28 +109,77 @@ pub fn post(handler: impl Handler + 'static) -> Route {
     Route::new().post(handler)
 }
 
+pub fn patch(handler: impl Handler + 'static) -> Route {
+    Route::new().patch(handler)
+}
+pub fn put(handler: impl Handler + 'static) -> Route {
+    Route::new().put(handler)
+}
+pub fn delete(handler: impl Handler + 'static) -> Route {
+    Route::new().delete(handler)
+}
+pub fn connect(handler: impl Handler + 'static) -> Route {
+    Route::new().connect(handler)
+}
+pub fn options(handler: impl Handler + 'static) -> Route {
+    Route::new().options(handler)
+}
+pub fn trace(handler: impl Handler + 'static) -> Route {
+    Route::new().trace(handler)
+}
+pub fn head(handler: impl Handler + 'static) -> Route {
+    Route::new().head(handler)
+}
+
 impl Route {
     pub fn new() -> Self {
         Default::default()
     }
 
     pub fn get(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::GET);
-        self
+        self.register(h, Method::GET)
     }
 
     pub fn post(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::POST);
-        self
+        self.register(h, Method::POST)
     }
 
-    fn register(&mut self, h: impl Handler + 'static, m: Method) {
+    pub fn patch(mut self, h: impl Handler + 'static) -> Self {
+        self.register(h, Method::PATCH)
+    }
+
+    pub fn put(mut self, h: impl Handler + 'static) -> Self {
+        self.register(h, Method::PUT)
+    }
+
+    pub fn delete(mut self, h: impl Handler + 'static) -> Self {
+        self.register(h, Method::DELETE)
+    }
+
+    pub fn connect(mut self, h: impl Handler + 'static) -> Self {
+        self.register(h, Method::CONNECT)
+    }
+
+    pub fn options(mut self, h: impl Handler + 'static) -> Self {
+        self.register(h, Method::OPTIONS)
+    }
+
+    pub fn trace(mut self, h: impl Handler + 'static) -> Self {
+        self.register(h, Method::TRACE)
+    }
+
+    pub fn head(mut self, h: impl Handler + 'static) -> Self {
+        self.register(h, Method::HEAD)
+    }
+
+    fn register(mut self, h: impl Handler + 'static, m: Method) -> Self {
         match self.0.borrow_mut().entry(m.clone()) {
             Entry::Vacant(e) => e.insert(Rc::new(h)),
             Entry::Occupied(_) => {
                 panic!("Overlapping method route. Cannot add two methods that both handle `{m}`",)
             }
         };
+        self
     }
 }
 
