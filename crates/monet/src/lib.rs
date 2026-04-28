@@ -210,10 +210,11 @@ impl Router {
     ) -> impl Future<Output = Result<Response, hyper::Error>> + 'static {
         let method = req.method();
         let path = req.uri().path();
-        // let (mut parts, body) = req.into_parts();
+        // TODO: Return 404 not found if no matching routes, given default-fallback is enabled
         let match_ = self.inner.at(req.uri().path()).unwrap();
         let idx = *match_.value;
         let route = self.routes.get(idx).expect("should be in router");
+        // TODO: Return 404 not found if no matching method, given default-fallback is enabled
         let handler = route.0.borrow().get(req.method()).unwrap().clone();
 
         let mut resp = HyperResponse::new(Full::new(Bytes::from("original")));
