@@ -105,11 +105,12 @@ impl HyperService<Request> for Router {
 #[derive(Default)]
 pub struct Route(RefCell<HashMap<Method, Rc<dyn Handler>>>);
 
-pub fn get(handler: impl Handler + 'static) -> MethodHandler {
-    MethodHandler {
-        method: Method::GET,
-        handler: Rc::new(handler),
-    }
+pub fn get(handler: impl Handler + 'static) -> Route {
+    Route::new().get(handler)
+}
+
+pub fn post(handler: impl Handler + 'static) -> Route {
+    Route::new().post(handler)
 }
 
 impl Route {
@@ -117,9 +118,9 @@ impl Route {
         Default::default()
     }
 
-    pub fn get(mut self, mh: MethodHandler) -> Self {
-        match self.0.borrow_mut().entry(mh.method) {
-            Entry::Vacant(e) => e.insert(mh.handler),
+    pub fn get(mut self, h: impl Handler + 'static) -> Self {
+        match self.0.borrow_mut().entry(Method::GET) {
+            Entry::Vacant(e) => e.insert(Rc::new(h)),
             Entry::Occupied(_) => {
                 panic!("Overlapping method route. Cannot add two methods that both handle `GET`",)
             }
@@ -127,9 +128,9 @@ impl Route {
         self
     }
 
-    pub fn post(mut self, mh: MethodHandler) -> Self {
-        match self.0.borrow_mut().entry(mh.method) {
-            Entry::Vacant(e) => e.insert(mh.handler),
+    pub fn post(mut self, h: impl Handler + 'static) -> Self {
+        match self.0.borrow_mut().entry(Method::POST) {
+            Entry::Vacant(e) => e.insert(Rc::new(h)),
             Entry::Occupied(_) => {
                 panic!("Overlapping method route. Cannot add two methods that both handle `POST`",)
             }
@@ -180,38 +181,21 @@ impl Router {
         }
     }
 
-    pub fn at(mut self, path: &str, mh: MethodHandler) -> Router {
+    pub fn at(mut self, path: &str, route: Route) -> Router {
         if !self.path_to_index.contains_key(path) {
-            self.new_path(path, mh);
+            self.new_path(path, route);
         }
         self
     }
 
-    fn new_path(&mut self, path: &str, mh: MethodHandler) {
+    fn new_path(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
         self.inner
             .insert(path, new_index)
             .expect("should add new path successfully");
 
-        let route = Route(RefCell::new(HashMap::from([(mh.method, mh.handler)])));
-
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
         self.index_to_path.insert(new_index, path.into());
     }
-}
-
-async fn post_handler(resp: &mut Response) {
-    resp.headers_mut()
-        .insert("mark", HeaderValue::from_static("modified"));
-}
-
-async fn simple_hello() {
-    "he";
-}
-
-#[test]
-fn route_initiate() {
-    let mut router = Router::new();
-    router.at("/", get(simple_hello));
 }

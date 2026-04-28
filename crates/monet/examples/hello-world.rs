@@ -18,6 +18,6 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Running http server from sub crate on {}", addr);
 
-    let app = Router::new().at("/", get(get_handler));
+    let app = Router::new().at("/", get(get_handler).post(post_handler));
     monet::serve(addr, app);
 }
