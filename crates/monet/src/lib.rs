@@ -24,7 +24,6 @@ pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
 #[async_trait(?Send)]
 pub trait Middleware {
-    /// Asynchronously handle the request, and return a response.
     async fn transform(&self, request: Request, chain: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
@@ -35,7 +34,6 @@ pub trait Middleware {
 
 #[async_trait(?Send)]
 pub trait Endpoint {
-    /// Invoke the endpoint within the given context
     async fn call(&self, req: Request) -> Response;
 }
 
@@ -106,27 +104,6 @@ where
         self.clone()();
     }
 }
-
-// #[async_trait(?Send)]
-// impl<F, Fut> Handler for F
-// where
-//     F: FnMut(&mut Response) -> Fut + Clone,
-//     Fut: Future<Output = ()>,
-// {
-//     fn handle<'life0, 'life1, 'life2, 'async_trait>(
-//         &'life0 self,
-//         __macro_gen_req: &'life1 mut Request,
-//         resp: &'life2 mut Response,
-//     ) -> Pin<Box<dyn Future<Output = ()> + 'async_trait>>
-//     where
-//         'life0: 'async_trait,
-//         'life1: 'async_trait,
-//         'life2: 'async_trait,
-//         Self: 'async_trait,
-//     {
-//         Box::pin(async move { self.clone()(resp).await })
-//     }
-// }
 
 struct DefaultOk;
 #[async_trait(?Send)]
