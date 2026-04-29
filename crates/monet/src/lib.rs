@@ -33,14 +33,14 @@ pub trait Middleware {
 }
 
 #[async_trait(?Send)]
-pub trait Endpoint {
+pub trait Endpoint: 'static {
     async fn call(&self, req: Request) -> Response;
 }
 
 #[async_trait(?Send)]
 impl<F, Fut, Resp> Endpoint for F
 where
-    F: Fn(Request) -> Fut,
+    F: 'static + Fn(Request) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
@@ -139,11 +139,11 @@ impl HyperService<Request> for Router {
 #[derive(Default)]
 pub struct Route(RefCell<HashMap<Method, Rc<dyn Endpoint>>>);
 
-pub fn get(handler: impl Endpoint + 'static) -> Route {
+pub fn get(handler: impl Endpoint) -> Route {
     Route::new().get(handler)
 }
 
-pub fn post(handler: impl Endpoint + 'static) -> Route {
+pub fn post(handler: impl Endpoint) -> Route {
     Route::new().post(handler)
 }
 
@@ -152,15 +152,15 @@ impl Route {
         Default::default()
     }
 
-    pub fn get(mut self, h: impl Endpoint + 'static) -> Self {
+    pub fn get(mut self, h: impl Endpoint) -> Self {
         self.register(h, Method::GET)
     }
 
-    pub fn post(mut self, h: impl Endpoint + 'static) -> Self {
+    pub fn post(mut self, h: impl Endpoint) -> Self {
         self.register(h, Method::POST)
     }
 
-    fn register(mut self, h: impl Endpoint + 'static, m: Method) -> Self {
+    fn register(mut self, h: impl Endpoint, m: Method) -> Self {
         match self.0.borrow_mut().entry(m.clone()) {
             Entry::Vacant(e) => e.insert(Rc::new(h)),
             Entry::Occupied(_) => {
@@ -220,7 +220,7 @@ impl Router {
         self
     }
 
-    pub fn wrap_with(mut self, middleware: impl Handler + 'static) -> Self {
+    pub fn wrap_with(mut self, middleware: impl Middleware) -> Self {
         todo!()
     }
 
