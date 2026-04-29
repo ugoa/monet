@@ -39,6 +39,29 @@ pub trait Endpoint {
     async fn call(&self, req: Request) -> Response;
 }
 
+#[async_trait(?Send)]
+impl<F, Fut, Resp> Endpoint for F
+where
+    F: Fn(Request) -> Fut,
+    Fut: Future<Output = Resp>,
+    Resp: IntoResponse,
+{
+    async fn call(&self, req: Request) -> Response {
+        (self)(req).await.into_response()
+    }
+}
+
+pub trait IntoResponse {
+    #[must_use]
+    fn into_response(self) -> Response;
+}
+
+impl IntoResponse for String {
+    fn into_response(self) -> Response {
+        Response::new(Full::new(Bytes::from(self)))
+    }
+}
+
 pub struct Next {
     pub(crate) endpoint: Rc<dyn Endpoint>,
     pub(crate) middlewares: VecDeque<Rc<dyn Middleware>>,
@@ -131,36 +154,14 @@ impl HyperService<Request> for Router {
 }
 
 #[derive(Default)]
-pub struct Route(RefCell<HashMap<Method, Rc<dyn Handler>>>);
+pub struct Route(RefCell<HashMap<Method, Rc<dyn Endpoint>>>);
 
-pub fn get(handler: impl Handler + 'static) -> Route {
+pub fn get(handler: impl Endpoint + 'static) -> Route {
     Route::new().get(handler)
 }
 
-pub fn post(handler: impl Handler + 'static) -> Route {
+pub fn post(handler: impl Endpoint + 'static) -> Route {
     Route::new().post(handler)
-}
-
-pub fn patch(handler: impl Handler + 'static) -> Route {
-    Route::new().patch(handler)
-}
-pub fn put(handler: impl Handler + 'static) -> Route {
-    Route::new().put(handler)
-}
-pub fn delete(handler: impl Handler + 'static) -> Route {
-    Route::new().delete(handler)
-}
-pub fn connect(handler: impl Handler + 'static) -> Route {
-    Route::new().connect(handler)
-}
-pub fn options(handler: impl Handler + 'static) -> Route {
-    Route::new().options(handler)
-}
-pub fn trace(handler: impl Handler + 'static) -> Route {
-    Route::new().trace(handler)
-}
-pub fn head(handler: impl Handler + 'static) -> Route {
-    Route::new().head(handler)
 }
 
 impl Route {
@@ -168,43 +169,15 @@ impl Route {
         Default::default()
     }
 
-    pub fn get(mut self, h: impl Handler + 'static) -> Self {
+    pub fn get(mut self, h: impl Endpoint + 'static) -> Self {
         self.register(h, Method::GET)
     }
 
-    pub fn post(mut self, h: impl Handler + 'static) -> Self {
+    pub fn post(mut self, h: impl Endpoint + 'static) -> Self {
         self.register(h, Method::POST)
     }
 
-    pub fn patch(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::PATCH)
-    }
-
-    pub fn put(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::PUT)
-    }
-
-    pub fn delete(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::DELETE)
-    }
-
-    pub fn connect(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::CONNECT)
-    }
-
-    pub fn options(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::OPTIONS)
-    }
-
-    pub fn trace(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::TRACE)
-    }
-
-    pub fn head(mut self, h: impl Handler + 'static) -> Self {
-        self.register(h, Method::HEAD)
-    }
-
-    fn register(mut self, h: impl Handler + 'static, m: Method) -> Self {
+    fn register(mut self, h: impl Endpoint + 'static, m: Method) -> Self {
         match self.0.borrow_mut().entry(m.clone()) {
             Entry::Vacant(e) => e.insert(Rc::new(h)),
             Entry::Occupied(_) => {
@@ -253,8 +226,7 @@ impl Router {
 
         async move {
             compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
-            handler.handle(&mut req, &mut resp).await;
-            Ok(resp)
+            Ok(handler.call(req).await)
         }
     }
 
