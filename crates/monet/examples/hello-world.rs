@@ -1,7 +1,16 @@
-use std::net::SocketAddr;
+use std::{
+    cell::{LazyCell, RefCell},
+    net::SocketAddr,
+    rc::Rc,
+};
 
+thread_local! {
+    static COUNTER: LazyCell<RefCell<i32>> = LazyCell::new(|| RefCell::new(0));
+}
+
+use futures::stream::Count;
 use http::header::HeaderValue;
-use monet::{Request, Response, Router, get, handler};
+use monet::{Chain, Request, Response, Router, get, handler};
 
 #[handler]
 async fn omni_api(resp: &mut Response) {
@@ -19,7 +28,12 @@ async fn sample2(_req: Request) -> &'static str {
 
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    println!("Running http server from sub crate on {}", addr);
+    COUNTER.with(|foo| *foo.borrow_mut() += 2);
+    println!(
+        "Running http server from sub crate on {}, count: {}",
+        addr,
+        COUNTER.with(|foo| foo.borrow().clone())
+    );
 
     let app = Router::new()
         .at("/", get(sample))
