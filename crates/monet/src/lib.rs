@@ -119,9 +119,11 @@ use matchit::MatchError;
 pub type Request = HyperRequest<IncomingBody>;
 pub type Response = HyperResponse<Full<Bytes>>;
 
+#[derive(Default)]
 pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
+    pub middlewares: Rc<VecDeque<Rc<dyn Middleware>>>,
     pub path_to_index: HashMap<Rc<str>, usize>,
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
@@ -171,12 +173,6 @@ impl Route {
     }
 }
 
-impl Default for Router {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 pub struct MethodHandler {
     method: Method,
     handler: Rc<dyn Handler>,
@@ -184,12 +180,7 @@ pub struct MethodHandler {
 
 impl Router {
     pub fn new() -> Self {
-        Self {
-            inner: Default::default(),
-            routes: Default::default(),
-            path_to_index: Default::default(),
-            index_to_path: Default::default(),
-        }
+        Default::default()
     }
 
     pub fn run(
