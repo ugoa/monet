@@ -9,11 +9,11 @@ async fn omni_api(resp: &mut Response) {
         .insert("mark", HeaderValue::from_static("modified"));
 }
 
-async fn sample(req: Request) -> String {
+async fn sample(_req: Request) -> String {
     "Hi".to_string()
 }
 
-async fn sample2(req: Request) -> &'static str {
+async fn sample2(_req: Request) -> &'static str {
     "Hello"
 }
 
