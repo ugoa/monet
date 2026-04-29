@@ -25,7 +25,7 @@ pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 #[async_trait(?Send)]
 pub trait Middleware {
     /// Asynchronously handle the request, and return a response.
-    async fn transform(&self, request: Request, next: Next) -> Response;
+    async fn transform(&self, request: Request, next: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
@@ -68,15 +68,15 @@ impl IntoResponse for &'static str {
     }
 }
 
-pub struct Next {
+pub struct Chain {
     pub(crate) endpoint: Rc<dyn Endpoint>,
     pub(crate) middlewares: VecDeque<Rc<dyn Middleware>>,
 }
 
-impl Next {
-    pub async fn run(mut self, req: Request) -> Response {
-        if let Some(current) = self.middlewares.pop_front() {
-            current.transform(req, self).await
+impl Chain {
+    pub async fn call_next(mut self, req: Request) -> Response {
+        if let Some(middleware) = self.middlewares.pop_front() {
+            middleware.transform(req, self).await
         } else {
             self.endpoint.call(req).await
         }
