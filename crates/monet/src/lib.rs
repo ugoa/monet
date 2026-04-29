@@ -24,7 +24,7 @@ pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
-    async fn transform(&self, request: Request, chain: Chain) -> Response;
+    async fn transform(&self, request: Request, chain: Chain) -> Result<Response, hyper::Error>;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
@@ -68,15 +68,15 @@ impl IntoResponse for &'static str {
 
 pub struct Chain {
     pub(crate) endpoint: Rc<dyn Endpoint>,
-    pub(crate) middlewares: VecDeque<Rc<dyn Middleware>>,
+    pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
 }
 
 impl Chain {
-    pub async fn call_next(mut self, req: Request) -> Response {
-        if let Some(middleware) = self.middlewares.pop_front() {
-            middleware.transform(req, self).await
+    pub async fn call_next(mut self, req: Request) -> Result<Response, hyper::Error> {
+        if let Some(current) = self.middlewares.pop() {
+            current.transform(req, self).await
         } else {
-            self.endpoint.call(req).await
+            Ok(self.endpoint.call(req).await)
         }
     }
 }
@@ -123,7 +123,7 @@ pub type Response = HyperResponse<Full<Bytes>>;
 pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
-    pub middlewares: Rc<VecDeque<Rc<dyn Middleware>>>,
+    pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub path_to_index: HashMap<Rc<str>, usize>,
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
@@ -194,14 +194,14 @@ impl Router {
         let idx = *match_.value;
         let route = self.routes.get(idx).expect("should be in router");
         // TODO: Return 404 not found if no matching method, given default-fallback is enabled
-        let handler = route.0.borrow().get(req.method()).unwrap().clone();
+        let endpoint_map = route.0.borrow();
+        let handler = endpoint_map.get(req.method()).unwrap().clone();
 
-        let mut resp = HyperResponse::new(Full::new(Bytes::from("original")));
-
-        async move {
-            compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
-            Ok(handler.call(req).await)
-        }
+        let chain = Chain {
+            endpoint: handler.clone(),
+            middlewares: (*self.middlewares).clone(),
+        };
+        chain.call_next(req)
     }
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
@@ -212,7 +212,10 @@ impl Router {
     }
 
     pub fn wrap_with(mut self, middleware: impl Middleware) -> Self {
-        todo!()
+        let list =
+            Rc::get_mut(&mut self.middlewares).expect("shall get mut ref to the middlewares");
+        list.push(Rc::new(middleware));
+        self
     }
 
     fn new_path(&mut self, path: &str, route: Route) {
