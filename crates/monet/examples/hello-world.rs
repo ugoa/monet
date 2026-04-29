@@ -28,11 +28,11 @@ async fn sample2(_req: Request) -> &'static str {
 
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    COUNTER.with(|foo| *foo.borrow_mut() += 2);
+    COUNTER.with(|inner| *inner.borrow_mut() += 2);
     println!(
         "Running http server from sub crate on {}, count: {}",
         addr,
-        COUNTER.with(|foo| foo.borrow().clone())
+        COUNTER.with(|inner| inner.borrow().clone())
     );
 
     let app = Router::new()
