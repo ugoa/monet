@@ -23,7 +23,7 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
 #[async_trait(?Send)]
-pub trait Middleware {
+pub trait Middleware: 'static {
     async fn transform(&self, request: Request, chain: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
