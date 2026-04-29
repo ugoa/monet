@@ -62,6 +62,12 @@ impl IntoResponse for String {
     }
 }
 
+impl IntoResponse for &'static str {
+    fn into_response(self) -> Response {
+        Response::new(Full::new(Bytes::from(self)))
+    }
+}
+
 pub struct Next {
     pub(crate) endpoint: Rc<dyn Endpoint>,
     pub(crate) middlewares: VecDeque<Rc<dyn Middleware>>,
@@ -225,7 +231,7 @@ impl Router {
         let mut resp = HyperResponse::new(Full::new(Bytes::from("original")));
 
         async move {
-            compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
+            compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
             Ok(handler.call(req).await)
         }
     }

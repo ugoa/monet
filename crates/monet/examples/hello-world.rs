@@ -13,10 +13,16 @@ async fn sample(req: Request) -> String {
     "Hi".to_string()
 }
 
+async fn sample2(req: Request) -> &'static str {
+    "Hello"
+}
+
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Running http server from sub crate on {}", addr);
 
-    let app = Router::new().at("/", get(sample));
+    let app = Router::new()
+        .at("/", get(sample))
+        .at("/hello", get(sample2));
     monet::serve(addr, app);
 }
