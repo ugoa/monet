@@ -4,13 +4,10 @@ use std::{
     rc::Rc,
 };
 
-thread_local! {
-    static COUNTER: LazyCell<RefCell<i32>> = LazyCell::new(|| RefCell::new(0));
-}
-
 use futures::stream::Count;
 use http::header::HeaderValue;
-use monet::{Chain, Request, Response, Router, get, handler};
+use monet::{Chain, Middleware, Request, Response, Router, async_trait, get, handler};
+use tracing::info;
 
 #[handler]
 async fn omni_api(resp: &mut Response) {
@@ -26,14 +23,24 @@ async fn sample2(_req: Request) -> &'static str {
     "Hello"
 }
 
+thread_local! {
+    static COUNTER: LazyCell<RefCell<i32>> = LazyCell::new(|| RefCell::new(0));
+}
+
+struct RequestCount;
+
+#[async_trait(?Send)]
+impl Middleware for RequestCount {
+    async fn transform(&self, req: Request, chain: Chain) -> Response {
+        COUNTER.with(|inner| *inner.borrow_mut() += 1);
+        println!("Count: {}", COUNTER.with(|inner| inner.borrow().clone()));
+        chain.call_next(req).await
+    }
+}
+
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    COUNTER.with(|inner| *inner.borrow_mut() += 2);
-    println!(
-        "Running http server from sub crate on {}, count: {}",
-        addr,
-        COUNTER.with(|inner| inner.borrow().clone())
-    );
+    println!("Server running at: {}", addr);
 
     let app = Router::new()
         .at("/", get(sample))

@@ -25,7 +25,7 @@ pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 #[async_trait(?Send)]
 pub trait Middleware {
     /// Asynchronously handle the request, and return a response.
-    async fn transform(&self, request: Request, next: Chain) -> Response;
+    async fn transform(&self, request: Request, chain: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {

@@ -19,3 +19,4 @@ monet-macros = { path = "crates/monet-macros" }
 [workspace.lints.clippy]
 macro_use_imports = "warn"
 
+
