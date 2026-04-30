@@ -33,6 +33,17 @@ pub trait Middleware: 'static {
 }
 
 #[async_trait(?Send)]
+impl<F, Fut> Middleware for F
+where
+    F: 'static + Fn(Request, Chain) -> Fut,
+    Fut: Future<Output = Result<Response, hyper::Error>>,
+{
+    async fn transform(&self, req: Request, chain: Chain) -> Result<Response, hyper::Error> {
+        (self)(req, chain).await
+    }
+}
+
+#[async_trait(?Send)]
 pub trait Endpoint: 'static {
     async fn call(&self, req: Request) -> Response;
 }

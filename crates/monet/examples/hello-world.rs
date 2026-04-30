@@ -2,6 +2,7 @@ use std::{
     cell::{LazyCell, RefCell},
     net::SocketAddr,
     rc::Rc,
+    str::FromStr,
 };
 
 use futures::stream::Count;
@@ -10,10 +11,11 @@ use hyper::service::service_fn;
 use monet::{Chain, Middleware, Request, Response, Router, async_trait, get, handler};
 use tracing::info;
 
-#[handler]
-async fn omni_api2(resp: &mut Response) {
+async fn omni_api2(req: Request, chain: Chain) -> Result<Response, hyper::Error> {
+    let mut resp = chain.call_next(req).await.unwrap();
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
+    Ok(resp)
 }
 
 async fn sample(_req: Request) -> String {
@@ -37,7 +39,11 @@ impl Middleware for RequestCounter {
     async fn transform(&self, req: Request, chain: Chain) -> Result<Response, hyper::Error> {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
-        chain.call_next(req).await
+        let mut resp = chain.call_next(req).await.unwrap();
+
+        resp.headers_mut()
+            .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
+        Ok(resp)
     }
 }
 
@@ -47,6 +53,7 @@ fn main() {
 
     let app = Router::new()
         .at("/", get(sample))
+        .wrap_with(omni_api2)
         .at("/hello", get(sample2))
         .wrap_with(RequestCounter);
 
