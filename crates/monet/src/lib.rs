@@ -166,7 +166,7 @@ impl Route {
         match self.0.borrow_mut().entry(m.clone()) {
             Entry::Vacant(e) => e.insert(Rc::new(h)),
             Entry::Occupied(_) => {
-                panic!("Overlapping method route. Cannot add two methods that both handle `{m}`",)
+                panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
             }
         };
         self
