@@ -6,11 +6,11 @@ use std::{
 use http::header::HeaderValue;
 use monet::{Chain, Middleware, Request, Response, Router, async_trait, get};
 
-async fn simple_middleware(req: Request, chain: Chain) -> Result<Response, hyper::Error> {
-    let mut resp = chain.call_next(req).await.unwrap();
+async fn simple_middleware(req: Request, chain: Chain) -> Response {
+    let mut resp = chain.call_next(req).await;
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
-    Ok(resp)
+    resp
 }
 
 async fn sample(_req: Request) -> String {
@@ -30,14 +30,13 @@ thread_local! {
 struct RequestCounter;
 #[async_trait(?Send)]
 impl Middleware for RequestCounter {
-    async fn transform(&self, req: Request, chain: Chain) -> Result<Response, hyper::Error> {
+    async fn transform(&self, req: Request, chain: Chain) -> Response {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
-        chain.call_next(req).await.map(|mut resp| {
-            resp.headers_mut()
-                .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
-            resp
-        })
+        let mut resp = chain.call_next(req).await;
+        resp.headers_mut()
+            .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
+        resp
     }
 }
 

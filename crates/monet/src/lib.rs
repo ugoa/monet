@@ -16,6 +16,7 @@ use std::{
 };
 
 use bytes::Bytes;
+use futures::FutureExt;
 use http::{HeaderValue, Method, StatusCode, uri};
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
@@ -24,7 +25,7 @@ pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
-    async fn transform(&self, request: Request, chain: Chain) -> Result<Response, hyper::Error>;
+    async fn transform(&self, request: Request, chain: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
@@ -36,9 +37,9 @@ pub trait Middleware: 'static {
 impl<F, Fut> Middleware for F
 where
     F: 'static + Fn(Request, Chain) -> Fut,
-    Fut: Future<Output = Result<Response, hyper::Error>>,
+    Fut: Future<Output = Response>,
 {
-    async fn transform(&self, req: Request, chain: Chain) -> Result<Response, hyper::Error> {
+    async fn transform(&self, req: Request, chain: Chain) -> Response {
         (self)(req, chain).await
     }
 }
@@ -84,11 +85,11 @@ pub struct Chain {
 }
 
 impl Chain {
-    pub async fn call_next(mut self, req: Request) -> Result<Response, hyper::Error> {
+    pub async fn call_next(mut self, req: Request) -> Response {
         if let Some(current) = self.middlewares.pop() {
             current.transform(req, self).await
         } else {
-            Ok(self.endpoint.call(req).await)
+            self.endpoint.call(req).await
         }
     }
 }
@@ -142,7 +143,7 @@ pub struct Router {
 
 impl HyperService<Request> for Router {
     type Response = Response;
-    type Error = hyper::Error;
+    type Error = Infallible;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
     fn call(&self, req: Request) -> Self::Future {
@@ -197,7 +198,7 @@ impl Router {
     pub fn run(
         &self,
         mut req: Request,
-    ) -> impl Future<Output = Result<Response, hyper::Error>> + 'static {
+    ) -> impl Future<Output = Result<Response, Infallible>> + 'static {
         let method = req.method();
         let path = req.uri().path();
         // TODO:
@@ -209,7 +210,7 @@ impl Router {
         //      Return 404 not found if no matching method, given default-fallback is enabled
         let chain = route.0.get(req.method()).unwrap().clone();
 
-        chain.call_next(req)
+        chain.call_next(req).map(|x| Ok::<_, Infallible>(x))
     }
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
