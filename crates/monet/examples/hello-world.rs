@@ -5,11 +5,8 @@ use std::{
     str::FromStr,
 };
 
-use futures::stream::Count;
 use http::header::HeaderValue;
-use hyper::service::service_fn;
-use monet::{Chain, Middleware, Request, Response, Router, async_trait, get, handler};
-use tracing::info;
+use monet::{Chain, Middleware, Request, Response, Router, async_trait, get};
 
 async fn omni_api2(req: Request, chain: Chain) -> Result<Response, hyper::Error> {
     let mut resp = chain.call_next(req).await.unwrap();
@@ -39,11 +36,11 @@ impl Middleware for RequestCounter {
     async fn transform(&self, req: Request, chain: Chain) -> Result<Response, hyper::Error> {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
-        let mut resp = chain.call_next(req).await.unwrap();
-
-        resp.headers_mut()
-            .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
-        Ok(resp)
+        chain.call_next(req).await.map(|mut resp| {
+            resp.headers_mut()
+                .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
+            resp
+        })
     }
 }
 
