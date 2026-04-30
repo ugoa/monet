@@ -36,7 +36,7 @@ struct RequestCounter;
 impl Middleware for RequestCounter {
     async fn transform(&self, req: Request, chain: Chain) -> Result<Response, hyper::Error> {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
-        println!("Count: {}", COUNTER.with(|inner| inner.borrow().clone()));
+        println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
         chain.call_next(req).await
     }
 }
