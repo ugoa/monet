@@ -66,6 +66,7 @@ impl IntoResponse for &'static str {
     }
 }
 
+#[derive(Clone)]
 pub struct Chain {
     pub(crate) endpoint: Rc<dyn Endpoint>,
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
@@ -139,7 +140,7 @@ impl HyperService<Request> for Router {
 }
 
 #[derive(Default)]
-pub struct Route(RefCell<HashMap<Method, Rc<dyn Endpoint>>>);
+pub struct Route(HashMap<Method, Chain>);
 
 pub fn get(handler: impl Endpoint) -> Route {
     Route::new().get(handler)
@@ -163,8 +164,12 @@ impl Route {
     }
 
     fn register(mut self, h: impl Endpoint, m: Method) -> Self {
-        match self.0.borrow_mut().entry(m.clone()) {
-            Entry::Vacant(e) => e.insert(Rc::new(h)),
+        let chain = Chain {
+            endpoint: Rc::new(h),
+            middlewares: Default::default(),
+        };
+        match self.0.entry(m.clone()) {
+            Entry::Vacant(e) => e.insert(chain),
             Entry::Occupied(_) => {
                 panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
             }
@@ -189,18 +194,15 @@ impl Router {
     ) -> impl Future<Output = Result<Response, hyper::Error>> + 'static {
         let method = req.method();
         let path = req.uri().path();
-        // TODO: Return 404 not found if no matching routes, given default-fallback is enabled
+        // TODO:
+        //      Return 404 not found if no matching routes, given default-fallback is enabled
         let match_ = self.inner.at(req.uri().path()).unwrap();
         let idx = *match_.value;
         let route = self.routes.get(idx).expect("should be in router");
-        // TODO: Return 404 not found if no matching method, given default-fallback is enabled
-        let endpoint_map = route.0.borrow();
-        let handler = endpoint_map.get(req.method()).unwrap().clone();
+        // TODO:
+        //      Return 404 not found if no matching method, given default-fallback is enabled
+        let chain = route.0.get(req.method()).unwrap().clone();
 
-        let chain = Chain {
-            endpoint: handler.clone(),
-            middlewares: (*self.middlewares).clone(),
-        };
         chain.call_next(req)
     }
 
@@ -212,9 +214,13 @@ impl Router {
     }
 
     pub fn wrap_with(mut self, middleware: impl Middleware) -> Self {
-        let list =
-            Rc::get_mut(&mut self.middlewares).expect("shall get mut ref to the middlewares");
-        list.push(Rc::new(middleware));
+        let shared = Rc::new(middleware);
+        self.routes.iter_mut().for_each(|route| {
+            route
+                .0
+                .iter_mut()
+                .for_each(|(_, chain)| chain.middlewares.push(shared.clone()));
+        });
         self
     }
 
