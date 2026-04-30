@@ -189,11 +189,6 @@ impl Route {
     }
 }
 
-pub struct MethodHandler {
-    method: Method,
-    handler: Rc<dyn Handler>,
-}
-
 impl Router {
     pub fn new() -> Self {
         Default::default()
