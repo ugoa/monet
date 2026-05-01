@@ -8,7 +8,7 @@ use http::header::HeaderValue;
 use monet::{Chain, Middleware, Request, Response, Router, async_trait, get};
 
 async fn simple_middleware(req: Request, chain: Chain) -> Response {
-    req.extensions_mut().insert(Rc::new(21));
+    // req.extensions_mut().insert(Rc::new(21));
     let mut resp = chain.next(req).await;
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
