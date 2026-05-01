@@ -17,7 +17,7 @@ use std::{
 
 use bytes::Bytes;
 use futures::FutureExt;
-use http::{HeaderValue, Method, StatusCode, uri};
+use http::{HeaderValue, Method, StatusCode, header, uri};
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -85,7 +85,7 @@ pub struct Chain {
 }
 
 impl Chain {
-    pub async fn call_next(mut self, req: Request) -> Response {
+    pub async fn next(mut self, req: Request) -> Response {
         if let Some(current) = self.middlewares.pop() {
             current.transform(req, self).await
         } else {
@@ -210,7 +210,7 @@ impl Router {
         //      Return 404 not found if no matching method, given default-fallback is enabled
         let chain = route.0.get(req.method()).unwrap().clone();
 
-        chain.call_next(req).map(|x| Ok::<_, Infallible>(x))
+        chain.next(req).map(|x| Ok::<_, Infallible>(x))
     }
 
     pub fn at(mut self, path: &str, route: Route) -> Self {

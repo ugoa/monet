@@ -1,13 +1,15 @@
 use std::{
     cell::{LazyCell, RefCell},
     net::SocketAddr,
+    rc::Rc,
 };
 
 use http::header::HeaderValue;
 use monet::{Chain, Middleware, Request, Response, Router, async_trait, get};
 
 async fn simple_middleware(req: Request, chain: Chain) -> Response {
-    let mut resp = chain.call_next(req).await;
+    req.extensions_mut().insert(Rc::new(21));
+    let mut resp = chain.next(req).await;
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
     resp
@@ -33,7 +35,7 @@ impl Middleware for RequestCounter {
     async fn transform(&self, req: Request, chain: Chain) -> Response {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
-        let mut resp = chain.call_next(req).await;
+        let mut resp = chain.next(req).await;
         resp.headers_mut()
             .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
         resp
