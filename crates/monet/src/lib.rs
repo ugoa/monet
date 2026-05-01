@@ -221,8 +221,8 @@ impl Router {
     }
 
     // TODO: naming decision
-    //  1. wrap - actix-web
-    //  2. with - tide
+    //  1. wrap - actix-web shortest
+    //  2. with - tide/poem
     //  3. wrap_with - my idea
     //  4. attach
     //  5. mount - my idea
@@ -231,7 +231,7 @@ impl Router {
     //  8. hook - my idea
     //  9. hoop - salvo
     //  10. middleware - tako
-    pub fn attach(mut self, middleware: impl Middleware) -> Self {
+    pub fn wrap(mut self, middleware: impl Middleware) -> Self {
         let shared = Rc::new(middleware);
         self.routes.iter_mut().for_each(|route| {
             route

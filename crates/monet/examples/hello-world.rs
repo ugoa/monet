@@ -46,9 +46,9 @@ fn main() {
 
     let app = Router::new()
         .at("/", get(sample))
-        .attach(simple_middleware)
+        .wrap(simple_middleware)
         .at("/hello", get(sample2))
-        .attach(RequestCounter);
+        .wrap(RequestCounter);
 
     monet::serve(addr, app);
 }
