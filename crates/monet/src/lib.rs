@@ -23,9 +23,25 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
-#[async_trait(?Send)]
+// #[async_trait(?Send)]
+// pub trait Middleware: 'static {
+//     async fn transform(&self, request: Request, chain: Chain) -> Response;
+//
+//     /// Set the middleware's name. By default it uses the type signature.
+//     fn name(&self) -> &str {
+//         std::any::type_name::<Self>()
+//     }
+// }
+
 pub trait Middleware: 'static {
-    async fn transform(&self, request: Request, chain: Chain) -> Response;
+    fn transform<'s, 'o>(
+        &'s self,
+        request: Request,
+        chain: Chain,
+    ) -> Pin<Box<dyn Future<Output = Response> + 'o>>
+    where
+        's: 'o,
+        Self: 'o;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
@@ -45,7 +61,7 @@ where
 }
 
 #[async_trait(?Send)]
-pub trait Endpoint: 'static {
+pub trait Endpoint2: 'static {
     async fn call(&self, req: Request) -> Response;
 }
 
@@ -59,6 +75,13 @@ where
     async fn call(&self, req: Request) -> Response {
         (self)(req).await.into_response()
     }
+}
+
+pub trait Endpoint: 'static {
+    fn call<'s, 'o>(&'s self, request: Request) -> Pin<Box<dyn Future<Output = Response> + 'o>>
+    where
+        's: 'o,
+        Self: 'o;
 }
 
 pub trait IntoResponse {
