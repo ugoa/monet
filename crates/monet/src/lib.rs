@@ -23,31 +23,31 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
-// #[async_trait(?Send)]
-// pub trait Middleware: 'static {
-//     async fn transform(&self, request: Request, chain: Chain) -> Response;
-//
-//     /// Set the middleware's name. By default it uses the type signature.
-//     fn name(&self) -> &str {
-//         std::any::type_name::<Self>()
-//     }
-// }
-
+#[async_trait(?Send)]
 pub trait Middleware: 'static {
-    fn transform<'s, 'o>(
-        &'s self,
-        request: Request,
-        chain: Chain,
-    ) -> Pin<Box<dyn Future<Output = Response> + 'o>>
-    where
-        's: 'o,
-        Self: 'o;
+    async fn transform(&self, request: Request, chain: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
     }
 }
+
+// pub trait Middleware: 'static {
+//     fn transform<'s, 'o>(
+//         &'s self,
+//         request: Request,
+//         chain: Chain,
+//     ) -> Pin<Box<dyn Future<Output = Response> + 'o>>
+//     where
+//         's: 'o,
+//         Self: 'o;
+//
+//     /// Set the middleware's name. By default it uses the type signature.
+//     fn name(&self) -> &str {
+//         std::any::type_name::<Self>()
+//     }
+// }
 
 #[async_trait(?Send)]
 impl<F, Fut> Middleware for F
@@ -61,9 +61,16 @@ where
 }
 
 #[async_trait(?Send)]
-pub trait Endpoint2: 'static {
+pub trait Endpoint: 'static {
     async fn call(&self, req: Request) -> Response;
 }
+
+// pub trait Endpoint: 'static {
+//     fn call<'s, 'f>(&'s self, request: Request) -> Pin<Box<dyn Future<Output = Response> + 'f>>
+//     where
+//         's: 'f,
+//         Self: 'f;
+// }
 
 #[async_trait(?Send)]
 impl<F, Fut, Resp> Endpoint for F
@@ -75,13 +82,6 @@ where
     async fn call(&self, req: Request) -> Response {
         (self)(req).await.into_response()
     }
-}
-
-pub trait Endpoint: 'static {
-    fn call<'s, 'o>(&'s self, request: Request) -> Pin<Box<dyn Future<Output = Response> + 'o>>
-    where
-        's: 'o,
-        Self: 'o;
 }
 
 pub trait IntoResponse {
