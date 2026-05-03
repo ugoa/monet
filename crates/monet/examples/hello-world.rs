@@ -2,6 +2,7 @@ use std::{
     cell::{LazyCell, RefCell},
     net::SocketAddr,
     rc::Rc,
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use http::header::HeaderValue;
@@ -15,9 +16,22 @@ async fn simple_middleware(req: Request, chain: Chain) -> Response {
     resp
 }
 
+static NUM: LazyLock<Arc<Mutex<i32>>> = LazyLock::new(|| Arc::new(Mutex::new(42)));
+
+async fn set_state(mut req: Request, chain: Chain) -> Response {
+    let s = &*NUM;
+    req.extensions_mut().insert(s.clone());
+
+    let resp = chain.next(req).await;
+    resp
+}
+
 async fn sample(_req: Request) -> String {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
-    "Hi".to_string()
+    let guard = _req.extensions().get::<Arc<Mutex<i32>>>().unwrap();
+    let mut state = guard.lock().unwrap();
+    *state += 1;
+    format!("Hi count is {}", *state)
 }
 
 async fn sample2(_req: Request) -> &'static str {
@@ -50,7 +64,8 @@ fn main() {
         .at("/", get(sample))
         .wrap(simple_middleware)
         .at("/hello", get(sample2))
-        .wrap(RequestCounter);
+        .wrap(RequestCounter)
+        .wrap(set_state);
 
     monet::serve(addr, app);
 }
