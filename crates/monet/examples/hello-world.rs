@@ -16,22 +16,24 @@ async fn simple_middleware(req: Request, chain: Chain) -> Response {
     resp
 }
 
-static NUM: LazyLock<Arc<Mutex<i32>>> = LazyLock::new(|| Arc::new(Mutex::new(42)));
+pub struct SyncedState(i32);
+
+static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(SyncedState(42))));
 
 async fn set_state(mut req: Request, chain: Chain) -> Response {
     let s = &*NUM;
     req.extensions_mut().insert(s.clone());
 
-    let resp = chain.next(req).await;
-    resp
+    chain.next(req).await
 }
 
 async fn sample(_req: Request) -> String {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
-    let guard = _req.extensions().get::<Arc<Mutex<i32>>>().unwrap();
+    let guard = _req.extensions().get::<Arc<Mutex<SyncedState>>>().unwrap();
     let mut state = guard.lock().unwrap();
-    *state += 1;
-    format!("Hi count is {}", *state)
+    state.0 += 1;
+    format!("Hi count is {}", state.0)
 }
 
 async fn sample2(_req: Request) -> &'static str {
