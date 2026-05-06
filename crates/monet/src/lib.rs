@@ -4,6 +4,7 @@
 pub mod serve;
 
 use std::{
+    any::Any,
     cell::{Cell, LazyCell, RefCell},
     collections::{HashMap, VecDeque, hash_map::Entry},
     convert::Infallible,
@@ -13,6 +14,7 @@ use std::{
     process::Output,
     rc::Rc,
     sync::{Arc, LazyLock},
+    thread::LocalKey,
 };
 
 use bytes::Bytes;
@@ -154,6 +156,22 @@ use matchit::MatchError;
 
 pub type Request = HyperRequest<IncomingBody>;
 pub type Response = HyperResponse<Full<Bytes>>;
+
+pub struct MyRequest(HyperRequest<IncomingBody>);
+
+impl MyRequest {
+    fn set_state_per_request(mut self, arg: Box<dyn Any>) -> Self {
+        todo!();
+    }
+
+    fn set_state_pre_thread(mut self, v: &LocalKey<Box<dyn Any>>) -> Self {
+        todo!();
+    }
+
+    fn set_state_per_service(mut self, v: &'static Box<dyn Any>) -> Self {
+        todo!();
+    }
+}
 
 #[derive(Default)]
 pub struct Router {
