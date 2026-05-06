@@ -171,6 +171,14 @@ impl MyRequest {
     fn set_global_state(mut self, v: &'static impl Any) -> Self {
         todo!();
     }
+
+    // or
+    fn get_state(mut self, arg: impl Any) -> Self {
+        todo!();
+    }
+    fn get_state_mut(mut self, arg: impl Any) -> Self {
+        todo!();
+    }
 }
 
 #[derive(Default)]
