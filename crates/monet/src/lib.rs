@@ -168,7 +168,7 @@ impl MyRequest {
         todo!();
     }
 
-    fn set_service_state(mut self, v: &'static impl Any) -> Self {
+    fn set_global_state(mut self, v: &'static impl Any) -> Self {
         todo!();
     }
 }
