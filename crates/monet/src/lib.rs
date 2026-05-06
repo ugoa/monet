@@ -160,15 +160,15 @@ pub type Response = HyperResponse<Full<Bytes>>;
 pub struct MyRequest(HyperRequest<IncomingBody>);
 
 impl MyRequest {
-    fn set_state_per_request(mut self, arg: impl Any) -> Self {
+    fn set_request_state(mut self, arg: impl Any) -> Self {
         todo!();
     }
 
-    fn set_state_per_thread(mut self, v: &LocalKey<impl Any>) -> Self {
+    fn set_thread_state(mut self, v: &LocalKey<impl Any>) -> Self {
         todo!();
     }
 
-    fn set_state_per_service(mut self, v: &'static impl Any) -> Self {
+    fn set_service_state(mut self, v: &'static impl Any) -> Self {
         todo!();
     }
 }
