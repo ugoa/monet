@@ -54,7 +54,7 @@ async fn sample(_req: Request) -> String {
 async fn parse_json(req: Request) -> String {
     let js: Json<CreateUser> = req.into_json().await.unwrap();
     // let Json(js) = req.into_json::<CreateUser>().await.unwrap();
-    js.0.password
+    js.password.clone()
 }
 
 thread_local! {
