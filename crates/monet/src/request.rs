@@ -10,7 +10,7 @@ use hyper::{Request as HttpRequest, body::Incoming as IncomingBody};
 use crate::body::Body;
 
 pub struct Request {
-    pub(crate) head: Parts,
+    head: Parts,
     pub body: Body,
     pub state: State,
 }
@@ -155,18 +155,18 @@ impl Hasher for IdHasher {
 }
 
 #[derive(Clone)]
-pub struct Parts {
+struct Parts {
     /// The request's method
-    pub method: Method,
+    method: Method,
 
     /// The request's URI
-    pub uri: Uri,
+    uri: Uri,
 
     /// The request's version
-    pub version: Version,
+    version: Version,
 
     /// The request's headers
-    pub headers: HeaderMap<HeaderValue>,
+    headers: HeaderMap<HeaderValue>,
 }
 
 pub(crate) trait AnyClone: Any {
