@@ -4,15 +4,21 @@ use std::{
     hash::{BuildHasherDefault, Hasher},
 };
 
+use bytes::Bytes;
 use http::{HeaderMap, HeaderValue, Method, Uri, Version};
+use http_body_util::BodyExt;
 use hyper::{Request as HttpRequest, body::Incoming as IncomingBody};
+use serde_core::de::DeserializeOwned;
 
-use crate::body::Body;
+use crate::{
+    body::Body,
+    json::{Json, json_content_type},
+};
 
 pub struct Request {
-    head: Parts,
     pub body: Body,
     pub state: State,
+    head: Parts,
 }
 
 impl Request {
@@ -54,6 +60,42 @@ impl Request {
     #[inline]
     pub fn headers_mut(&mut self) -> &mut HeaderMap {
         &mut self.head.headers
+    }
+
+    pub async fn into_bytes(self) -> Bytes {
+        let bytes = self
+            .with_limited_body()
+            .body
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        bytes
+    }
+
+    // TODO: change to Result
+    #[inline]
+    pub async fn into_json<T: DeserializeOwned>(self) -> Option<Json<T>> {
+        if json_content_type(self.headers()) {
+            Some(Json::from_bytes(&self.into_bytes().await))
+        } else {
+            None
+        }
+    }
+
+    fn with_limited_body(self) -> Request {
+        // // update docs in `axum-core/src/extract/default_body_limit.rs` and
+        // // `axum/src/docs/extract.md` if this changes
+        // const DEFAULT_LIMIT: usize = 2_097_152; // 2 mb
+        //
+        // match self.extensions().get::<DefaultBodyLimitKind>().copied() {
+        //     Some(DefaultBodyLimitKind::Disable) => self,
+        //     Some(DefaultBodyLimitKind::Limit(limit)) => {
+        //         self.map(|b| Body::new(http_body_util::Limited::new(b, limit)))
+        //     }
+        //     None => self.map(|b| Body::new(http_body_util::Limited::new(b, DEFAULT_LIMIT))),
+        // }
+        self
     }
 }
 

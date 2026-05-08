@@ -2,6 +2,7 @@
 #![allow(warnings)]
 pub mod body;
 pub mod error;
+pub mod json;
 pub mod request;
 pub mod serve;
 
