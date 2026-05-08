@@ -5,7 +5,7 @@ use std::{
 };
 
 use http::header::HeaderValue;
-use monet::{Chain, Middleware, Request, Response, Router, async_trait, get, request::NewRequest};
+use monet::{Chain, Middleware, Response, Router, async_trait, get, request::NewRequest};
 
 async fn simple_middleware(req: NewRequest, chain: Chain) -> Response {
     // req.extensions_mut().insert(Rc::new(21));
