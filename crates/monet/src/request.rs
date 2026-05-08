@@ -33,6 +33,26 @@ impl Request {
     pub fn uri_mut(&mut self) -> &mut Uri {
         &mut self.head.uri
     }
+
+    #[inline]
+    pub fn version(&self) -> &Version {
+        &self.head.version
+    }
+
+    #[inline]
+    pub fn version_mut(&mut self) -> &mut Version {
+        &mut self.head.version
+    }
+
+    #[inline]
+    pub fn headers(&self) -> &HeaderMap {
+        &self.head.headers
+    }
+
+    #[inline]
+    pub fn headers_mut(&mut self) -> &mut HeaderMap {
+        &mut self.head.headers
+    }
 }
 
 impl From<HttpRequest<IncomingBody>> for Request {
