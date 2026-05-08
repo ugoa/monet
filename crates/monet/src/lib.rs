@@ -36,22 +36,6 @@ pub trait Middleware: 'static {
     }
 }
 
-// pub trait Middleware: 'static {
-//     fn transform<'s, 'o>(
-//         &'s self,
-//         request: Request,
-//         chain: Chain,
-//     ) -> Pin<Box<dyn Future<Output = Response> + 'o>>
-//     where
-//         's: 'o,
-//         Self: 'o;
-//
-//     /// Set the middleware's name. By default it uses the type signature.
-//     fn name(&self) -> &str {
-//         std::any::type_name::<Self>()
-//     }
-// }
-
 #[async_trait(?Send)]
 impl<F, Fut> Middleware for F
 where
