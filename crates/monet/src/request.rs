@@ -7,9 +7,17 @@ use std::{
 use http::{HeaderMap, HeaderValue, Method, Uri, Version};
 use hyper::{Request as HttpRequest, body::Incoming as IncomingBody};
 
+use crate::body::Body;
+
 pub struct Request {
     pub(crate) head: Parts,
     pub body: IncomingBody,
+    pub state: State,
+}
+
+pub struct NewRequest {
+    pub(crate) head: Parts,
+    pub body: Body,
     pub state: State,
 }
 

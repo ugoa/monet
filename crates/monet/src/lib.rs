@@ -1,6 +1,7 @@
 #![allow(clippy::all)]
 #![allow(warnings)]
-// pub mod handler;
+pub mod body;
+pub mod error;
 pub mod request;
 pub mod serve;
 
@@ -23,10 +24,6 @@ use futures::FutureExt;
 use http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, Uri, Version, header, uri};
 
 pub use crate::request::Request;
-
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
-
-pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
@@ -122,8 +119,6 @@ impl Chain {
     }
 }
 
-// pub type Request = http::Request<Body>;
-// pub type Response = http::Response<Body>;
 pub use async_trait::async_trait;
 use http_body_util::Full;
 use hyper::service::Service as HyperService;
