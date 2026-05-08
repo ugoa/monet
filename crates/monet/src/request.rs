@@ -8,9 +8,9 @@ use http::{HeaderMap, HeaderValue, Method, Uri, Version};
 use hyper::{Request as HttpRequest, Response as HttpResponse, body::Incoming as IncomingBody};
 
 pub struct Request {
-    head: Parts,
-    body: IncomingBody,
-    state: State,
+    pub head: Parts,
+    pub body: IncomingBody,
+    pub state: State,
 }
 
 impl Request {
@@ -32,16 +32,6 @@ impl Request {
     #[inline]
     pub fn uri_mut(&mut self) -> &mut Uri {
         &mut self.head.uri
-    }
-
-    #[inline]
-    pub fn state(&self) -> &State {
-        &self.state
-    }
-
-    #[inline]
-    pub fn state_mut(&mut self) -> &mut State {
-        &mut self.state
     }
 }
 
