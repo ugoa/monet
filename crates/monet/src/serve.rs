@@ -161,38 +161,3 @@ pub fn serve(addr: SocketAddr, router: Router) {
     let rt = compio::runtime::Runtime::new().expect("cannot create runtime");
     rt.block_on(app);
 }
-
-async fn handle_request(stream: compio::net::TcpStream, cache: &RefCell<i32>) {
-    http1::Builder::new()
-        .serve_connection(
-            HyperStream::new(stream),
-            service_fn(async |req| action(req, &cache).await),
-        )
-        .await
-        .expect("Should handle request successfully");
-}
-
-async fn action(
-    req: Request<Incoming>,
-    cache: &RefCell<i32>,
-) -> Result<Response<Full<Bytes>>, Infallible> {
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/") => {
-            compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
-            *cache.borrow_mut() += 1;
-
-            use jiff::Zoned;
-
-            Ok(Response::new(Full::new(Bytes::from(format!(
-                "Visit Count: {} at {} \n",
-                *cache.borrow(),
-                Zoned::now()
-            )))))
-        }
-        (&Method::GET, "/compio") => Ok(Response::new(Full::new(Bytes::from("Hello Compio!")))),
-        _ => Ok(Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(Full::new(Bytes::from("404 not found")))
-            .unwrap()),
-    }
-}
