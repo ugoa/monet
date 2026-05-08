@@ -5,7 +5,16 @@ use std::{
 };
 
 use http::header::HeaderValue;
-use monet::{Chain, Middleware, Response, Router, async_trait, get, request::Request};
+use monet::{
+    Chain, Middleware, Response, Router, async_trait, get, json::Json, post, request::Request,
+};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+pub struct CreateUser {
+    pub email: String,
+    pub password: String,
+}
 
 async fn simple_middleware(req: Request, chain: Chain) -> Response {
     // req.extensions_mut().insert(Rc::new(21));
@@ -42,9 +51,9 @@ async fn sample(_req: Request) -> String {
     )
 }
 
-async fn sample2(_req: Request) -> &'static str {
-    compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
-    "Hello"
+async fn parse_json(req: Request) -> String {
+    let Json(js) = req.into_json::<CreateUser>().await.unwrap();
+    js.password
 }
 
 thread_local! {
@@ -71,7 +80,7 @@ fn main() {
     let app = Router::new()
         .at("/", get(sample))
         .wrap(simple_middleware)
-        .at("/hello", get(sample2))
+        .at("/json", post(parse_json))
         .wrap(RequestCounter)
         .wrap(set_state);
 
