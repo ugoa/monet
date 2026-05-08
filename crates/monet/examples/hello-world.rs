@@ -22,6 +22,7 @@ static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
     LazyLock::new(|| Arc::new(Mutex::new(SyncedState(42))));
 
 async fn set_state(mut req: Request, chain: Chain) -> Response {
+    req.extensions();
     let s = &*NUM;
     req.extensions_mut().insert(s.clone());
 

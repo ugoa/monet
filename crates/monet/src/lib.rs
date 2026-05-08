@@ -2,9 +2,10 @@
 #![allow(warnings)]
 // pub mod handler;
 pub mod serve;
+pub mod state;
 
 use std::{
-    any::Any,
+    any::{Any, TypeId},
     cell::{Cell, LazyCell, RefCell},
     collections::{HashMap, VecDeque, hash_map::Entry},
     convert::Infallible,
@@ -19,7 +20,7 @@ use std::{
 
 use bytes::Bytes;
 use futures::FutureExt;
-use http::{HeaderValue, Method, StatusCode, header, uri};
+use http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, Uri, Version, header, uri};
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -151,34 +152,43 @@ impl Handler for DefaultOk {
     }
 }
 
-use hyper::{Request as HyperRequest, Response as HyperResponse, body::Incoming as IncomingBody};
+use hyper::{Request as HttpRequest, Response as HttpResponse, body::Incoming as IncomingBody};
 use matchit::MatchError;
 
-pub type Request = HyperRequest<IncomingBody>;
-pub type Response = HyperResponse<Full<Bytes>>;
+pub type Request = HttpRequest<IncomingBody>;
+pub type Response = HttpResponse<Full<Bytes>>;
 
-pub struct MyRequest(HyperRequest<IncomingBody>);
+#[derive(Default)]
+struct IdHasher(u64);
 
-impl MyRequest {
-    fn set_request_state(mut self, arg: impl Any) -> Self {
-        todo!();
-    }
+// #[derive(Clone, Default)]
+use std::hash::{BuildHasherDefault, Hasher};
 
-    fn set_thread_state(mut self, v: &LocalKey<impl Any>) -> Self {
-        todo!();
-    }
+use crate::state::AnyClone;
+#[derive(Clone)]
+pub struct State {
+    map: Option<Box<HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>>>,
+}
 
-    fn set_global_state(mut self, v: &'static impl Any) -> Self {
-        todo!();
-    }
+#[derive(Clone)]
+pub struct Parts {
+    /// The request's method
+    pub method: Method,
 
-    // or
-    fn get_state(mut self, arg: impl Any) -> Self {
-        todo!();
-    }
-    fn get_state_mut(mut self, arg: impl Any) -> Self {
-        todo!();
-    }
+    /// The request's URI
+    pub uri: Uri,
+
+    /// The request's version
+    pub version: Version,
+
+    /// The request's headers
+    pub headers: HeaderMap<HeaderValue>,
+}
+
+pub struct MyRequest {
+    head: Parts,
+    body: IncomingBody,
+    state: State,
 }
 
 #[derive(Default)]
