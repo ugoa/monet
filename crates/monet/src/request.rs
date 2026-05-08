@@ -5,11 +5,11 @@ use std::{
 };
 
 use http::{HeaderMap, HeaderValue, Method, Uri, Version};
-use hyper::{Request as HttpRequest, body::Incoming};
+use hyper::{Request as HttpRequest, body::Incoming as IncomingBody};
 
 pub struct Request {
     pub(crate) head: Parts,
-    pub body: Incoming,
+    pub body: IncomingBody,
     pub state: State,
 }
 
@@ -55,8 +55,8 @@ impl Request {
     }
 }
 
-impl From<HttpRequest<Incoming>> for Request {
-    fn from(http_req: HttpRequest<Incoming>) -> Self {
+impl From<HttpRequest<IncomingBody>> for Request {
+    fn from(http_req: HttpRequest<IncomingBody>) -> Self {
         let (
             http::request::Parts {
                 method,
