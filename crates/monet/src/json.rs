@@ -4,6 +4,11 @@ use http::HeaderMap;
 use serde_core::de::DeserializeOwned;
 use serde_json::Error;
 
+use crate::{
+    __define_rejection as define_rejection,
+    extract::rejection::{BytesRejection, JsonSyntaxError, MissingJsonContentType},
+};
+
 #[derive(Debug, Clone, Copy, Default)]
 #[must_use]
 pub struct Json<T>(pub T);
@@ -48,4 +53,28 @@ pub(crate) fn json_content_type(headers: &HeaderMap) -> bool {
             mime.type_() == "application"
                 && (mime.subtype() == "json" || mime.suffix().is_some_and(|name| name == "json"))
         })
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum JsonRejection {
+    #[allow(missing_docs)]
+    JsonDataError(JsonDataError),
+    #[allow(missing_docs)]
+    JsonSyntaxError(JsonSyntaxError),
+    #[allow(missing_docs)]
+    MissingJsonContentType(MissingJsonContentType),
+    #[allow(missing_docs)]
+    BytesRejection(BytesRejection),
+}
+
+define_rejection! {
+    #[status = UNPROCESSABLE_ENTITY]
+    #[body = "Failed to deserialize the JSON body into the target type"]
+    #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+    /// Rejection type for [`Json`](super::Json).
+    ///
+    /// This rejection is used if the request body is syntactically valid JSON but couldn't be
+    /// deserialized into the target type.
+    pub struct JsonDataError(Error);
 }

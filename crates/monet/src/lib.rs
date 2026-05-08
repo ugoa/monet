@@ -1,10 +1,20 @@
 #![allow(clippy::all)]
 #![allow(warnings)]
+
 pub mod body;
 pub mod error;
+pub mod extract;
 pub mod json;
 pub mod request;
+pub mod response;
 pub mod serve;
+
+#[macro_use]
+pub mod macros;
+
+pub(crate) mod __private {
+    pub use tracing;
+}
 
 use std::{
     any::{Any, TypeId},
@@ -23,8 +33,13 @@ use std::{
 use bytes::Bytes;
 use futures::FutureExt;
 use http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, Uri, Version, header, uri};
+use tracing;
 
-pub use crate::request::Request;
+pub use crate::{
+    error::{BoxError, Error},
+    request::Request,
+    response::{IntoResponse, Response},
+};
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
@@ -64,23 +79,6 @@ where
     }
 }
 
-pub trait IntoResponse {
-    #[must_use]
-    fn into_response(self) -> Response;
-}
-
-impl IntoResponse for String {
-    fn into_response(self) -> Response {
-        Response::new(Full::new(Bytes::from(self)))
-    }
-}
-
-impl IntoResponse for &'static str {
-    fn into_response(self) -> Response {
-        Response::new(Full::new(Bytes::from(self)))
-    }
-}
-
 #[derive(Clone)]
 pub struct Chain {
     pub(crate) endpoint: Rc<dyn Endpoint>,
@@ -106,9 +104,6 @@ use hyper::{
 use matchit::MatchError;
 pub use monet_macros::handler;
 pub use serve::serve;
-
-// pub type Request = HttpRequest<IncomingBody>;
-pub type Response = HttpResponse<Full<Bytes>>;
 
 #[derive(Default)]
 pub struct Router {
