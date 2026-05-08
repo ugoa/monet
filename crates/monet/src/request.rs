@@ -21,6 +21,48 @@ pub struct NewRequest {
     pub state: State,
 }
 
+impl NewRequest {
+    #[inline]
+    pub fn method(&self) -> &Method {
+        &self.head.method
+    }
+
+    #[inline]
+    pub fn method_mut(&mut self) -> &mut Method {
+        &mut self.head.method
+    }
+
+    #[inline]
+    pub fn uri(&self) -> &Uri {
+        &self.head.uri
+    }
+
+    #[inline]
+    pub fn uri_mut(&mut self) -> &mut Uri {
+        &mut self.head.uri
+    }
+
+    #[inline]
+    pub fn version(&self) -> &Version {
+        &self.head.version
+    }
+
+    #[inline]
+    pub fn version_mut(&mut self) -> &mut Version {
+        &mut self.head.version
+    }
+
+    #[inline]
+    pub fn headers(&self) -> &HeaderMap {
+        &self.head.headers
+    }
+
+    #[inline]
+    pub fn headers_mut(&mut self) -> &mut HeaderMap {
+        &mut self.head.headers
+    }
+}
+
 impl Request {
     #[inline]
     pub fn method(&self) -> &Method {
@@ -63,7 +105,7 @@ impl Request {
     }
 }
 
-impl From<HttpRequest<IncomingBody>> for Request {
+impl From<HttpRequest<IncomingBody>> for NewRequest {
     fn from(http_req: HttpRequest<IncomingBody>) -> Self {
         let (
             http::request::Parts {
@@ -83,7 +125,7 @@ impl From<HttpRequest<IncomingBody>> for Request {
                 version,
                 headers,
             },
-            body,
+            body: Body::new(body),
             state: State { map: None },
         }
     }

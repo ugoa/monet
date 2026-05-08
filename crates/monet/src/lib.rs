@@ -23,11 +23,12 @@ use bytes::Bytes;
 use futures::FutureExt;
 use http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, Uri, Version, header, uri};
 
+use crate::request::NewRequest;
 pub use crate::request::Request;
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
-    async fn transform(&self, request: Request, chain: Chain) -> Response;
+    async fn transform(&self, request: NewRequest, chain: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
@@ -54,34 +55,27 @@ pub trait Middleware: 'static {
 #[async_trait(?Send)]
 impl<F, Fut> Middleware for F
 where
-    F: 'static + Fn(Request, Chain) -> Fut,
+    F: 'static + Fn(NewRequest, Chain) -> Fut,
     Fut: Future<Output = Response>,
 {
-    async fn transform(&self, req: Request, chain: Chain) -> Response {
+    async fn transform(&self, req: NewRequest, chain: Chain) -> Response {
         (self)(req, chain).await
     }
 }
 
 #[async_trait(?Send)]
 pub trait Endpoint: 'static {
-    async fn call(&self, req: Request) -> Response;
+    async fn call(&self, req: NewRequest) -> Response;
 }
-
-// pub trait Endpoint: 'static {
-//     fn call<'s, 'f>(&'s self, request: Request) -> Pin<Box<dyn Future<Output = Response> + 'f>>
-//     where
-//         's: 'f,
-//         Self: 'f;
-// }
 
 #[async_trait(?Send)]
 impl<F, Fut, Resp> Endpoint for F
 where
-    F: 'static + Fn(Request) -> Fut,
+    F: 'static + Fn(NewRequest) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    async fn call(&self, req: Request) -> Response {
+    async fn call(&self, req: NewRequest) -> Response {
         (self)(req).await.into_response()
     }
 }
@@ -110,7 +104,7 @@ pub struct Chain {
 }
 
 impl Chain {
-    pub async fn next(mut self, req: Request) -> Response {
+    pub async fn next(mut self, req: NewRequest) -> Response {
         if let Some(current) = self.middlewares.pop() {
             current.transform(req, self).await
         } else {
@@ -121,36 +115,13 @@ impl Chain {
 
 pub use async_trait::async_trait;
 use http_body_util::Full;
-use hyper::service::Service as HyperService;
+use hyper::{
+    Request as HttpRequest, Response as HttpResponse, body::Incoming as IncomingBody,
+    service::Service as HyperService,
+};
+use matchit::MatchError;
 pub use monet_macros::handler;
 pub use serve::serve;
-
-#[async_trait(?Send)]
-pub trait Handler {
-    async fn handle(&self, req: &mut Request, resp: &mut Response);
-}
-
-#[async_trait(?Send)]
-impl<F, Fut> Handler for F
-where
-    F: FnMut() -> Fut + Clone,
-    Fut: Future<Output = ()>,
-{
-    async fn handle(&self, req: &mut Request, resp: &mut Response) {
-        self.clone()();
-    }
-}
-
-struct DefaultOk;
-#[async_trait(?Send)]
-impl Handler for DefaultOk {
-    async fn handle(&self, _req: &mut Request, resp: &mut Response) {
-        *resp.status_mut() = StatusCode::OK;
-    }
-}
-
-use hyper::{Request as HttpRequest, Response as HttpResponse, body::Incoming as IncomingBody};
-use matchit::MatchError;
 
 // pub type Request = HttpRequest<IncomingBody>;
 pub type Response = HttpResponse<Full<Bytes>>;
@@ -164,12 +135,12 @@ pub struct Router {
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
 
-impl HyperService<Request> for Router {
+impl HyperService<NewRequest> for Router {
     type Response = Response;
     type Error = Infallible;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
-    fn call(&self, req: Request) -> Self::Future {
+    fn call(&self, req: NewRequest) -> Self::Future {
         Box::pin(self.run(req))
     }
 }
@@ -220,7 +191,7 @@ impl Router {
 
     pub fn run(
         &self,
-        mut req: Request,
+        mut req: NewRequest,
     ) -> impl Future<Output = Result<Response, Infallible>> + 'static {
         let method = req.method();
         let path = req.uri().path();
