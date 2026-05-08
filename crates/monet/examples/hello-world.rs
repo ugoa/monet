@@ -36,9 +36,9 @@ async fn sample(_req: Request) -> String {
     let mut i = guard.lock().unwrap();
     i.0 += 1;
     format!(
-        "Hi count is {}, static number is {:?}",
+        "Hi count is {}, static number is {}",
         i.0,
-        _req.state.get::<SyncedState>().unwrap()
+        _req.state.get::<SyncedState>().unwrap().0
     )
 }
 
