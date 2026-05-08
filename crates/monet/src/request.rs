@@ -8,7 +8,7 @@ use http::{HeaderMap, HeaderValue, Method, Uri, Version};
 use hyper::{Request as HttpRequest, Response as HttpResponse, body::Incoming as IncomingBody};
 
 pub struct Request {
-    pub head: Parts,
+    pub(crate) head: Parts,
     pub body: IncomingBody,
     pub state: State,
 }
