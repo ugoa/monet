@@ -11,56 +11,8 @@ use crate::body::Body;
 
 pub struct Request {
     pub(crate) head: Parts,
-    pub body: IncomingBody,
-    pub state: State,
-}
-
-pub struct NewRequest {
-    pub(crate) head: Parts,
     pub body: Body,
     pub state: State,
-}
-
-impl NewRequest {
-    #[inline]
-    pub fn method(&self) -> &Method {
-        &self.head.method
-    }
-
-    #[inline]
-    pub fn method_mut(&mut self) -> &mut Method {
-        &mut self.head.method
-    }
-
-    #[inline]
-    pub fn uri(&self) -> &Uri {
-        &self.head.uri
-    }
-
-    #[inline]
-    pub fn uri_mut(&mut self) -> &mut Uri {
-        &mut self.head.uri
-    }
-
-    #[inline]
-    pub fn version(&self) -> &Version {
-        &self.head.version
-    }
-
-    #[inline]
-    pub fn version_mut(&mut self) -> &mut Version {
-        &mut self.head.version
-    }
-
-    #[inline]
-    pub fn headers(&self) -> &HeaderMap {
-        &self.head.headers
-    }
-
-    #[inline]
-    pub fn headers_mut(&mut self) -> &mut HeaderMap {
-        &mut self.head.headers
-    }
 }
 
 impl Request {
@@ -105,7 +57,7 @@ impl Request {
     }
 }
 
-impl From<HttpRequest<IncomingBody>> for NewRequest {
+impl From<HttpRequest<IncomingBody>> for Request {
     fn from(http_req: HttpRequest<IncomingBody>) -> Self {
         let (
             http::request::Parts {

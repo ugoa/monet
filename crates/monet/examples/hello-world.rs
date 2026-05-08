@@ -5,9 +5,9 @@ use std::{
 };
 
 use http::header::HeaderValue;
-use monet::{Chain, Middleware, Response, Router, async_trait, get, request::NewRequest};
+use monet::{Chain, Middleware, Response, Router, async_trait, get, request::Request};
 
-async fn simple_middleware(req: NewRequest, chain: Chain) -> Response {
+async fn simple_middleware(req: Request, chain: Chain) -> Response {
     // req.extensions_mut().insert(Rc::new(21));
     let mut resp = chain.next(req).await;
     resp.headers_mut()
@@ -21,7 +21,7 @@ pub struct SyncedState(i32);
 static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
     LazyLock::new(|| Arc::new(Mutex::new(SyncedState(42))));
 
-async fn set_state(mut req: NewRequest, chain: Chain) -> Response {
+async fn set_state(mut req: Request, chain: Chain) -> Response {
     let s = &*NUM;
     req.state.insert(s.clone());
     req.state.insert::<SyncedState>(SyncedState(99));
@@ -29,7 +29,7 @@ async fn set_state(mut req: NewRequest, chain: Chain) -> Response {
     chain.next(req).await
 }
 
-async fn sample(_req: NewRequest) -> String {
+async fn sample(_req: Request) -> String {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
     // let guard = _req.state::<Arc<Mutex<SyncedState>>>().unwrap();
     let guard: &Arc<Mutex<SyncedState>> = _req.state.get().unwrap();
@@ -42,7 +42,7 @@ async fn sample(_req: NewRequest) -> String {
     )
 }
 
-async fn sample2(_req: NewRequest) -> &'static str {
+async fn sample2(_req: Request) -> &'static str {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
     "Hello"
 }
@@ -54,7 +54,7 @@ thread_local! {
 struct RequestCounter;
 #[async_trait(?Send)]
 impl Middleware for RequestCounter {
-    async fn transform(&self, req: NewRequest, chain: Chain) -> Response {
+    async fn transform(&self, req: Request, chain: Chain) -> Response {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
         let mut resp = chain.next(req).await;

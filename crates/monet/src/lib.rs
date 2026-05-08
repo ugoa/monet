@@ -23,12 +23,11 @@ use bytes::Bytes;
 use futures::FutureExt;
 use http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, Uri, Version, header, uri};
 
-use crate::request::NewRequest;
 pub use crate::request::Request;
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
-    async fn transform(&self, request: NewRequest, chain: Chain) -> Response;
+    async fn transform(&self, request: Request, chain: Chain) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
@@ -39,27 +38,27 @@ pub trait Middleware: 'static {
 #[async_trait(?Send)]
 impl<F, Fut> Middleware for F
 where
-    F: 'static + Fn(NewRequest, Chain) -> Fut,
+    F: 'static + Fn(Request, Chain) -> Fut,
     Fut: Future<Output = Response>,
 {
-    async fn transform(&self, req: NewRequest, chain: Chain) -> Response {
+    async fn transform(&self, req: Request, chain: Chain) -> Response {
         (self)(req, chain).await
     }
 }
 
 #[async_trait(?Send)]
 pub trait Endpoint: 'static {
-    async fn call(&self, req: NewRequest) -> Response;
+    async fn call(&self, req: Request) -> Response;
 }
 
 #[async_trait(?Send)]
 impl<F, Fut, Resp> Endpoint for F
 where
-    F: 'static + Fn(NewRequest) -> Fut,
+    F: 'static + Fn(Request) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    async fn call(&self, req: NewRequest) -> Response {
+    async fn call(&self, req: Request) -> Response {
         (self)(req).await.into_response()
     }
 }
@@ -88,7 +87,7 @@ pub struct Chain {
 }
 
 impl Chain {
-    pub async fn next(mut self, req: NewRequest) -> Response {
+    pub async fn next(mut self, req: Request) -> Response {
         if let Some(current) = self.middlewares.pop() {
             current.transform(req, self).await
         } else {
@@ -119,12 +118,12 @@ pub struct Router {
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
 
-impl HyperService<NewRequest> for Router {
+impl HyperService<Request> for Router {
     type Response = Response;
     type Error = Infallible;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
-    fn call(&self, req: NewRequest) -> Self::Future {
+    fn call(&self, req: Request) -> Self::Future {
         Box::pin(self.run(req))
     }
 }
@@ -175,7 +174,7 @@ impl Router {
 
     pub fn run(
         &self,
-        mut req: NewRequest,
+        mut req: Request,
     ) -> impl Future<Output = Result<Response, Infallible>> + 'static {
         let method = req.method();
         let path = req.uri().path();
