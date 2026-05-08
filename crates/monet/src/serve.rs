@@ -148,7 +148,7 @@ pub fn serve(addr: SocketAddr, router: Router) {
                         http1::Builder::new()
                             .serve_connection(
                                 HyperStream::new(stream.0),
-                                service_fn(async |req| router.run(req).await),
+                                service_fn(async |req| router.run(req.into()).await),
                             )
                             .await
                             .expect("Should handle request successfully")

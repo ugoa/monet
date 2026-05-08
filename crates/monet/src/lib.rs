@@ -22,6 +22,8 @@ use bytes::Bytes;
 use futures::FutureExt;
 use http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, Uri, Version, header, uri};
 
+pub use crate::request::Request;
+
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct Body(Pin<Box<dyn http_body::Body<Data = Bytes, Error = BoxError>>>);
@@ -155,41 +157,8 @@ impl Handler for DefaultOk {
 use hyper::{Request as HttpRequest, Response as HttpResponse, body::Incoming as IncomingBody};
 use matchit::MatchError;
 
-pub type Request = HttpRequest<IncomingBody>;
+// pub type Request = HttpRequest<IncomingBody>;
 pub type Response = HttpResponse<Full<Bytes>>;
-
-#[derive(Default)]
-struct IdHasher(u64);
-
-// #[derive(Clone, Default)]
-use std::hash::{BuildHasherDefault, Hasher};
-
-use crate::request::AnyClone;
-#[derive(Clone)]
-pub struct State {
-    map: Option<Box<HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>>>,
-}
-
-#[derive(Clone)]
-pub struct Parts {
-    /// The request's method
-    pub method: Method,
-
-    /// The request's URI
-    pub uri: Uri,
-
-    /// The request's version
-    pub version: Version,
-
-    /// The request's headers
-    pub headers: HeaderMap<HeaderValue>,
-}
-
-pub struct MyRequest {
-    head: Parts,
-    body: IncomingBody,
-    state: State,
-}
 
 #[derive(Default)]
 pub struct Router {

@@ -1,7 +1,6 @@
 use std::{
     cell::{LazyCell, RefCell},
     net::SocketAddr,
-    rc::Rc,
     sync::{Arc, LazyLock, Mutex},
 };
 
@@ -22,16 +21,16 @@ static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
     LazyLock::new(|| Arc::new(Mutex::new(SyncedState(42))));
 
 async fn set_state(mut req: Request, chain: Chain) -> Response {
-    req.extensions();
+    req.state();
     let s = &*NUM;
-    req.extensions_mut().insert(s.clone());
+    req.state_mut().insert(s.clone());
 
     chain.next(req).await
 }
 
 async fn sample(_req: Request) -> String {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
-    let guard = _req.extensions().get::<Arc<Mutex<SyncedState>>>().unwrap();
+    let guard = _req.state().get::<Arc<Mutex<SyncedState>>>().unwrap();
     let mut state = guard.lock().unwrap();
     state.0 += 1;
     format!("Hi count is {}", state.0)
