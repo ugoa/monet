@@ -15,6 +15,7 @@ async fn simple_middleware(req: Request, chain: Chain) -> Response {
     resp
 }
 
+#[derive(Clone, Debug)]
 pub struct SyncedState(i32);
 
 static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
@@ -23,7 +24,7 @@ static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
 async fn set_state(mut req: Request, chain: Chain) -> Response {
     let s = &*NUM;
     req.state.insert(s.clone());
-    req.state.insert::<u32>(87);
+    req.state.insert::<SyncedState>(SyncedState(99));
 
     chain.next(req).await
 }
@@ -35,9 +36,9 @@ async fn sample(_req: Request) -> String {
     let mut i = guard.lock().unwrap();
     i.0 += 1;
     format!(
-        "Hi count is {}, static number is {}",
+        "Hi count is {}, static number is {:?}",
         i.0,
-        _req.state.get::<u32>().unwrap()
+        _req.state.get::<SyncedState>().unwrap()
     )
 }
 
