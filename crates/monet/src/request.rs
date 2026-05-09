@@ -114,7 +114,6 @@ impl Request {
 
     pub async fn into_bytes(self) -> Result<Bytes, BytesRejection> {
         let bytes = self
-            .with_limited_body()
             .body
             .collect()
             .await
@@ -130,11 +129,6 @@ impl Request {
         } else {
             Err(MissingJsonContentType.into())
         }
-    }
-
-    // TODO: https://github.com/ugoa/axum/blob/061666a1116d853f9ca838fb2d0c668614a9f535/axum-core/src/ext_traits/request.rs?plain=1#L316
-    fn with_limited_body(self) -> Request {
-        self
     }
 }
 
