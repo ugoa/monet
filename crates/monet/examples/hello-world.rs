@@ -8,9 +8,9 @@ use http::header::HeaderValue;
 use monet::{
     Chain, Middleware, Response, Router, async_trait, get, json::Json, post, request::Request,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateUser {
     pub email: String,
     pub password: String,
@@ -51,9 +51,9 @@ async fn sample(_req: Request) -> String {
     )
 }
 
-async fn parse_json(req: Request) -> String {
+async fn parse_json(req: Request) -> Json<CreateUser> {
     let js: Json<CreateUser> = req.into_json().await.unwrap();
-    js.password.clone()
+    js
 }
 
 thread_local! {
