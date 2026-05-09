@@ -6,7 +6,8 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Middleware, Response, Router, async_trait, get, json::Json, post, request::Request,
+    Chain, Middleware, Response, Router, async_trait, extract::rejection::JsonRejection, get,
+    json::Json, post, request::Request,
 };
 use serde::{Deserialize, Serialize};
 
@@ -51,9 +52,8 @@ async fn sample(_req: Request) -> String {
     )
 }
 
-async fn parse_json(req: Request) -> Json<UserPayload> {
-    let js: Json<UserPayload> = req.into_json().await.unwrap();
-    js
+async fn parse_json(req: Request) -> Result<Json<UserPayload>, JsonRejection> {
+    Ok(req.into_json().await?)
 }
 
 thread_local! {
