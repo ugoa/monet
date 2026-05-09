@@ -94,18 +94,8 @@ impl Request {
         }
     }
 
+    // TODO: https://github.com/ugoa/axum/blob/061666a1116d853f9ca838fb2d0c668614a9f535/axum-core/src/ext_traits/request.rs?plain=1#L316
     fn with_limited_body(self) -> Request {
-        // // update docs in `axum-core/src/extract/default_body_limit.rs` and
-        // // `axum/src/docs/extract.md` if this changes
-        // const DEFAULT_LIMIT: usize = 2_097_152; // 2 mb
-        //
-        // match self.extensions().get::<DefaultBodyLimitKind>().copied() {
-        //     Some(DefaultBodyLimitKind::Disable) => self,
-        //     Some(DefaultBodyLimitKind::Limit(limit)) => {
-        //         self.map(|b| Body::new(http_body_util::Limited::new(b, limit)))
-        //     }
-        //     None => self.map(|b| Body::new(http_body_util::Limited::new(b, DEFAULT_LIMIT))),
-        // }
         self
     }
 }
