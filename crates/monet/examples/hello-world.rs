@@ -79,8 +79,6 @@ pub struct FormPayload {
     pub email: String,
 }
 async fn parse_form(req: Request) -> Result<Form<FormPayload>, FormRejection> {
-    // let form = req.into_form::<FormPayload>().await.unwrap();
-    // form.email.clone()
     req.into_form().await
 }
 

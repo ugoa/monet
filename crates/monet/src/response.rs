@@ -148,17 +148,13 @@ where
             Ok(()) => {
                 let mut resp = buf.freeze().into_response();
                 let new_type = HeaderValue::from_static(mime::APPLICATION_JSON.as_ref());
-                resp.headers_mut()
-                    .insert(CONTENT_TYPE, new_type)
-                    .expect("Should set CONTENT_TYPE as application/json");
+                resp.headers_mut().insert(CONTENT_TYPE, new_type);
                 resp
             }
             Err(err) => {
                 let mut resp = err.to_string().into_response();
                 let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
-                resp.headers_mut()
-                    .insert(CONTENT_TYPE, new_type)
-                    .expect("Should set CONTENT_TYPE as plain text");
+                resp.headers_mut().insert(CONTENT_TYPE, new_type);
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 resp
             }
@@ -176,17 +172,13 @@ where
                 let mut resp = body.into_response();
                 let new_type =
                     HeaderValue::from_static(mime::APPLICATION_WWW_FORM_URLENCODED.as_ref());
-                resp.headers_mut()
-                    .insert(CONTENT_TYPE, new_type)
-                    .expect("Should set CONTENT_TYPE as application/json");
+                resp.headers_mut().insert(CONTENT_TYPE, new_type);
                 resp
             }
             Err(err) => {
                 let mut resp = err.to_string().into_response();
                 let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
-                resp.headers_mut()
-                    .insert(CONTENT_TYPE, new_type)
-                    .expect("Should set CONTENT_TYPE as plain text");
+                resp.headers_mut().insert(CONTENT_TYPE, new_type);
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 resp
             }
