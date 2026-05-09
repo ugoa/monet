@@ -162,9 +162,11 @@ impl From<http::Request<IncomingBody>> for Request {
     }
 }
 
+type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
+
 #[derive(Clone, Default)]
 pub struct State {
-    map: Option<Box<HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>>>,
+    map: Option<Box<AnyMap>>,
 }
 
 impl State {
