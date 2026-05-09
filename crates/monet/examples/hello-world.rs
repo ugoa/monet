@@ -74,8 +74,8 @@ async fn parse_json(req: Request) -> Result<Json<UserPayload>, JsonRejection> {
 }
 
 async fn parse_form(req: Request) -> String {
-    let form = req.into_form::<UserPayload>().await.unwrap();
-    form.password.clone()
+    let form = req.into_form::<Vec<(String, String)>>().await.unwrap();
+    form.first().unwrap().0.clone()
 }
 
 thread_local! {
