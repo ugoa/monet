@@ -18,11 +18,12 @@ use futures::stream::StreamExt;
 use futures_concurrency::future::FutureGroup;
 use http_body_util::Full;
 use hyper::{
-    Method, Request, Response, StatusCode, body::Incoming, server::conn::http1, service::service_fn,
+    Method, Request as HttpRequest, Response as HttpResponse, StatusCode, body::Incoming,
+    server::conn::http1, service::service_fn,
 };
 use send_wrapper::SendWrapper;
 
-use crate::Router;
+use crate::{Request, Response, Router};
 
 /// Types that can listen for connections.
 pub trait Listener: 'static {
@@ -131,6 +132,16 @@ impl<S: AsyncWrite + Unpin + 'static> hyper::rt::Write for HyperStream<S> {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
         futures_util::AsyncWrite::poll_close(stream, cx)
+    }
+}
+
+impl hyper::service::Service<Request> for Router {
+    type Response = crate::Response;
+    type Error = Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+
+    fn call(&self, req: Request) -> Self::Future {
+        Box::pin(self.run(req))
     }
 }
 

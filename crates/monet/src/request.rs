@@ -7,7 +7,7 @@ use std::{
 use bytes::Bytes;
 use http::{HeaderMap, HeaderValue, Method, Uri, Version};
 use http_body_util::BodyExt;
-use hyper::{Request as HttpRequest, body::Incoming as IncomingBody};
+use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
 
 use crate::{
@@ -99,8 +99,8 @@ impl Request {
     }
 }
 
-impl From<HttpRequest<IncomingBody>> for Request {
-    fn from(http_req: HttpRequest<IncomingBody>) -> Self {
+impl From<http::Request<IncomingBody>> for Request {
+    fn from(http_req: http::Request<IncomingBody>) -> Self {
         let (
             http::request::Parts {
                 method,
