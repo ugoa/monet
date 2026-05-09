@@ -157,7 +157,7 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers,
             },
             body: Body::new(body),
-            state: State { map: None },
+            state: State { inner: None },
         }
     }
 }
@@ -166,33 +166,33 @@ type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Default)]
 pub struct State {
-    map: Option<Box<AnyMap>>,
+    inner: Option<Box<AnyMap>>,
 }
 
 impl State {
     pub fn get<T: 'static>(&self) -> Option<&T> {
-        self.map
+        self.inner
             .as_ref()
             .and_then(|map| map.get(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any().downcast_ref())
     }
 
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        self.map
+        self.inner
             .as_mut()
             .and_then(|map| map.get_mut(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
     }
 
     pub fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
-        self.map
+        self.inner
             .get_or_insert_with(Box::default)
             .insert(TypeId::of::<T>(), Box::new(val))
             .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
     }
 
     pub fn remove<T: 'static>(&mut self) -> Option<T> {
-        self.map
+        self.inner
             .as_mut()
             .and_then(|map| map.remove(&TypeId::of::<T>()))
             .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
@@ -200,19 +200,19 @@ impl State {
 
     #[inline]
     pub fn clear(&mut self) {
-        if let Some(ref mut map) = self.map {
+        if let Some(ref mut map) = self.inner {
             map.clear();
         }
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.map.as_ref().map_or(true, |map| map.is_empty())
+        self.inner.as_ref().is_none_or(|map| map.is_empty())
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.map.as_ref().map_or(0, |map| map.len())
+        self.inner.as_ref().map_or(0, |map| map.len())
     }
 }
 
