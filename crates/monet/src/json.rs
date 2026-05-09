@@ -20,7 +20,7 @@ where
         let mut deserializer = serde_json::Deserializer::from_slice(bytes);
 
         serde_path_to_error::deserialize(&mut deserializer)
-            .map_err(make_rejection)
+            .map_err(error_to_rejection)
             .and_then(|value| {
                 deserializer
                     .end()
@@ -30,7 +30,7 @@ where
     }
 }
 
-fn make_rejection(err: serde_path_to_error::Error<serde_json::Error>) -> JsonRejection {
+fn error_to_rejection(err: serde_path_to_error::Error<serde_json::Error>) -> JsonRejection {
     match err.inner().classify() {
         serde_json::error::Category::Data => JsonDataError::from_err(err).into(),
         serde_json::error::Category::Syntax | serde_json::error::Category::Eof => {
