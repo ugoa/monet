@@ -71,7 +71,10 @@ impl Request {
         &mut self.head.headers
     }
 
-    pub fn query<T: DeserializeOwned>(&self) -> Result<T, QueryRejection> {
+    pub fn query<T>(&self) -> Result<T, QueryRejection>
+    where
+        T: DeserializeOwned,
+    {
         let query = self.uri().query().unwrap_or_default();
 
         let deserializer =
@@ -81,7 +84,10 @@ impl Request {
         Ok(params)
     }
 
-    pub async fn into_form<T: DeserializeOwned>(self) -> Result<Form<T>, FormRejection> {
+    pub async fn into_form<T>(self) -> Result<Form<T>, FormRejection>
+    where
+        T: DeserializeOwned,
+    {
         let is_get_or_head =
             self.method() == http::Method::GET || self.method() == http::Method::HEAD;
         let bytes = if self.method() == Method::GET {
@@ -123,7 +129,10 @@ impl Request {
         Ok(bytes)
     }
 
-    pub async fn into_json<T: DeserializeOwned>(self) -> Result<Json<T>, JsonRejection> {
+    pub async fn into_json<T>(self) -> Result<Json<T>, JsonRejection>
+    where
+        T: DeserializeOwned,
+    {
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
             Json::from_bytes(&self.into_bytes().await?)
         } else {
