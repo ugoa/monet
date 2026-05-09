@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
     convert::Infallible,
-    pin::Pin,
     rc::Rc,
 };
 
@@ -19,7 +18,7 @@ pub fn post(handler: impl Endpoint) -> Route {
 use crate::{
     handler::{Chain, Endpoint, Middleware},
     request::Request,
-    response::{IntoResponse, Response},
+    response::Response,
 };
 
 #[derive(Default)]
@@ -39,11 +38,11 @@ impl Route {
         Default::default()
     }
 
-    pub fn get(mut self, h: impl Endpoint) -> Self {
+    pub fn get(self, h: impl Endpoint) -> Self {
         self.register(h, Method::GET)
     }
 
-    pub fn post(mut self, h: impl Endpoint) -> Self {
+    pub fn post(self, h: impl Endpoint) -> Self {
         self.register(h, Method::POST)
     }
 
@@ -69,10 +68,10 @@ impl Router {
 
     pub fn run(
         &self,
-        mut req: Request,
+        req: Request,
     ) -> impl Future<Output = Result<Response, Infallible>> + 'static {
-        let method = req.method();
-        let path = req.uri().path();
+        let _method = req.method();
+        let _path = req.uri().path();
         // TODO:
         //      Return 404 not found if no matching routes, given default-fallback is enabled
         let match_ = self.inner.at(req.uri().path()).unwrap();

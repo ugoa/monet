@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     convert::Infallible,
     future::Future,
     io::{self},
@@ -10,21 +9,16 @@ use std::{
     task::{Context, Poll, ready},
 };
 
-use bytes::Bytes;
 use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
 };
 use futures::{FutureExt, stream::StreamExt};
 use futures_concurrency::future::FutureGroup;
-use http_body_util::Full;
-use hyper::{
-    Method, Request as HttpRequest, Response as HttpResponse, StatusCode, body::Incoming,
-    server::conn::http1, service::service_fn,
-};
+use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::{Request, Response, Router};
+use crate::{Request, Router};
 
 /// Types that can listen for connections.
 pub trait Listener: 'static {
@@ -147,7 +141,6 @@ impl hyper::service::Service<Request> for Router {
 }
 
 pub fn serve(addr: SocketAddr, router: Router) {
-    let cache = RefCell::new(0);
     let app = async {
         let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
         let mut group = FutureGroup::new();

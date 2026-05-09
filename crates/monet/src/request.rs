@@ -15,7 +15,8 @@ use crate::{
     extract::{
         has_content_type,
         rejection::{
-            BytesRejection, FailedToBufferBody, FailedToDeserializeQueryString, FormRejection,
+            BytesRejection, FailedToBufferBody, FailedToDeserializeForm,
+            FailedToDeserializeFormBody, FailedToDeserializeQueryString, FormRejection,
             InvalidFormContentType, JsonRejection, MissingJsonContentType, QueryRejection,
         },
     },
@@ -95,7 +96,19 @@ impl Request {
             }
         };
 
-        todo!()
+        let is_get_or_head =
+            self.method() == http::Method::GET || self.method() == http::Method::HEAD;
+
+        let deserializer = serde_urlencoded::Deserializer::new(form_urlencoded::parse(&bytes));
+        let value: Form<T> =
+            serde_path_to_error::deserialize(deserializer).map_err(|err| -> FormRejection {
+                if is_get_or_head {
+                    FailedToDeserializeForm::from_err(err).into()
+                } else {
+                    FailedToDeserializeFormBody::from_err(err).into()
+                }
+            })?;
+        Ok(value)
     }
 
     pub async fn into_bytes(self) -> Result<Bytes, BytesRejection> {

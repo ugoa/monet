@@ -1,5 +1,3 @@
-use http::HeaderMap;
-
 #[derive(Debug, Clone, Copy, Default)]
 #[must_use]
 pub struct Json<T>(pub T);

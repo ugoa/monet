@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header};
-use http_body_util::Full;
 use serde::Serialize;
 
 use crate::{body::Body, json::Json};
