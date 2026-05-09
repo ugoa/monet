@@ -20,13 +20,13 @@ impl IntoResponse for Body {
 
 impl IntoResponse for String {
     fn into_response(self) -> Response {
-        Body::new(http_body_util::Full::from(self)).into_response()
+        Response::new(Body::new(http_body_util::Full::from(self)))
     }
 }
 
 impl IntoResponse for &'static str {
     fn into_response(self) -> Response {
-        Body::new(http_body_util::Full::from(self)).into_response()
+        Response::new(Body::new(http_body_util::Full::from(self)))
     }
 }
 
@@ -43,7 +43,7 @@ where
 
 impl IntoResponse for StatusCode {
     fn into_response(self) -> Response {
-        let mut res = ().into_response();
+        let mut res = Response::new(Body::empty());
         *res.status_mut() = self;
         res
     }
@@ -57,7 +57,7 @@ impl IntoResponse for () {
 
 impl IntoResponse for Bytes {
     fn into_response(self) -> Response {
-        let mut res = Body::from(self).into_response();
+        let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
         res.headers_mut().insert(
             header::CONTENT_TYPE,
             HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()),
