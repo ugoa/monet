@@ -22,7 +22,6 @@ pub struct UserPayload {
 }
 
 async fn simple_middleware(req: Request, chain: Chain) -> Response {
-    // req.extensions_mut().insert(Rc::new(21));
     let mut resp = chain.next(req).await;
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
