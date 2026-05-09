@@ -98,9 +98,8 @@ impl Request {
             }
         };
 
-        dbg!(&bytes);
+        let deserializer = serde_html_form::Deserializer::new(form_urlencoded::parse(&bytes));
 
-        let deserializer = serde_urlencoded::Deserializer::new(form_urlencoded::parse(&bytes));
         let value =
             serde_path_to_error::deserialize(deserializer).map_err(|err| -> FormRejection {
                 if is_get_or_head {
@@ -109,6 +108,7 @@ impl Request {
                     FailedToDeserializeFormBody::from_err(err).into()
                 }
             })?;
+
         Ok(value)
     }
 

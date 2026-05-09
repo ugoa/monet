@@ -73,9 +73,14 @@ async fn parse_json(req: Request) -> Result<Json<UserPayload>, JsonRejection> {
     req.into_json().await
 }
 
+#[derive(Deserialize)]
+pub struct FormPayload {
+    pub name: String,
+    pub email: String,
+}
 async fn parse_form(req: Request) -> String {
-    let form = req.into_form::<Vec<(String, String)>>().await.unwrap();
-    form.first().unwrap().0.clone()
+    let form = req.into_form::<FormPayload>().await.unwrap();
+    form.email.clone()
 }
 
 thread_local! {
