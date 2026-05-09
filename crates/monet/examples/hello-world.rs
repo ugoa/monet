@@ -39,17 +39,30 @@ async fn set_state(mut req: Request, chain: Chain) -> Response {
     chain.next(req).await
 }
 
-async fn sample(_req: Request) -> String {
+#[derive(Deserialize)]
+pub struct Pagination {
+    pub page: i32,
+    pub offset: i32,
+}
+
+async fn sample(req: Request) -> String {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+    let q: Pagination = req.query().unwrap();
+
     // let guard = _req.state::<Arc<Mutex<SyncedState>>>().unwrap();
-    let guard: &Arc<Mutex<SyncedState>> = _req.state.get().unwrap();
+    let guard: &Arc<Mutex<SyncedState>> = req.state.get().unwrap();
     let mut i = guard.lock().unwrap();
     i.0 += 1;
     format!(
-        "Hi count is {}, static number is {}",
-        i.0,
-        _req.state.get::<SyncedState>().unwrap().0
+        "Hi count is {}, requested page is {}, offset is {}",
+        i.0, q.page, q.offset,
     )
+}
+
+async fn query(req: Request) -> String {
+    let q: Pagination = req.query().unwrap();
+    format!("requested page is {}, offset is {}", q.page, q.offset,)
 }
 
 async fn parse_json(req: Request) -> Result<Json<UserPayload>, JsonRejection> {
@@ -79,6 +92,7 @@ fn main() {
 
     let app = Router::new()
         .at("/", get(sample))
+        .at("/query", get(query))
         .wrap(simple_middleware)
         .at("/json", post(parse_json))
         .wrap(RequestCounter)

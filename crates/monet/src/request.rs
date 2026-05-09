@@ -12,7 +12,9 @@ use serde_core::de::DeserializeOwned;
 
 use crate::{
     body::Body,
-    extract::rejection::{JsonRejection, MissingJsonContentType},
+    extract::rejection::{
+        FailedToDeserializeQueryString, JsonRejection, MissingJsonContentType, QueryRejection,
+    },
     json::{Json, json_content_type},
 };
 
@@ -63,14 +65,14 @@ impl Request {
         &mut self.head.headers
     }
 
-    pub fn query<T: DeserializeOwned>(&self) -> Option<T> {
+    pub fn query<T: DeserializeOwned>(&self) -> Result<T, QueryRejection> {
         let query = self.uri().query().unwrap_or_default();
 
         let deserializer =
             serde_urlencoded::Deserializer::new(form_urlencoded::parse(query.as_bytes()));
         let params = serde_path_to_error::deserialize(deserializer)
             .map_err(FailedToDeserializeQueryString::from_err)?;
-        Ok(Self(params))
+        Ok(params)
     }
 
     pub async fn into_bytes(self) -> Bytes {
