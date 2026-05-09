@@ -63,6 +63,16 @@ impl Request {
         &mut self.head.headers
     }
 
+    pub fn query<T: DeserializeOwned>(&self) -> Option<T> {
+        let query = self.uri().query().unwrap_or_default();
+
+        let deserializer =
+            serde_urlencoded::Deserializer::new(form_urlencoded::parse(query.as_bytes()));
+        let params = serde_path_to_error::deserialize(deserializer)
+            .map_err(FailedToDeserializeQueryString::from_err)?;
+        Ok(Self(params))
+    }
+
     pub async fn into_bytes(self) -> Bytes {
         let bytes = self
             .with_limited_body()
@@ -74,8 +84,6 @@ impl Request {
         bytes
     }
 
-    // TODO: change to Result
-    #[inline]
     pub async fn into_json<T: DeserializeOwned>(self) -> Result<Json<T>, JsonRejection> {
         if json_content_type(self.headers()) {
             Json::from_bytes(&self.into_bytes().await)
