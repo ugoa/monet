@@ -1,5 +1,5 @@
 use bytes::{BufMut, Bytes, BytesMut};
-use http::{HeaderValue, Response as HttpResponse, StatusCode, header};
+use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header};
 use http_body_util::Full;
 use serde::Serialize;
 
@@ -30,17 +30,6 @@ impl IntoResponse for &'static str {
     }
 }
 
-impl<R> IntoResponse for (StatusCode, R)
-where
-    R: IntoResponse,
-{
-    fn into_response(self) -> Response {
-        let mut res = self.1.into_response();
-        *res.status_mut() = self.0;
-        res
-    }
-}
-
 impl IntoResponse for StatusCode {
     fn into_response(self) -> Response {
         let mut res = Response::new(Body::empty());
@@ -66,38 +55,60 @@ impl IntoResponse for Bytes {
     }
 }
 
+impl IntoResponse for HeaderMap {
+    fn into_response(self) -> Response {
+        let mut res = Response::new(Body::empty());
+        *res.headers_mut() = self;
+        res
+    }
+}
+
+impl<T, E> IntoResponse for Result<T, E>
+where
+    T: IntoResponse,
+    E: IntoResponse,
+{
+    fn into_response(self) -> Response {
+        match self {
+            Ok(value) => value.into_response(),
+            Err(err) => err.into_response(),
+        }
+    }
+}
+
 impl<T> IntoResponse for Json<T>
 where
     T: Serialize,
 {
     fn into_response(self) -> Response {
-        // Extracted into separate fn so it's only compiled once for all T.
-        fn make_response(buf: BytesMut, ser_result: serde_json::Result<()>) -> Response {
-            match ser_result {
-                Ok(()) => (
-                    [(
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_static(mime::APPLICATION_JSON.as_ref()),
-                    )],
-                    buf.freeze(),
-                )
-                    .into_response(),
-                Err(err) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    [(
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
-                    )],
-                    err.to_string(),
-                )
-                    .into_response(),
-            }
-        }
-
         // Use a small initial capacity of 128 bytes like serde_json::to_vec
         // https://docs.rs/serde_json/1.0.82/src/serde_json/ser.rs.html#2189
         let mut buf = BytesMut::with_capacity(128).writer();
-        let res = serde_json::to_writer(&mut buf, &self.0);
-        make_response(buf.into_inner(), res)
+        let ser_result = serde_json::to_writer(&mut buf, &self.0);
+        let buf = buf.into_inner();
+
+        match ser_result {
+            Ok(()) => {
+                let mut resp = buf.freeze().into_response();
+                resp.headers_mut()
+                    .insert(
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_static(mime::APPLICATION_JSON.as_ref()),
+                    )
+                    .expect("Size should NOT overflows MAX_SIZE");
+                resp
+            }
+            Err(err) => {
+                let mut resp = err.to_string().into_response();
+                resp.headers_mut()
+                    .insert(
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
+                    )
+                    .expect("Size should NOT overflows MAX_SIZE");
+                *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                resp
+            }
+        }
     }
 }
