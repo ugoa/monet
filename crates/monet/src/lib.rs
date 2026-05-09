@@ -10,13 +10,11 @@ pub mod request;
 pub mod response;
 pub mod router;
 pub mod serve;
-
-#[macro_use]
-pub mod macros;
-
 pub(crate) mod __private {
     pub use tracing;
 }
+#[macro_use]
+pub mod macros;
 
 pub use async_trait::async_trait;
 pub use monet_macros::handler;
