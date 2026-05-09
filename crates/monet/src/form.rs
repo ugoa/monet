@@ -1,5 +1,4 @@
-#[derive(Debug, Clone, Copy, Default)]
-#[must_use]
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize)]
 pub struct Form<T>(pub T);
 
 impl<T> std::ops::Deref for Form<T> {

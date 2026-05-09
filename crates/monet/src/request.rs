@@ -82,6 +82,8 @@ impl Request {
     }
 
     pub async fn into_form<T: DeserializeOwned>(self) -> Result<Form<T>, FormRejection> {
+        let is_get_or_head =
+            self.method() == http::Method::GET || self.method() == http::Method::HEAD;
         let bytes = if self.method() == Method::GET {
             if let Some(query) = self.uri().query() {
                 Bytes::copy_from_slice(query.as_bytes())
@@ -95,9 +97,6 @@ impl Request {
                 return Err(InvalidFormContentType.into());
             }
         };
-
-        let is_get_or_head =
-            self.method() == http::Method::GET || self.method() == http::Method::HEAD;
 
         let deserializer = serde_urlencoded::Deserializer::new(form_urlencoded::parse(&bytes));
         let value: Form<T> =
