@@ -30,6 +30,22 @@ impl IntoResponse for &'static str {
     }
 }
 
+impl IntoResponse for (StatusCode, String) {
+    fn into_response(self) -> Response {
+        let mut resp = Response::new(Body::new(http_body_util::Full::from(self.1)));
+        *resp.status_mut() = self.0;
+        resp
+    }
+}
+
+impl IntoResponse for (StatusCode, &'static str) {
+    fn into_response(self) -> Response {
+        let mut resp = Response::new(Body::new(http_body_util::Full::from(self.1)));
+        *resp.status_mut() = self.0;
+        resp
+    }
+}
+
 impl IntoResponse for StatusCode {
     fn into_response(self) -> Response {
         let mut res = Response::new(Body::empty());
