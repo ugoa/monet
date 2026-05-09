@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header};
+use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header::CONTENT_TYPE};
 use serde::Serialize;
 
-use crate::{body::Body, json::Json};
+use crate::{Form, body::Body, json::Json};
 
 pub type Response<T = Body> = HttpResponse<T>;
 
@@ -41,7 +41,7 @@ impl IntoResponse for Cow<'static, str> {
     fn into_response(self) -> Response {
         let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
         res.headers_mut().insert(
-            header::CONTENT_TYPE,
+            CONTENT_TYPE,
             HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
         );
         res
@@ -82,7 +82,7 @@ impl IntoResponse for Bytes {
     fn into_response(self) -> Response {
         let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
         res.headers_mut().insert(
-            header::CONTENT_TYPE,
+            CONTENT_TYPE,
             HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()),
         );
         res
@@ -99,7 +99,7 @@ impl IntoResponse for Cow<'static, [u8]> {
     fn into_response(self) -> Response {
         let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
         res.headers_mut().insert(
-            header::CONTENT_TYPE,
+            CONTENT_TYPE,
             HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()),
         );
         res
@@ -147,21 +147,46 @@ where
         match ser_result {
             Ok(()) => {
                 let mut resp = buf.freeze().into_response();
+                let new_type = HeaderValue::from_static(mime::APPLICATION_JSON.as_ref());
                 resp.headers_mut()
-                    .insert(
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_static(mime::APPLICATION_JSON.as_ref()),
-                    )
+                    .insert(CONTENT_TYPE, new_type)
                     .expect("Size should NOT overflows MAX_SIZE");
                 resp
             }
             Err(err) => {
                 let mut resp = err.to_string().into_response();
+                let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
                 resp.headers_mut()
-                    .insert(
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
-                    )
+                    .insert(CONTENT_TYPE, new_type)
+                    .expect("Size should NOT overflows MAX_SIZE");
+                *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                resp
+            }
+        }
+    }
+}
+
+impl<T> IntoResponse for Form<T>
+where
+    T: Serialize,
+{
+    fn into_response(self) -> Response {
+        match serde_urlencoded::to_string(&self.0) {
+            Ok(body) => {
+                let mut resp = body.into_response();
+                let new_type =
+                    HeaderValue::from_static(mime::APPLICATION_WWW_FORM_URLENCODED.as_ref());
+                resp.headers_mut()
+                    .insert(CONTENT_TYPE, new_type)
+                    .expect("Size should NOT overflows MAX_SIZE");
+                resp
+            }
+
+            Err(err) => {
+                let mut resp = err.to_string().into_response();
+                let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
+                resp.headers_mut()
+                    .insert(CONTENT_TYPE, new_type)
                     .expect("Size should NOT overflows MAX_SIZE");
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 resp
