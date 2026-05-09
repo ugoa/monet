@@ -6,8 +6,12 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Middleware, Response, Router, async_trait, extract::rejection::JsonRejection, get,
-    json::Json, post, request::Request,
+    Chain, Form, Middleware, Response, Router, async_trait,
+    extract::rejection::{FormRejection, JsonRejection},
+    get,
+    json::Json,
+    post,
+    request::Request,
 };
 use serde::{Deserialize, Serialize};
 
@@ -66,7 +70,12 @@ async fn query(req: Request) -> String {
 }
 
 async fn parse_json(req: Request) -> Result<Json<UserPayload>, JsonRejection> {
-    Ok(req.into_json().await?)
+    req.into_json().await
+}
+
+async fn parse_form(req: Request) -> String {
+    let form = req.into_form::<UserPayload>().await.unwrap();
+    form.password.clone()
 }
 
 thread_local! {
@@ -95,6 +104,7 @@ fn main() {
         .at("/query", get(query))
         .wrap(simple_middleware)
         .at("/json", post(parse_json))
+        .at("/form", post(parse_form))
         .wrap(RequestCounter)
         .wrap(set_state);
 

@@ -19,6 +19,7 @@ pub use monet_macros::handler;
 
 pub use crate::{
     error::{BoxError, Error},
+    form::Form,
     handler::{Chain, Endpoint, Middleware},
     request::Request,
     response::{IntoResponse, Response},
