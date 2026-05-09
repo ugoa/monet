@@ -150,7 +150,7 @@ where
                 let new_type = HeaderValue::from_static(mime::APPLICATION_JSON.as_ref());
                 resp.headers_mut()
                     .insert(CONTENT_TYPE, new_type)
-                    .expect("Size should NOT overflows MAX_SIZE");
+                    .expect("Should set CONTENT_TYPE as application/json");
                 resp
             }
             Err(err) => {
@@ -158,7 +158,7 @@ where
                 let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
                 resp.headers_mut()
                     .insert(CONTENT_TYPE, new_type)
-                    .expect("Size should NOT overflows MAX_SIZE");
+                    .expect("Should set CONTENT_TYPE as plain text");
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 resp
             }
@@ -178,16 +178,15 @@ where
                     HeaderValue::from_static(mime::APPLICATION_WWW_FORM_URLENCODED.as_ref());
                 resp.headers_mut()
                     .insert(CONTENT_TYPE, new_type)
-                    .expect("Size should NOT overflows MAX_SIZE");
+                    .expect("Should set CONTENT_TYPE as application/json");
                 resp
             }
-
             Err(err) => {
                 let mut resp = err.to_string().into_response();
                 let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
                 resp.headers_mut()
                     .insert(CONTENT_TYPE, new_type)
-                    .expect("Size should NOT overflows MAX_SIZE");
+                    .expect("Should set CONTENT_TYPE as plain text");
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 resp
             }
