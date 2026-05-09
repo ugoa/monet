@@ -52,16 +52,11 @@ pub struct Pagination {
 async fn root(req: Request) -> String {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
 
-    let q: Pagination = req.query().unwrap();
-
     // let guard = _req.state::<Arc<Mutex<SyncedState>>>().unwrap();
     let guard: &Arc<Mutex<SyncedState>> = req.state.get().unwrap();
     let mut i = guard.lock().unwrap();
     i.0 += 1;
-    format!(
-        "Hi count is {}, requested page is {}, offset is {}",
-        i.0, q.page, q.offset,
-    )
+    format!("Hi count is {}", i.0)
 }
 
 async fn query(req: Request) -> String {
