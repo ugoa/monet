@@ -6,7 +6,6 @@ use crate::{
 define_rejection! {
     #[status = UNPROCESSABLE_ENTITY]
     #[body = "Failed to deserialize the JSON body into the target type"]
-    #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
     /// Rejection type for [`Json`](super::Json).
     ///
     /// This rejection is used if the request body is syntactically valid JSON but couldn't be
@@ -17,7 +16,6 @@ define_rejection! {
 define_rejection! {
     #[status = BAD_REQUEST]
     #[body = "Failed to parse the request body as JSON"]
-    #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
     /// Rejection type for [`Json`](super::Json).
     ///
     /// This rejection is used if the request body didn't contain syntactically valid JSON.
@@ -27,7 +25,6 @@ define_rejection! {
 define_rejection! {
     #[status = UNSUPPORTED_MEDIA_TYPE]
     #[body = "Expected request with `Content-Type: application/json`"]
-    #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
     /// Rejection type for [`Json`](super::Json) used if the `Content-Type`
     /// header is missing.
     pub struct MissingJsonContentType;
