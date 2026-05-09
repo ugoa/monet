@@ -49,7 +49,7 @@ pub struct Pagination {
     pub offset: i32,
 }
 
-async fn sample(req: Request) -> String {
+async fn root(req: Request) -> String {
     compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
 
     let q: Pagination = req.query().unwrap();
@@ -104,7 +104,7 @@ fn main() {
     println!("Server running at: {}", addr);
 
     let app = Router::new()
-        .at("/", get(sample))
+        .at("/", get(root))
         .at("/query", get(query))
         .wrap(simple_middleware)
         .at("/json", post(parse_json))
