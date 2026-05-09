@@ -15,12 +15,12 @@ use crate::{
     extract::{
         has_content_type,
         rejection::{
-            FailedToDeserializeQueryString, FormRejection, InvalidFormContentType, JsonRejection,
-            MissingJsonContentType, QueryRejection,
+            BytesRejection, FailedToBufferBody, FailedToDeserializeQueryString, FormRejection,
+            InvalidFormContentType, JsonRejection, MissingJsonContentType, QueryRejection,
         },
     },
     form::Form,
-    json::{Json, json_content_type},
+    json::Json,
 };
 
 pub struct Request {
@@ -89,7 +89,7 @@ impl Request {
             }
         } else {
             if has_content_type(self.headers(), &mime::APPLICATION_WWW_FORM_URLENCODED) {
-                self.into_bytes().await
+                self.into_bytes().await?
             } else {
                 return Err(InvalidFormContentType.into());
             }
@@ -98,18 +98,21 @@ impl Request {
         todo!()
     }
 
-    pub async fn into_bytes(self) -> Bytes {
-        self.with_limited_body()
+    pub async fn into_bytes(self) -> Result<Bytes, BytesRejection> {
+        let bytes = self
+            .with_limited_body()
             .body
             .collect()
             .await
-            .unwrap()
-            .to_bytes()
+            .map_err(FailedToBufferBody::from_err)?
+            .to_bytes();
+
+        Ok(bytes)
     }
 
     pub async fn into_json<T: DeserializeOwned>(self) -> Result<Json<T>, JsonRejection> {
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
-            Json::from_bytes(&self.into_bytes().await)
+            Json::from_bytes(&self.into_bytes().await?)
         } else {
             Err(MissingJsonContentType.into())
         }
