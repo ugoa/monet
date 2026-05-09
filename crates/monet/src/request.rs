@@ -84,6 +84,10 @@ impl Request {
         Ok(params)
     }
 
+    pub fn raw_query(&self) -> Option<String> {
+        self.uri().query().map(|query| query.to_owned())
+    }
+
     pub async fn into_form<T>(self) -> Result<Form<T>, FormRejection>
     where
         T: DeserializeOwned,
