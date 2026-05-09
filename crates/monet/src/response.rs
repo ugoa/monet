@@ -41,6 +41,20 @@ where
     }
 }
 
+impl IntoResponse for StatusCode {
+    fn into_response(self) -> Response {
+        let mut res = ().into_response();
+        *res.status_mut() = self;
+        res
+    }
+}
+
+impl IntoResponse for () {
+    fn into_response(self) -> Response {
+        Response::new(Body::empty())
+    }
+}
+
 impl IntoResponse for Bytes {
     fn into_response(self) -> Response {
         let mut res = Body::from(self).into_response();

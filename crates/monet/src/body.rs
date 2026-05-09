@@ -24,6 +24,11 @@ impl Body {
     {
         try_downcast(body).unwrap_or_else(|body| Self(boxed(body)))
     }
+
+    /// Create an empty body.
+    pub fn empty() -> Self {
+        Self::new(http_body_util::Empty::new())
+    }
 }
 
 fn boxed<B>(body: B) -> BoxBody
