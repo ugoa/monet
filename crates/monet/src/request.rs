@@ -101,7 +101,7 @@ impl Request {
         dbg!(&bytes);
 
         let deserializer = serde_urlencoded::Deserializer::new(form_urlencoded::parse(&bytes));
-        let value: Form<T> =
+        let value =
             serde_path_to_error::deserialize(deserializer).map_err(|err| -> FormRejection {
                 if is_get_or_head {
                     FailedToDeserializeForm::from_err(err).into()
