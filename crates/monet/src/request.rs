@@ -12,9 +12,14 @@ use serde_core::de::DeserializeOwned;
 
 use crate::{
     body::Body,
-    extract::rejection::{
-        FailedToDeserializeQueryString, JsonRejection, MissingJsonContentType, QueryRejection,
+    extract::{
+        has_content_type,
+        rejection::{
+            FailedToDeserializeQueryString, FormRejection, InvalidFormContentType, JsonRejection,
+            MissingJsonContentType, QueryRejection,
+        },
     },
+    form::Form,
     json::{Json, json_content_type},
 };
 
@@ -75,22 +80,38 @@ impl Request {
         Ok(params)
     }
 
+    pub async fn into_form<T: DeserializeOwned>(self) -> Result<Form<T>, FormRejection> {
+        let bytes = if self.method() == Method::GET {
+            if let Some(query) = self.uri().query() {
+                Bytes::copy_from_slice(query.as_bytes())
+            } else {
+                Bytes::new()
+            }
+        } else {
+            if has_content_type(self.headers(), &mime::APPLICATION_WWW_FORM_URLENCODED) {
+                self.into_bytes().await
+            } else {
+                return Err(InvalidFormContentType.into());
+            }
+        };
+
+        todo!()
+    }
+
     pub async fn into_bytes(self) -> Bytes {
-        let bytes = self
-            .with_limited_body()
+        self.with_limited_body()
             .body
             .collect()
             .await
             .unwrap()
-            .to_bytes();
-        bytes
+            .to_bytes()
     }
 
     pub async fn into_json<T: DeserializeOwned>(self) -> Result<Json<T>, JsonRejection> {
-        if json_content_type(self.headers()) {
+        if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
             Json::from_bytes(&self.into_bytes().await)
         } else {
-            return Err(MissingJsonContentType.into());
+            Err(MissingJsonContentType.into())
         }
     }
 

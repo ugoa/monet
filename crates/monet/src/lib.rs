@@ -1,9 +1,7 @@
-#![allow(clippy::all)]
-#![allow(warnings)]
-
 pub mod body;
 pub mod error;
 pub mod extract;
+pub mod form;
 pub mod handler;
 pub mod json;
 pub mod request;
