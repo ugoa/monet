@@ -5,6 +5,7 @@ use std::{
     io::{self},
     net::SocketAddr,
     ops::DerefMut,
+    panic::AssertUnwindSafe,
     pin::Pin,
     task::{Context, Poll, ready},
 };
@@ -14,7 +15,7 @@ use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
 };
-use futures::stream::StreamExt;
+use futures::{FutureExt, stream::StreamExt};
 use futures_concurrency::future::FutureGroup;
 use http_body_util::Full;
 use hyper::{
@@ -155,7 +156,7 @@ pub fn serve(addr: SocketAddr, router: Router) {
                 biased;
                 stream = listener.accepts() => {
                     println!("Received at {}", jiff::Timestamp::now());
-                    group.insert(async {
+                    group.insert(AssertUnwindSafe(async {
                         http1::Builder::new()
                             .serve_connection(
                                 HyperStream::new(stream.0),
@@ -163,7 +164,7 @@ pub fn serve(addr: SocketAddr, router: Router) {
                             )
                             .await
                             .expect("Should handle request successfully")
-                    });
+                    }).catch_unwind());
                 },
                 _ =  group.next(), if !group.is_empty()  => (),
             }
