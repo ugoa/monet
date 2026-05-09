@@ -2,7 +2,6 @@ use std::convert::Infallible;
 
 use http::HeaderMap;
 use serde_core::de::DeserializeOwned;
-use serde_json::Error;
 
 use crate::extract::rejection::{
     BytesRejection, JsonDataError, JsonRejection, JsonSyntaxError, MissingJsonContentType,
