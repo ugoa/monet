@@ -59,8 +59,12 @@ async fn root(req: Request) -> String {
 }
 
 async fn query(req: Request) -> String {
+    let raw: String = req.raw_query().unwrap();
     let q: Pagination = req.query().unwrap();
-    format!("requested page is {}, offset is {}", q.page, q.offset,)
+    format!(
+        "Raw is: {}. Requested page is {}, offset is {}",
+        raw, q.page, q.offset,
+    )
 }
 
 async fn parse_json(req: Request) -> Result<Json<UserPayload>, JsonRejection> {
