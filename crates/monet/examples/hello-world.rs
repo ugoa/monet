@@ -11,7 +11,7 @@ use monet::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
-pub struct CreateUser {
+pub struct UserPayload {
     pub email: String,
     pub password: String,
 }
@@ -51,8 +51,8 @@ async fn sample(_req: Request) -> String {
     )
 }
 
-async fn parse_json(req: Request) -> Json<CreateUser> {
-    let js: Json<CreateUser> = req.into_json().await.unwrap();
+async fn parse_json(req: Request) -> Json<UserPayload> {
+    let js: Json<UserPayload> = req.into_json().await.unwrap();
     js
 }
 
