@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use bytes::{BufMut, Bytes, BytesMut};
 use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header};
 use http_body_util::Full;
@@ -27,6 +29,23 @@ impl IntoResponse for String {
 impl IntoResponse for &'static str {
     fn into_response(self) -> Response {
         Response::new(Body::new(http_body_util::Full::from(self)))
+    }
+}
+
+impl IntoResponse for Box<str> {
+    fn into_response(self) -> Response {
+        Response::new(Body::new(http_body_util::Full::from(String::from(self))))
+    }
+}
+
+impl IntoResponse for Cow<'static, str> {
+    fn into_response(self) -> Response {
+        let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
+        res.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
+        );
+        res
     }
 }
 
@@ -68,6 +87,29 @@ impl IntoResponse for Bytes {
             HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()),
         );
         res
+    }
+}
+
+impl IntoResponse for BytesMut {
+    fn into_response(self) -> Response {
+        self.freeze().into_response()
+    }
+}
+
+impl IntoResponse for Cow<'static, [u8]> {
+    fn into_response(self) -> Response {
+        let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
+        res.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()),
+        );
+        res
+    }
+}
+
+impl IntoResponse for Vec<u8> {
+    fn into_response(self) -> Response {
+        Cow::<'static, [u8]>::Owned(self).into_response()
     }
 }
 
