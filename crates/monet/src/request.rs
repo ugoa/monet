@@ -12,6 +12,7 @@ use serde_core::de::DeserializeOwned;
 
 use crate::{
     body::Body,
+    extract::rejection::{JsonRejection, MissingJsonContentType},
     json::{Json, json_content_type},
 };
 
@@ -75,11 +76,11 @@ impl Request {
 
     // TODO: change to Result
     #[inline]
-    pub async fn into_json<T: DeserializeOwned>(self) -> Option<Json<T>> {
+    pub async fn into_json<T: DeserializeOwned>(self) -> Result<Json<T>, JsonRejection> {
         if json_content_type(self.headers()) {
-            Some(Json::from_bytes(&self.into_bytes().await))
+            Json::from_bytes(&self.into_bytes().await)
         } else {
-            None
+            return Err(MissingJsonContentType.into());
         }
     }
 
