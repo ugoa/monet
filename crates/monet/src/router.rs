@@ -82,7 +82,7 @@ impl Router {
         //      Return 404 not found if no matching method, given default-fallback is enabled
         let chain = route.0.get(req.method()).unwrap().clone();
 
-        chain.next(req).map(|x| Ok::<_, Infallible>(x))
+        chain.next(req).map(Ok::<_, Infallible>)
     }
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
