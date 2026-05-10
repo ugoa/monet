@@ -32,7 +32,7 @@ where
         match serde_path_to_error::deserialize(&mut deserializer) {
             Ok(value) => match deserializer.end() {
                 Ok(()) => Ok(Self(value)),
-                Err(err) => Err(LibError::SerdeJsonError(err)),
+                Err(err) => Err(LibError::JsonSyntaxError(err)),
             },
             Err(err) => match err.inner().classify() {
                 CatError::Data => Err(LibError::JsonDataError(err)),

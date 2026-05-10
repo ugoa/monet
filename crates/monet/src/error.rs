@@ -45,7 +45,7 @@ pub enum LibError {
     JsonDataError(#[from] serde_path_to_error::Error<serde_json::Error>),
 
     #[error("Failed to parse the request body as JSON")]
-    SerdeJsonError(#[from] serde_json::Error),
+    JsonSyntaxError(#[from] serde_json::Error),
 }
 
 impl IntoResponse for LibError {
@@ -55,7 +55,7 @@ impl IntoResponse for LibError {
                 let code = StatusCode::UNPROCESSABLE_ENTITY;
                 (code, e.to_string()).into_response()
             }
-            Self::SerdeJsonError(e) => {
+            Self::JsonSyntaxError(e) => {
                 let code = StatusCode::BAD_REQUEST;
                 (code, e.to_string()).into_response()
             }
