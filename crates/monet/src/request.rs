@@ -96,14 +96,7 @@ impl Request {
     }
 
     pub async fn into_bytes(self) -> Result<Bytes, Error> {
-        let bytes = self
-            .body
-            .collect()
-            .await
-            .map_err(Error::UnknownBodyError)?
-            .to_bytes();
-
-        Ok(bytes)
+        Ok(self.body.collect().await?.to_bytes())
     }
 
     pub async fn into_json<T>(self) -> Result<Json<T>, Error>
