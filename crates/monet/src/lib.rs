@@ -6,9 +6,6 @@ pub mod request;
 pub mod response;
 pub mod router;
 pub mod serve;
-pub(crate) mod __private {
-    pub use tracing;
-}
 
 pub use async_trait::async_trait;
 pub use monet_macros::handler;
