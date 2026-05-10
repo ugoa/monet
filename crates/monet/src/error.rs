@@ -40,8 +40,6 @@ impl StdError for Error {
     }
 }
 
-use http_body::Body as HttpBody;
-
 #[derive(ThisError, Debug)]
 pub enum LibError {
     #[error("Failed to deserialize the JSON body into the target type")]
@@ -52,6 +50,9 @@ pub enum LibError {
 
     #[error("Failed to buffer the request body")]
     UnknownBodyError(#[from] crate::Error),
+
+    #[error("Expected request with `Content-Type: application/json`")]
+    MissingJsonContentType,
 }
 
 impl IntoResponse for LibError {
@@ -68,6 +69,10 @@ impl IntoResponse for LibError {
             Self::UnknownBodyError(e) => {
                 let code = StatusCode::BAD_REQUEST;
                 (code, e.to_string()).into_response()
+            }
+            Self::MissingJsonContentType => {
+                let code = StatusCode::UNSUPPORTED_MEDIA_TYPE;
+                (code, self.to_string()).into_response()
             }
         }
     }

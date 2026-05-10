@@ -145,15 +145,15 @@ impl Request {
         Ok(bytes)
     }
 
-    pub async fn into_json<T>(self) -> Result<Json<T>, JsonRejection>
+    pub async fn into_json<T>(self) -> Result<Json<T>, LibError>
     where
         T: DeserializeOwned,
     {
         // TODO check if javascript being matched
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
-            Json::from_bytes(&self.into_bytes().await?)
+            Json::try_from_bytes(&self.try_into_bytes().await?)
         } else {
-            Err(MissingJsonContentType.into())
+            Err(LibError::MissingJsonContentType)
         }
     }
 }

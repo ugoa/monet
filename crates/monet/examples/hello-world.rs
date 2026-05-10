@@ -7,6 +7,7 @@ use std::{
 use http::header::HeaderValue;
 use monet::{
     Chain, Form, Middleware, Response, Router, async_trait,
+    error::LibError,
     extract::rejection::{FormRejection, JsonRejection},
     get,
     json::Json,
@@ -67,7 +68,7 @@ async fn query(req: Request) -> String {
     )
 }
 
-async fn parse_json(req: Request) -> Result<Json<UserPayload>, JsonRejection> {
+async fn parse_json(req: Request) -> Result<Json<UserPayload>, LibError> {
     req.into_json().await
 }
 
