@@ -42,15 +42,22 @@ impl StdError for Error {
 #[derive(thiserror::Error, Debug)]
 pub enum LibError {
     #[error("Failed to deserialize the JSON body into the target type")]
-    JsonDataError,
+    JsonDataError(#[from] serde_path_to_error::Error<serde_json::Error>),
+
+    #[error("Failed to parse the request body as JSON")]
+    SerdeJsonError(#[from] serde_json::Error),
 }
 
 impl IntoResponse for LibError {
     fn into_response(self) -> Response {
         match self {
-            Self::JsonDataError => {
-                let code = StatusCode::NETWORK_AUTHENTICATION_REQUIRED;
-                (code, self.to_string()).into_response()
+            Self::JsonDataError(e) => {
+                let code = StatusCode::UNPROCESSABLE_ENTITY;
+                (code, e.to_string()).into_response()
+            }
+            Self::SerdeJsonError(e) => {
+                let code = StatusCode::BAD_REQUEST;
+                (code, e.to_string()).into_response()
             }
         }
     }
