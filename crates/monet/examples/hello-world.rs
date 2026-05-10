@@ -59,13 +59,9 @@ async fn root(req: Request) -> String {
     format!("Hi count is {}", i.0)
 }
 
-async fn query(req: Request) -> String {
-    let raw: String = req.raw_query().unwrap();
-    let q: Pagination = req.query().unwrap();
-    format!(
-        "Raw is: {}. Requested page is {}, offset is {}",
-        raw, q.page, q.offset,
-    )
+async fn query(req: Request) -> Result<String, LibError> {
+    let q = req.query::<Pagination>()?;
+    Ok(q.offset.to_string())
 }
 
 async fn parse_json(req: Request) -> Result<Json<UserPayload>, LibError> {

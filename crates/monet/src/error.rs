@@ -58,7 +58,10 @@ pub enum LibError {
     InvalidFormContentType,
 
     #[error("Failed to deserialize form")]
-    FailedToDeserializeForm(#[from] serde_path_to_error::Error<serde_html_form::de::Error>),
+    FailedToDeserializeForm(#[source] serde_path_to_error::Error<serde_html_form::de::Error>),
+
+    #[error("Failed to deserialize query")]
+    FailedToDeserializeQuery(#[source] serde_path_to_error::Error<serde_urlencoded::de::Error>),
 }
 
 impl IntoResponse for LibError {
@@ -85,6 +88,10 @@ impl IntoResponse for LibError {
                 (code, self.to_string()).into_response()
             }
             Self::FailedToDeserializeForm(_) => {
+                let code = StatusCode::BAD_REQUEST;
+                (code, self.to_string()).into_response()
+            }
+            Self::FailedToDeserializeQuery(_) => {
                 let code = StatusCode::BAD_REQUEST;
                 (code, self.to_string()).into_response()
             }

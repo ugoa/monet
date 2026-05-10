@@ -10,16 +10,7 @@ use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
 
-use crate::{
-    body::Body,
-    error::LibError,
-    extract::{
-        has_content_type,
-        rejection::{FailedToDeserializeQueryString, QueryRejection},
-    },
-    form::Form,
-    json::Json,
-};
+use crate::{body::Body, error::LibError, extract::has_content_type, form::Form, json::Json};
 
 pub struct Request {
     pub body: Body,
@@ -68,17 +59,14 @@ impl Request {
         &mut self.head.headers
     }
 
-    pub fn query<T>(&self) -> Result<T, QueryRejection>
+    pub fn query<T>(&self) -> Result<T, LibError>
     where
         T: DeserializeOwned,
     {
         let query = self.uri().query().unwrap_or_default();
-
-        let deserializer =
-            serde_urlencoded::Deserializer::new(form_urlencoded::parse(query.as_bytes()));
-        let params = serde_path_to_error::deserialize(deserializer)
-            .map_err(FailedToDeserializeQueryString::from_err)?;
-        Ok(params)
+        let parser = form_urlencoded::parse(query.as_bytes());
+        let deserializer = serde_urlencoded::Deserializer::new(parser);
+        serde_path_to_error::deserialize(deserializer).map_err(LibError::FailedToDeserializeQuery)
     }
 
     pub fn raw_query(&self) -> Option<String> {
