@@ -89,12 +89,10 @@ impl Request {
         self.uri().query().map(|query| query.to_owned())
     }
 
-    pub async fn into_form<T>(self) -> Result<Form<T>, FormRejection>
+    pub async fn into_form<T>(self) -> Result<Form<T>, LibError>
     where
         T: DeserializeOwned,
     {
-        let is_get_or_head =
-            self.method() == http::Method::GET || self.method() == http::Method::HEAD;
         let bytes = if self.method() == Method::GET {
             if let Some(query) = self.uri().query() {
                 Bytes::copy_from_slice(query.as_bytes())
@@ -103,24 +101,14 @@ impl Request {
             }
         } else {
             if has_content_type(self.headers(), &mime::APPLICATION_WWW_FORM_URLENCODED) {
-                self.into_bytes().await?
+                self.try_into_bytes().await?
             } else {
-                return Err(InvalidFormContentType.into());
+                return Err(LibError::InvalidFormContentType);
             }
         };
 
         let deserializer = serde_html_form::Deserializer::new(form_urlencoded::parse(&bytes));
-
-        let value =
-            serde_path_to_error::deserialize(deserializer).map_err(|err| -> FormRejection {
-                if is_get_or_head {
-                    FailedToDeserializeForm::from_err(err).into()
-                } else {
-                    FailedToDeserializeFormBody::from_err(err).into()
-                }
-            })?;
-
-        Ok(value)
+        serde_path_to_error::deserialize(deserializer).map_err(LibError::FailedToDeserializeForm)
     }
 
     pub async fn into_bytes(self) -> Result<Bytes, BytesRejection> {
@@ -153,7 +141,7 @@ impl Request {
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
             Json::try_from_bytes(&self.try_into_bytes().await?)
         } else {
-            Err(LibError::MissingJsonContentType)
+            Err(LibError::InvalidJsonContentType)
         }
     }
 }

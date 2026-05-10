@@ -51,8 +51,14 @@ pub enum LibError {
     #[error("Failed to buffer the request body")]
     UnknownBodyError(#[from] crate::Error),
 
-    #[error("Expected request with `Content-Type: application/json`")]
-    MissingJsonContentType,
+    #[error("Json request must have `Content-Type: application/json`")]
+    InvalidJsonContentType,
+
+    #[error("Form request must have `Content-Type: application/x-www-form-urlencoded`")]
+    InvalidFormContentType,
+
+    #[error("Failed to deserialize form")]
+    FailedToDeserializeForm(#[from] serde_path_to_error::Error<serde_html_form::de::Error>),
 }
 
 impl IntoResponse for LibError {
@@ -70,8 +76,16 @@ impl IntoResponse for LibError {
                 let code = StatusCode::BAD_REQUEST;
                 (code, e.to_string()).into_response()
             }
-            Self::MissingJsonContentType => {
+            Self::InvalidJsonContentType => {
                 let code = StatusCode::UNSUPPORTED_MEDIA_TYPE;
+                (code, self.to_string()).into_response()
+            }
+            Self::InvalidFormContentType => {
+                let code = StatusCode::UNSUPPORTED_MEDIA_TYPE;
+                (code, self.to_string()).into_response()
+            }
+            Self::FailedToDeserializeForm(_) => {
+                let code = StatusCode::BAD_REQUEST;
                 (code, self.to_string()).into_response()
             }
         }
