@@ -67,3 +67,17 @@ pub(super) fn has_content_type(headers: &HeaderMap, expected_content_type: &mime
 
     content_type.starts_with(expected_content_type.as_ref())
 }
+
+impl<T> std::ops::Deref for Html<T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> std::ops::DerefMut for Html<T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
