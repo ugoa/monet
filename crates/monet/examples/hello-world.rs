@@ -6,8 +6,8 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, get, post,
-    request::Request,
+    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, extract::Html, get,
+    post, request::Request,
 };
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,22 @@ async fn parse_form(req: Request) -> Result<Form<FormPayload>, Error> {
     req.into_form().await
 }
 
+async fn return_html(req: Request) -> Html<&'static str> {
+    Html(
+        r#"
+        <!doctype html>
+        <html>
+            <head>
+                <title>Hello from Monet </title>
+            </head>
+            <body>
+                <h3>Welcome!</h3>
+            </body>
+        </html>
+        "#,
+    )
+}
+
 thread_local! {
     static COUNTER: LazyCell<RefCell<i32>> = LazyCell::new(|| RefCell::new(0));
 }
@@ -99,6 +115,7 @@ fn main() {
         .wrap(simple_middleware)
         .at("/json", post(parse_json))
         .at("/form", post(parse_form))
+        .at("/html", get(return_html))
         .wrap(RequestCounter)
         .wrap(set_state);
 
