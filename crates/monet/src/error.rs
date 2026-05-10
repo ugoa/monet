@@ -44,7 +44,6 @@ impl IntoResponse for Error {
     }
 }
 
-/// Errors that can happen when using axum.
 #[derive(Debug)]
 pub struct BodyError {
     inner: BoxError,
