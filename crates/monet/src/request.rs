@@ -15,11 +15,7 @@ use crate::{
     error::LibError,
     extract::{
         has_content_type,
-        rejection::{
-            BytesRejection, FailedToBufferBody, FailedToDeserializeForm,
-            FailedToDeserializeFormBody, FailedToDeserializeQueryString, FormRejection,
-            InvalidFormContentType, JsonRejection, MissingJsonContentType, QueryRejection,
-        },
+        rejection::{FailedToDeserializeQueryString, QueryRejection},
     },
     form::Form,
     json::Json,
@@ -101,7 +97,7 @@ impl Request {
             }
         } else {
             if has_content_type(self.headers(), &mime::APPLICATION_WWW_FORM_URLENCODED) {
-                self.try_into_bytes().await?
+                self.into_bytes().await?
             } else {
                 return Err(LibError::InvalidFormContentType);
             }
@@ -111,18 +107,7 @@ impl Request {
         serde_path_to_error::deserialize(deserializer).map_err(LibError::FailedToDeserializeForm)
     }
 
-    pub async fn into_bytes(self) -> Result<Bytes, BytesRejection> {
-        let bytes = self
-            .body
-            .collect()
-            .await
-            .map_err(FailedToBufferBody::from_err)?
-            .to_bytes();
-
-        Ok(bytes)
-    }
-
-    pub async fn try_into_bytes(self) -> Result<Bytes, LibError> {
+    pub async fn into_bytes(self) -> Result<Bytes, LibError> {
         let bytes = self
             .body
             .collect()
@@ -139,7 +124,7 @@ impl Request {
     {
         // TODO check if javascript being matched
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
-            Json::try_from_bytes(&self.try_into_bytes().await?)
+            Json::from_bytes(&self.into_bytes().await?)
         } else {
             Err(LibError::InvalidJsonContentType)
         }
