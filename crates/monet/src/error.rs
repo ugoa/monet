@@ -40,6 +40,8 @@ impl StdError for Error {
     }
 }
 
+use http_body::Body as HttpBody;
+
 #[derive(ThisError, Debug)]
 pub enum LibError {
     #[error("Failed to deserialize the JSON body into the target type")]
@@ -47,6 +49,9 @@ pub enum LibError {
 
     #[error("Failed to parse the request body as JSON")]
     JsonSyntaxError(#[from] serde_json::Error),
+
+    #[error("Failed to buffer the request body")]
+    UnknownBodyError(#[from] crate::Error),
 }
 
 impl IntoResponse for LibError {
@@ -57,6 +62,10 @@ impl IntoResponse for LibError {
                 (code, e.to_string()).into_response()
             }
             Self::JsonSyntaxError(e) => {
+                let code = StatusCode::BAD_REQUEST;
+                (code, e.to_string()).into_response()
+            }
+            Self::UnknownBodyError(e) => {
                 let code = StatusCode::BAD_REQUEST;
                 (code, e.to_string()).into_response()
             }

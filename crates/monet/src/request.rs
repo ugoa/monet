@@ -12,6 +12,7 @@ use serde_core::de::DeserializeOwned;
 
 use crate::{
     body::Body,
+    error::LibError,
     extract::{
         has_content_type,
         rejection::{
@@ -128,6 +129,17 @@ impl Request {
             .collect()
             .await
             .map_err(FailedToBufferBody::from_err)?
+            .to_bytes();
+
+        Ok(bytes)
+    }
+
+    pub async fn try_into_bytes(self) -> Result<Bytes, LibError> {
+        let bytes = self
+            .body
+            .collect()
+            .await
+            .map_err(LibError::UnknownBodyError)?
             .to_bytes();
 
         Ok(bytes)
