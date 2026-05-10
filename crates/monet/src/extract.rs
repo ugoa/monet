@@ -52,6 +52,10 @@ impl<T> std::ops::DerefMut for Query<T> {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+#[must_use]
+pub struct Html<T>(pub T);
+
 pub(super) fn has_content_type(headers: &HeaderMap, expected_content_type: &mime::Mime) -> bool {
     let Some(content_type) = headers.get(header::CONTENT_TYPE) else {
         return false;

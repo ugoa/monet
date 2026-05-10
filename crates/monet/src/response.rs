@@ -4,7 +4,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header::CONTENT_TYPE};
 use serde::Serialize;
 
-use crate::{BoxError, Form, Json, body::Body};
+use crate::{BoxError, Form, Json, body::Body, extract::Html};
 
 pub type Response<T = Body> = HttpResponse<T>;
 
@@ -157,14 +157,18 @@ where
         match ser_result {
             Ok(()) => {
                 let mut resp = buf.freeze().into_response();
-                let new_type = HeaderValue::from_static(mime::APPLICATION_JSON.as_ref());
-                resp.headers_mut().insert(CONTENT_TYPE, new_type);
+                resp.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static(mime::APPLICATION_JSON.as_ref()),
+                );
                 resp
             }
             Err(err) => {
                 let mut resp = err.to_string().into_response();
-                let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
-                resp.headers_mut().insert(CONTENT_TYPE, new_type);
+                resp.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
+                );
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 resp
             }
@@ -180,18 +184,35 @@ where
         match serde_urlencoded::to_string(&self.0) {
             Ok(body) => {
                 let mut resp = body.into_response();
-                let new_type =
-                    HeaderValue::from_static(mime::APPLICATION_WWW_FORM_URLENCODED.as_ref());
-                resp.headers_mut().insert(CONTENT_TYPE, new_type);
+                resp.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static(mime::APPLICATION_WWW_FORM_URLENCODED.as_ref()),
+                );
                 resp
             }
             Err(err) => {
                 let mut resp = err.to_string().into_response();
-                let new_type = HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref());
-                resp.headers_mut().insert(CONTENT_TYPE, new_type);
+                resp.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
+                );
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 resp
             }
         }
+    }
+}
+
+impl<T> IntoResponse for Html<T>
+where
+    T: IntoResponse,
+{
+    fn into_response(self) -> Response {
+        let mut resp = self.0.into_response();
+        resp.headers_mut().insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static(mime::TEXT_HTML_UTF_8.as_ref()),
+        );
+        resp
     }
 }
