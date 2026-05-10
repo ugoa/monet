@@ -1,6 +1,5 @@
 use http::{HeaderMap, header};
 
-pub mod json;
 pub mod query;
 
 pub(super) fn has_content_type(headers: &HeaderMap, expected_content_type: &mime::Mime) -> bool {

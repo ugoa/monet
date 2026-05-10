@@ -104,8 +104,22 @@ impl Request {
         T: DeserializeOwned,
     {
         // TODO check if javascript being matched
+        use serde_json::error::Category as CatError;
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
-            Json::from_bytes(&self.into_bytes().await?)
+            let bytes = &self.into_bytes().await?;
+
+            let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+            match serde_path_to_error::deserialize(&mut deserializer) {
+                Ok(value) => match deserializer.end() {
+                    Ok(()) => Ok(Json(value)),
+                    Err(err) => Err(Error::JsonSyntaxError(err)),
+                },
+                Err(err) => match err.inner().classify() {
+                    CatError::Data => Err(Error::JsonDataError(err)),
+                    CatError::Syntax | CatError::Eof => Err(Error::JsonDataError(err)),
+                    CatError::Io => Err(Error::JsonDataError(err)),
+                },
+            }
         } else {
             Err(Error::InvalidJsonContentType)
         }
