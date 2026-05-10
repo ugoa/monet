@@ -18,13 +18,14 @@ pub trait Middleware: 'static {
 }
 
 #[async_trait(?Send)]
-impl<F, Fut> Middleware for F
+impl<F, Fut, Resp> Middleware for F
 where
     F: 'static + Fn(Request, Chain) -> Fut,
-    Fut: Future<Output = Response>,
+    Fut: Future<Output = Resp>,
+    Resp: IntoResponse,
 {
     async fn transform(&self, req: Request, chain: Chain) -> Response {
-        (self)(req, chain).await
+        (self)(req, chain).await.into_response()
     }
 }
 

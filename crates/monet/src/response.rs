@@ -4,13 +4,23 @@ use bytes::{BufMut, Bytes, BytesMut};
 use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header::CONTENT_TYPE};
 use serde::Serialize;
 
-use crate::{Form, body::Body, json::Json};
+use crate::{BoxError, Form, body::Body, json::Json};
 
 pub type Response<T = Body> = HttpResponse<T>;
 
 pub trait IntoResponse {
     #[must_use]
     fn into_response(self) -> Response;
+}
+
+impl<B> IntoResponse for Response<B>
+where
+    B: http_body::Body<Data = Bytes> + Send + 'static,
+    B::Error: Into<BoxError>,
+{
+    fn into_response(self) -> Response {
+        self.map(Body::new)
+    }
 }
 
 impl IntoResponse for Body {
