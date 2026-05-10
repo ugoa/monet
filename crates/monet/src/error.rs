@@ -1,6 +1,6 @@
 use std::{error::Error as StdError, fmt};
 
-use http::StatusCode as Code;
+use http::StatusCode;
 use thiserror::Error as ThisError;
 
 use crate::response::{IntoResponse, Response};
@@ -42,13 +42,13 @@ impl StdError for BodyError {
 
 #[derive(ThisError, Debug)]
 pub enum Error {
-    #[error("Failed to deserialize the JSON body into the target type")]
+    #[error("Failed to deserialize the JSON body into the target type: {0}")]
     JsonDataError(#[from] serde_path_to_error::Error<serde_json::Error>),
 
-    #[error("Failed to parse the request body as JSON")]
+    #[error("Failed to parse the request body as JSON: {0}")]
     JsonSyntaxError(#[from] serde_json::Error),
 
-    #[error("Failed to buffer the request body")]
+    #[error("Failed to buffer the request body: {0}")]
     UnknownBodyError(#[from] crate::BodyError),
 
     #[error("Json request must have `Content-Type: application/json`")]
@@ -57,31 +57,24 @@ pub enum Error {
     #[error("Form request must have `Content-Type: application/x-www-form-urlencoded`")]
     InvalidFormContentType,
 
-    #[error("Failed to deserialize form")]
+    #[error("Failed to deserialize form: {0}")]
     FailedToDeserializeForm(#[source] serde_path_to_error::Error<serde_html_form::de::Error>),
 
-    #[error("Failed to deserialize query")]
+    #[error("Failed to deserialize query: {0}")]
     FailedToDeserializeQuery(#[source] serde_path_to_error::Error<serde_urlencoded::de::Error>),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        match self {
-            Self::JsonDataError(e) => (Code::UNPROCESSABLE_ENTITY, e.to_string()).into_response(),
-            Self::JsonSyntaxError(e) => (Code::BAD_REQUEST, e.to_string()).into_response(),
-            Self::UnknownBodyError(e) => (Code::BAD_REQUEST, e.to_string()).into_response(),
-            Self::InvalidJsonContentType => {
-                (Code::UNSUPPORTED_MEDIA_TYPE, self.to_string()).into_response()
-            }
-            Self::InvalidFormContentType => {
-                (Code::UNSUPPORTED_MEDIA_TYPE, self.to_string()).into_response()
-            }
-            Self::FailedToDeserializeForm(_) => {
-                (Code::BAD_REQUEST, self.to_string()).into_response()
-            }
-            Self::FailedToDeserializeQuery(_) => {
-                (Code::BAD_REQUEST, self.to_string()).into_response()
-            }
-        }
+        let status_code = match self {
+            Self::JsonDataError(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::JsonSyntaxError(_) => StatusCode::BAD_REQUEST,
+            Self::UnknownBodyError(_) => StatusCode::BAD_REQUEST,
+            Self::InvalidJsonContentType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            Self::InvalidFormContentType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            Self::FailedToDeserializeForm(_) => StatusCode::BAD_REQUEST,
+            Self::FailedToDeserializeQuery(_) => StatusCode::BAD_REQUEST,
+        };
+        (status_code, self.to_string()).into_response()
     }
 }
