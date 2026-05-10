@@ -1,185 +1,168 @@
-use hyper::body::Incoming;
-use hyper_util::service::TowerToHyperService;
-use std::convert::Infallible;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use tower::ServiceExt;
-
-use hyper::server::conn::http1;
-use monoio_compat::hyper::MonoioIo;
-use monoio_compat::{AsyncRead, AsyncWrite, TcpStreamCompat, UnixStreamCompat};
-
-use crate::Body;
-use crate::HttpBody;
-use crate::{BoxError, HttpRequest, HttpResponse, TowerService};
-
-pub trait Listener: 'static {
-    type Io: AsyncRead + AsyncWrite + Unpin;
-
-    type Addr;
-
-    async fn accept(&mut self) -> (Self::Io, Self::Addr);
-
-    fn local_addr(&self) -> std::io::Result<Self::Addr>;
-}
-
-impl Listener for monoio::net::TcpListener {
-    type Io = monoio_compat::TcpStreamCompat;
-
-    type Addr = std::net::SocketAddr;
-
-    async fn accept(&mut self) -> (Self::Io, Self::Addr) {
-        loop {
-            match Self::accept(self).await {
-                Ok((stream, addr)) => return (TcpStreamCompat::new(stream), addr),
-                Err(e) => todo!(), // handle error
-            }
-        }
-    }
-
-    fn local_addr(&self) -> std::io::Result<Self::Addr> {
-        Self::local_addr(self)
-    }
-}
-
-impl Listener for monoio::net::UnixListener {
-    type Io = monoio_compat::UnixStreamCompat;
-
-    type Addr = monoio::net::unix::SocketAddr;
-
-    async fn accept(&mut self) -> (Self::Io, Self::Addr) {
-        loop {
-            match Self::accept(self).await {
-                Ok((stream, addr)) => return (UnixStreamCompat::new(stream), addr),
-                Err(e) => todo!(), // handle error
-            }
-        }
-    }
-
-    fn local_addr(&self) -> std::io::Result<Self::Addr> {
-        Self::local_addr(self)
-    }
-}
-
-#[derive(Debug)]
-pub struct IncomingStream<'a, L>
-where
-    L: Listener,
-{
-    io: &'a MonoioIo<L::Io>,
-    remote_addr: L::Addr,
-}
-
-pub fn serve<L, M, S, B>(listener: L, make_service: M) -> Serve<L, M, S, B>
-where
-    L: Listener,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
-    B: HttpBody + 'static,
-    B::Error: Into<BoxError>,
-{
-    Serve {
-        listener,
-        make_service,
-        _marker: PhantomData,
-    }
-}
-
-pub struct Serve<L, M, S, B> {
-    listener: L,
-    make_service: M,
-    _marker: PhantomData<fn(B) -> S>,
-}
-
-impl<L, M, S, B> Serve<L, M, S, B>
-where
-    L: Listener,
-    L::Addr: Debug,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible>,
-    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
-    B: HttpBody + 'static,
-    B::Error: Into<BoxError>,
-{
-    async fn run(self) -> ! {
-        let Self {
-            mut listener,
-            mut make_service,
-            _marker,
-        } = self;
-
-        loop {
-            let (io, remote_addr) = listener.accept().await;
-
-            let io = monoio_compat::hyper::MonoioIo::new(io);
-
-            make_service
-                .ready()
-                .await
-                .unwrap_or_else(|err| match err {});
-
-            let tower_service = make_service
-                .call(IncomingStream {
-                    io: &io,
-                    remote_addr,
-                })
-                .await
-                .unwrap_or_else(|err| match err {})
-                .map_request(|req: HttpRequest<Incoming>| req.map(Body::new));
-
-            let hyper_service = TowerToHyperService::new(tower_service);
-
-            monoio::spawn_without_static(async move {
-                println!("Task started on thread {:?}", std::thread::current().id());
-                if let Err(err) = http1::Builder::new()
-                    .timer(monoio_compat::hyper::MonoioTimer)
-                    .serve_connection(io, hyper_service)
-                    .await
-                {
-                    println!("Error serving connection: {:?}", err);
-                }
-            });
-        }
-    }
-}
-
-impl<L, M, S, B> IntoFuture for Serve<L, M, S, B>
-where
-    L: Listener,
-    L::Addr: std::fmt::Debug,
-    M: for<'a> TowerService<IncomingStream<'a, L>, Response = S, Error = Infallible> + 'static,
-    S: TowerService<HttpRequest, Response = HttpResponse<B>, Error = Infallible> + Clone + 'static,
-    B: HttpBody + 'static,
-    B::Error: Into<BoxError>,
-{
-    type Output = std::io::Result<()>;
-
-    type IntoFuture = ServeFuture;
-
-    fn into_future(self) -> Self::IntoFuture {
-        ServeFuture(Box::pin(async move { self.run().await }))
-    }
-}
-
 use std::{
+    convert::Infallible,
     future::Future,
-    io,
+    io::{self},
+    net::SocketAddr,
+    ops::DerefMut,
+    panic::AssertUnwindSafe,
     pin::Pin,
-    task::{Context, Poll},
+    task::{Context, Poll, ready},
 };
 
-pub struct ServeFuture(futures_core::future::LocalBoxFuture<'static, io::Result<()>>);
+use compio::{
+    io::{AsyncRead, AsyncWrite, compat::AsyncStream},
+    net::{TcpListener, TcpStream, UnixListener, UnixStream},
+};
+use futures::{FutureExt, stream::StreamExt};
+use futures_concurrency::future::FutureGroup;
+use hyper::{server::conn::http1, service::service_fn};
+use send_wrapper::SendWrapper;
 
-impl Future for ServeFuture {
-    type Output = io::Result<()>;
+use crate::{Request, Router};
 
-    #[inline]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.as_mut().poll(cx)
+/// Types that can listen for connections.
+pub trait Listener: 'static {
+    /// The listener's IO type.
+    type Io: AsyncRead + AsyncWrite + Unpin + 'static;
+
+    /// The listener's address type.
+    type Addr;
+
+    /// Accept a new incoming connection to this listener.
+    ///
+    /// If the underlying accept call can return an error, this function must
+    /// take care of logging and retrying.
+    fn accepts(&mut self) -> impl Future<Output = (Self::Io, Self::Addr)>;
+
+    /// Returns the local address that this listener is bound to.
+    fn local_addr(&self) -> io::Result<Self::Addr>;
+}
+
+impl Listener for TcpListener {
+    type Addr = SocketAddr;
+    type Io = TcpStream;
+
+    async fn accepts(&mut self) -> (Self::Io, Self::Addr) {
+        loop {
+            match Self::accept(self).await {
+                Ok(tup) => return tup,
+                Err(_e) => todo!(), // handle error
+            }
+        }
+    }
+
+    fn local_addr(&self) -> io::Result<Self::Addr> {
+        Self::local_addr(self)
     }
 }
 
-impl std::fmt::Debug for ServeFuture {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ServeFuture").finish_non_exhaustive()
+impl Listener for UnixListener {
+    type Addr = socket2::SockAddr;
+    type Io = UnixStream;
+
+    async fn accepts(&mut self) -> (Self::Io, Self::Addr) {
+        loop {
+            match Self::accept(self).await {
+                Ok(tup) => return tup,
+                Err(_e) => todo!(), // handle error
+            }
+        }
     }
+
+    fn local_addr(&self) -> io::Result<Self::Addr> {
+        Self::local_addr(self)
+    }
+}
+
+/// A stream wrapper for hyper.
+pub struct HyperStream<S>(SendWrapper<AsyncStream<S>>);
+
+impl<S> HyperStream<S> {
+    /// Create a hyper stream wrapper.
+    pub fn new(s: S) -> Self {
+        Self(SendWrapper::new(AsyncStream::new(s)))
+    }
+
+    /// Get the reference of the inner stream.
+    pub fn get_ref(&self) -> &S {
+        self.0.get_ref()
+    }
+}
+
+impl<S> std::fmt::Debug for HyperStream<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HyperStream").finish_non_exhaustive()
+    }
+}
+
+impl<S: AsyncRead + Unpin + 'static> hyper::rt::Read for HyperStream<S> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        mut buf: hyper::rt::ReadBufCursor<'_>,
+    ) -> Poll<io::Result<()>> {
+        let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
+        let slice = unsafe { buf.as_mut() };
+        let len = ready!(stream.poll_read_uninit(cx, slice))?;
+        unsafe { buf.advance(len) };
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl<S: AsyncWrite + Unpin + 'static> hyper::rt::Write for HyperStream<S> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
+        futures_util::AsyncWrite::poll_write(stream, cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
+        futures_util::AsyncWrite::poll_flush(stream, cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
+        futures_util::AsyncWrite::poll_close(stream, cx)
+    }
+}
+
+impl hyper::service::Service<Request> for Router {
+    type Response = crate::Response;
+    type Error = Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+
+    fn call(&self, req: Request) -> Self::Future {
+        Box::pin(self.run(req))
+    }
+}
+
+pub fn serve(addr: SocketAddr, router: Router) {
+    let app = async {
+        let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
+        let mut group = FutureGroup::new();
+        loop {
+            tokio::select! {
+                biased;
+                stream = listener.accepts() => {
+                    println!("Received at {}", jiff::Timestamp::now());
+                    group.insert(AssertUnwindSafe(async {
+                        http1::Builder::new()
+                            .serve_connection(
+                                HyperStream::new(stream.0),
+                                service_fn(async |req| router.run(req.into()).await),
+                            )
+                            .await
+                            .expect("Should handle request successfully")
+                    }).catch_unwind());
+                },
+                _ =  group.next(), if !group.is_empty()  => (),
+            }
+        }
+    };
+    let rt = compio::runtime::Runtime::new().expect("cannot create runtime");
+    rt.block_on(app);
 }

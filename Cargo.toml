@@ -1,13 +1,22 @@
 [workspace]
 resolver = "3"
-
 members = [
   "crates/monet",
-  "examples/*",
-  "crates/monoio",
-  "crates/monoio-compat",
+  "crates/monet-macros",
 ]
+
+[workspace.package]
+version = "0.1.3"
+edition = "2024"
+authors = [
+    "Dawei Hu <hoodavy@gmail.com>",
+]
+
+[workspace.dependencies]
+monet = { path = "crates/monet" }
+monet-macros = { path = "crates/monet-macros" }
 
 [workspace.lints.clippy]
 macro_use_imports = "warn"
+
 
