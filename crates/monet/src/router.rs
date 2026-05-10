@@ -6,6 +6,7 @@ use std::{
 
 use futures_util::FutureExt;
 use http::Method;
+use tracing::trace;
 
 pub fn get(handler: impl Endpoint) -> Route {
     Route::new().get(handler)
@@ -92,6 +93,7 @@ impl Router {
     }
 
     pub fn wrap(mut self, middleware: impl Middleware) -> Self {
+        trace!("Adding middleware {}", middleware.name());
         let shared = Rc::new(middleware);
         self.routes.iter_mut().for_each(|route| {
             route
