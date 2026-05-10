@@ -22,10 +22,10 @@ pub enum Error {
     #[error("Form request must have `Content-Type: application/x-www-form-urlencoded`")]
     InvalidFormContentType,
 
-    #[error("Failed to deserialize form: {0}")]
+    #[error("Failed to deserialize Form: {0}")]
     FailedToDeserializeForm(#[source] serde_path_to_error::Error<serde_html_form::de::Error>),
 
-    #[error("Failed to deserialize query: {0}")]
+    #[error("Failed to deserialize Query: {0}")]
     FailedToDeserializeQuery(#[source] serde_path_to_error::Error<serde_urlencoded::de::Error>),
 }
 
