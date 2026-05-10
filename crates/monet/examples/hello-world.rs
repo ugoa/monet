@@ -6,7 +6,7 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Form, Middleware, Response, Router, async_trait, error::Error, get, json::Json, post,
+    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, get, post,
     request::Request,
 };
 use serde::{Deserialize, Serialize};

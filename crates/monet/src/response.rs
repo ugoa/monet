@@ -4,7 +4,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use http::{HeaderMap, HeaderValue, Response as HttpResponse, StatusCode, header::CONTENT_TYPE};
 use serde::Serialize;
 
-use crate::{BoxError, Form, body::Body, json::Json};
+use crate::{BoxError, Form, Json, body::Body};
 
 pub type Response<T = Body> = HttpResponse<T>;
 

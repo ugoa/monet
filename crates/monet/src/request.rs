@@ -10,7 +10,11 @@ use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
 
-use crate::{body::Body, error::Error, extract::has_content_type, form::Form, json::Json};
+use crate::{
+    body::Body,
+    error::Error,
+    extract::{Form, Json, has_content_type},
+};
 
 pub struct Request {
     pub body: Body,
