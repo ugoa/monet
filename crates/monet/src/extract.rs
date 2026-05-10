@@ -2,7 +2,6 @@ use http::{HeaderMap, header};
 
 pub mod json;
 pub mod query;
-pub mod rejection;
 
 pub(super) fn has_content_type(headers: &HeaderMap, expected_content_type: &mime::Mime) -> bool {
     let Some(content_type) = headers.get(header::CONTENT_TYPE) else {
