@@ -1,6 +1,6 @@
 use std::{error::Error as StdError, fmt};
 
-use http::StatusCode;
+use http::StatusCode as Code;
 use thiserror::Error as ThisError;
 
 use crate::response::{IntoResponse, Response};
@@ -67,33 +67,20 @@ pub enum Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
-            Self::JsonDataError(e) => {
-                let code = StatusCode::UNPROCESSABLE_ENTITY;
-                (code, e.to_string()).into_response()
-            }
-            Self::JsonSyntaxError(e) => {
-                let code = StatusCode::BAD_REQUEST;
-                (code, e.to_string()).into_response()
-            }
-            Self::UnknownBodyError(e) => {
-                let code = StatusCode::BAD_REQUEST;
-                (code, e.to_string()).into_response()
-            }
+            Self::JsonDataError(e) => (Code::UNPROCESSABLE_ENTITY, e.to_string()).into_response(),
+            Self::JsonSyntaxError(e) => (Code::BAD_REQUEST, e.to_string()).into_response(),
+            Self::UnknownBodyError(e) => (Code::BAD_REQUEST, e.to_string()).into_response(),
             Self::InvalidJsonContentType => {
-                let code = StatusCode::UNSUPPORTED_MEDIA_TYPE;
-                (code, self.to_string()).into_response()
+                (Code::UNSUPPORTED_MEDIA_TYPE, self.to_string()).into_response()
             }
             Self::InvalidFormContentType => {
-                let code = StatusCode::UNSUPPORTED_MEDIA_TYPE;
-                (code, self.to_string()).into_response()
+                (Code::UNSUPPORTED_MEDIA_TYPE, self.to_string()).into_response()
             }
             Self::FailedToDeserializeForm(_) => {
-                let code = StatusCode::BAD_REQUEST;
-                (code, self.to_string()).into_response()
+                (Code::BAD_REQUEST, self.to_string()).into_response()
             }
             Self::FailedToDeserializeQuery(_) => {
-                let code = StatusCode::BAD_REQUEST;
-                (code, self.to_string()).into_response()
+                (Code::BAD_REQUEST, self.to_string()).into_response()
             }
         }
     }
