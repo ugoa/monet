@@ -5,41 +5,6 @@ use thiserror::Error as ThisError;
 
 use crate::response::{IntoResponse, Response};
 
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
-
-/// Errors that can happen when using axum.
-#[derive(Debug)]
-pub struct BodyError {
-    inner: BoxError,
-}
-
-impl BodyError {
-    /// Create a new `Error` from a boxable error.
-    pub fn new(error: impl Into<BoxError>) -> Self {
-        Self {
-            inner: error.into(),
-        }
-    }
-
-    /// Convert an `Error` back into the underlying boxed trait object.
-    #[must_use]
-    pub fn into_inner(self) -> BoxError {
-        self.inner
-    }
-}
-
-impl fmt::Display for BodyError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.inner.fmt(f)
-    }
-}
-
-impl StdError for BodyError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        Some(&*self.inner)
-    }
-}
-
 #[derive(ThisError, Debug)]
 pub enum Error {
     #[error("Failed to deserialize the JSON body into the target type: {0}")]
@@ -76,5 +41,40 @@ impl IntoResponse for Error {
             Self::FailedToDeserializeQuery(_) => StatusCode::BAD_REQUEST,
         };
         (status_code, self.to_string()).into_response()
+    }
+}
+
+/// Errors that can happen when using axum.
+#[derive(Debug)]
+pub struct BodyError {
+    inner: BoxError,
+}
+
+pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
+impl BodyError {
+    /// Create a new `Error` from a boxable error.
+    pub fn new(error: impl Into<BoxError>) -> Self {
+        Self {
+            inner: error.into(),
+        }
+    }
+
+    /// Convert an `Error` back into the underlying boxed trait object.
+    #[must_use]
+    pub fn into_inner(self) -> BoxError {
+        self.inner
+    }
+}
+
+impl fmt::Display for BodyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl StdError for BodyError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&*self.inner)
     }
 }
