@@ -1,6 +1,7 @@
 use std::{error::Error as StdError, fmt};
 
 use http::StatusCode;
+use thiserror::Error as ThisError;
 
 use crate::response::{IntoResponse, Response};
 
@@ -39,7 +40,7 @@ impl StdError for Error {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(ThisError, Debug)]
 pub enum LibError {
     #[error("Failed to deserialize the JSON body into the target type")]
     JsonDataError(#[from] serde_path_to_error::Error<serde_json::Error>),
