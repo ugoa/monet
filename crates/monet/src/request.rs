@@ -137,6 +137,7 @@ impl Request {
     where
         T: DeserializeOwned,
     {
+        // TODO check if javascript being matched
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
             Json::from_bytes(&self.into_bytes().await?)
         } else {
