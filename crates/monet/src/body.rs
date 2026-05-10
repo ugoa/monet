@@ -7,9 +7,9 @@ use bytes::Bytes;
 use http_body::Frame;
 use http_body_util::BodyExt;
 
-use crate::error::{BoxError, Error};
+use crate::error::{BodyError, BoxError};
 
-type BoxBody = http_body_util::combinators::UnsyncBoxBody<Bytes, Error>;
+type BoxBody = http_body_util::combinators::UnsyncBoxBody<Bytes, BodyError>;
 
 #[must_use]
 #[derive(Debug)]
@@ -36,7 +36,7 @@ where
     B: http_body::Body<Data = Bytes> + Send + 'static,
     B::Error: Into<BoxError>,
 {
-    try_downcast(body).unwrap_or_else(|body| body.map_err(Error::new).boxed_unsync())
+    try_downcast(body).unwrap_or_else(|body| body.map_err(BodyError::new).boxed_unsync())
 }
 
 pub(crate) fn try_downcast<T, K>(k: K) -> Result<T, K>
@@ -54,7 +54,7 @@ where
 
 impl http_body::Body for Body {
     type Data = Bytes;
-    type Error = Error;
+    type Error = BodyError;
 
     #[inline]
     fn poll_frame(

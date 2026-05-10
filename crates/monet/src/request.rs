@@ -10,7 +10,7 @@ use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
 
-use crate::{body::Body, error::LibError, extract::has_content_type, form::Form, json::Json};
+use crate::{body::Body, error::Error, extract::has_content_type, form::Form, json::Json};
 
 pub struct Request {
     pub body: Body,
@@ -59,21 +59,21 @@ impl Request {
         &mut self.head.headers
     }
 
-    pub fn query<T>(&self) -> Result<T, LibError>
+    pub fn query<T>(&self) -> Result<T, Error>
     where
         T: DeserializeOwned,
     {
         let query = self.uri().query().unwrap_or_default();
         let parser = form_urlencoded::parse(query.as_bytes());
         let deserializer = serde_urlencoded::Deserializer::new(parser);
-        serde_path_to_error::deserialize(deserializer).map_err(LibError::FailedToDeserializeQuery)
+        serde_path_to_error::deserialize(deserializer).map_err(Error::FailedToDeserializeQuery)
     }
 
     pub fn raw_query(&self) -> Option<String> {
         self.uri().query().map(|query| query.to_owned())
     }
 
-    pub async fn into_form<T>(self) -> Result<Form<T>, LibError>
+    pub async fn into_form<T>(self) -> Result<Form<T>, Error>
     where
         T: DeserializeOwned,
     {
@@ -87,26 +87,26 @@ impl Request {
             if has_content_type(self.headers(), &mime::APPLICATION_WWW_FORM_URLENCODED) {
                 self.into_bytes().await?
             } else {
-                return Err(LibError::InvalidFormContentType);
+                return Err(Error::InvalidFormContentType);
             }
         };
 
         let deserializer = serde_html_form::Deserializer::new(form_urlencoded::parse(&bytes));
-        serde_path_to_error::deserialize(deserializer).map_err(LibError::FailedToDeserializeForm)
+        serde_path_to_error::deserialize(deserializer).map_err(Error::FailedToDeserializeForm)
     }
 
-    pub async fn into_bytes(self) -> Result<Bytes, LibError> {
+    pub async fn into_bytes(self) -> Result<Bytes, Error> {
         let bytes = self
             .body
             .collect()
             .await
-            .map_err(LibError::UnknownBodyError)?
+            .map_err(Error::UnknownBodyError)?
             .to_bytes();
 
         Ok(bytes)
     }
 
-    pub async fn into_json<T>(self) -> Result<Json<T>, LibError>
+    pub async fn into_json<T>(self) -> Result<Json<T>, Error>
     where
         T: DeserializeOwned,
     {
@@ -114,7 +114,7 @@ impl Request {
         if has_content_type(self.headers(), &mime::APPLICATION_JSON) {
             Json::from_bytes(&self.into_bytes().await?)
         } else {
-            Err(LibError::InvalidJsonContentType)
+            Err(Error::InvalidJsonContentType)
         }
     }
 }

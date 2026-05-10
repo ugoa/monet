@@ -18,7 +18,7 @@ pub use async_trait::async_trait;
 pub use monet_macros::handler;
 
 pub use crate::{
-    error::{BoxError, Error},
+    error::{BodyError, BoxError},
     form::Form,
     handler::{Chain, Endpoint, Middleware},
     request::Request,

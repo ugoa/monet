@@ -6,7 +6,7 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Form, Middleware, Response, Router, async_trait, error::LibError, get, json::Json, post,
+    Chain, Form, Middleware, Response, Router, async_trait, error::Error, get, json::Json, post,
     request::Request,
 };
 use serde::{Deserialize, Serialize};
@@ -54,12 +54,12 @@ async fn root(req: Request) -> String {
     format!("Hi count is {}", i.0)
 }
 
-async fn query(req: Request) -> Result<String, LibError> {
+async fn query(req: Request) -> Result<String, Error> {
     let q = req.query::<Pagination>()?;
     Ok(q.offset.to_string())
 }
 
-async fn parse_json(req: Request) -> Result<Json<UserPayload>, LibError> {
+async fn parse_json(req: Request) -> Result<Json<UserPayload>, Error> {
     req.into_json().await
 }
 
@@ -68,7 +68,7 @@ pub struct FormPayload {
     pub name: String,
     pub email: String,
 }
-async fn parse_form(req: Request) -> Result<Form<FormPayload>, LibError> {
+async fn parse_form(req: Request) -> Result<Form<FormPayload>, Error> {
     req.into_form().await
 }
 

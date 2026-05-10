@@ -9,11 +9,11 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Errors that can happen when using axum.
 #[derive(Debug)]
-pub struct Error {
+pub struct BodyError {
     inner: BoxError,
 }
 
-impl Error {
+impl BodyError {
     /// Create a new `Error` from a boxable error.
     pub fn new(error: impl Into<BoxError>) -> Self {
         Self {
@@ -28,20 +28,20 @@ impl Error {
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for BodyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.inner.fmt(f)
     }
 }
 
-impl StdError for Error {
+impl StdError for BodyError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(&*self.inner)
     }
 }
 
 #[derive(ThisError, Debug)]
-pub enum LibError {
+pub enum Error {
     #[error("Failed to deserialize the JSON body into the target type")]
     JsonDataError(#[from] serde_path_to_error::Error<serde_json::Error>),
 
@@ -49,7 +49,7 @@ pub enum LibError {
     JsonSyntaxError(#[from] serde_json::Error),
 
     #[error("Failed to buffer the request body")]
-    UnknownBodyError(#[from] crate::Error),
+    UnknownBodyError(#[from] crate::BodyError),
 
     #[error("Json request must have `Content-Type: application/json`")]
     InvalidJsonContentType,
@@ -64,7 +64,7 @@ pub enum LibError {
     FailedToDeserializeQuery(#[source] serde_path_to_error::Error<serde_urlencoded::de::Error>),
 }
 
-impl IntoResponse for LibError {
+impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
             Self::JsonDataError(e) => {
