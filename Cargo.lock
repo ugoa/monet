@@ -760,6 +760,7 @@ dependencies = [
  "serde_path_to_error",
  "serde_urlencoded",
  "socket2",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",

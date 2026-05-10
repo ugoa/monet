@@ -3,14 +3,58 @@ use crate::{
     Error,
 };
 
-define_rejection! {
-    #[status = UNPROCESSABLE_ENTITY]
-    #[body = "Failed to deserialize the JSON body into the target type"]
-    /// Rejection type for [`Json`](super::Json).
-    ///
-    /// This rejection is used if the request body is syntactically valid JSON but couldn't be
-    /// deserialized into the target type.
-    pub struct JsonDataError(Error);
+// define_rejection! {
+//     #[status = UNPROCESSABLE_ENTITY]
+//     #[body = "Failed to deserialize the JSON body into the target type"]
+//     /// Rejection type for [`Json`](super::Json).
+//     ///
+//     /// This rejection is used if the request body is syntactically valid JSON but couldn't be
+//     /// deserialized into the target type.
+//     pub struct JsonDataError(Error);
+// }
+
+#[doc = r" Rejection type for [`Json`](super::Json)."]
+#[doc = r""]
+#[doc = r" This rejection is used if the request body is syntactically valid JSON but couldn't be"]
+#[doc = r" deserialized into the target type."]
+#[derive(Debug)]
+pub struct JsonDataError(pub(crate) crate::Error);
+impl JsonDataError {
+    pub(crate) fn from_err<E>(err: E) -> Self
+    where
+        E: Into<crate::BoxError>,
+    {
+        Self(crate::Error::new(err))
+    }
+    #[doc = r" Get the response body text used for this rejection."]
+    #[must_use]
+    pub fn body_text(&self) -> String {
+        self.to_string()
+    }
+    #[doc = r" Get the status code used for this rejection."]
+    #[must_use]
+    pub fn status(&self) -> http::StatusCode {
+        http::StatusCode::UNPROCESSABLE_ENTITY
+    }
+}
+impl crate::response::IntoResponse for JsonDataError {
+    fn into_response(self) -> crate::response::Response {
+        let status = self.status();
+        let body_text = self.body_text();
+        (status, body_text).into_response()
+    }
+}
+impl std::fmt::Display for JsonDataError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Failed to deserialize the JSON body into the target type")?;
+        f.write_str(": ")?;
+        self.0.fmt(f)
+    }
+}
+impl std::error::Error for JsonDataError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
 }
 
 define_rejection! {
@@ -114,17 +158,107 @@ composite_rejection! {
     }
 }
 
-composite_rejection! {
-    /// Rejection used for [`Json`](super::Json).
-    ///
-    /// Contains one variant for each way the [`Json`](super::Json) extractor
-    /// can fail.
-    #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
-    pub enum JsonRejection {
-        JsonDataError,
-        JsonSyntaxError,
-        MissingJsonContentType,
-        BytesRejection,
+// composite_rejection! {
+//     /// Rejection used for [`Json`](super::Json).
+//     ///
+//     /// Contains one variant for each way the [`Json`](super::Json) extractor
+//     /// can fail.
+//     #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+//     pub enum JsonRejection {
+//         JsonDataError,
+//         JsonSyntaxError,
+//         MissingJsonContentType,
+//         BytesRejection,
+//     }
+// }
+
+#[doc = r" Rejection used for [`Json`](super::Json)."]
+#[doc = r""]
+#[doc = r" Contains one variant for each way the [`Json`](super::Json) extractor"]
+#[doc = r" can fail."]
+#[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum JsonRejection {
+    #[allow(missing_docs)]
+    JsonDataError(JsonDataError),
+    #[allow(missing_docs)]
+    JsonSyntaxError(JsonSyntaxError),
+    #[allow(missing_docs)]
+    MissingJsonContentType(MissingJsonContentType),
+    #[allow(missing_docs)]
+    BytesRejection(BytesRejection),
+}
+impl crate::response::IntoResponse for JsonRejection {
+    fn into_response(self) -> crate::response::Response {
+        match self {
+            Self::JsonDataError(inner) => inner.into_response(),
+            Self::JsonSyntaxError(inner) => inner.into_response(),
+            Self::MissingJsonContentType(inner) => inner.into_response(),
+            Self::BytesRejection(inner) => inner.into_response(),
+        }
+    }
+}
+impl JsonRejection {
+    #[doc = r" Get the response body text used for this rejection."]
+    #[must_use]
+    pub fn body_text(&self) -> String {
+        match self {
+            Self::JsonDataError(inner) => inner.body_text(),
+            Self::JsonSyntaxError(inner) => inner.body_text(),
+            Self::MissingJsonContentType(inner) => inner.body_text(),
+            Self::BytesRejection(inner) => inner.body_text(),
+        }
+    }
+    #[doc = r" Get the status code used for this rejection."]
+    #[must_use]
+    pub fn status(&self) -> http::StatusCode {
+        match self {
+            Self::JsonDataError(inner) => inner.status(),
+            Self::JsonSyntaxError(inner) => inner.status(),
+            Self::MissingJsonContentType(inner) => inner.status(),
+            Self::BytesRejection(inner) => inner.status(),
+        }
+    }
+}
+impl From<JsonDataError> for JsonRejection {
+    fn from(inner: JsonDataError) -> Self {
+        Self::JsonDataError(inner)
+    }
+}
+impl From<JsonSyntaxError> for JsonRejection {
+    fn from(inner: JsonSyntaxError) -> Self {
+        Self::JsonSyntaxError(inner)
+    }
+}
+impl From<MissingJsonContentType> for JsonRejection {
+    fn from(inner: MissingJsonContentType) -> Self {
+        Self::MissingJsonContentType(inner)
+    }
+}
+impl From<BytesRejection> for JsonRejection {
+    fn from(inner: BytesRejection) -> Self {
+        Self::BytesRejection(inner)
+    }
+}
+impl std::fmt::Display for JsonRejection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::JsonDataError(inner) => f.write_fmt(core::format_args!("{inner}")),
+            Self::JsonSyntaxError(inner) => f.write_fmt(core::format_args!("{inner}")),
+            Self::MissingJsonContentType(inner) => f.write_fmt(core::format_args!("{inner}")),
+            Self::BytesRejection(inner) => f.write_fmt(core::format_args!("{inner}")),
+        }
+    }
+}
+impl std::error::Error for JsonRejection {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::JsonDataError(inner) => inner.source(),
+            Self::JsonSyntaxError(inner) => inner.source(),
+            Self::MissingJsonContentType(inner) => inner.source(),
+            Self::BytesRejection(inner) => inner.source(),
+        }
     }
 }
 
