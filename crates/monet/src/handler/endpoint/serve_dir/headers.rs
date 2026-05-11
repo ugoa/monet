@@ -44,3 +44,33 @@ impl IfUnmodifiedSince {
             .map(|time| IfUnmodifiedSince(time.into()))
     }
 }
+
+pub(super) fn check_modified_headers(
+    modified: Option<&LastModified>,
+    if_unmodified_since: Option<IfUnmodifiedSince>,
+    if_modified_since: Option<IfModifiedSince>,
+) -> Option<super::OpenFileOutput> {
+    if let Some(since) = if_unmodified_since {
+        let precondition = modified
+            .as_ref()
+            .map(|time| since.precondition_passes(time))
+            .unwrap_or(false);
+
+        if !precondition {
+            return Some(super::OpenFileOutput::PreconditionFailed);
+        }
+    }
+
+    if let Some(since) = if_modified_since {
+        let unmodified = modified
+            .as_ref()
+            .map(|time| !since.is_modified(time))
+            // no last_modified means its always modified
+            .unwrap_or(false);
+        if unmodified {
+            return Some(super::OpenFileOutput::NotModified);
+        }
+    }
+
+    None
+}

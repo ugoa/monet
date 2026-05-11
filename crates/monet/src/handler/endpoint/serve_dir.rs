@@ -1,6 +1,8 @@
+mod headers;
+
 use std::{
     fs::Metadata,
-    path::{self, Component, Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use async_trait::async_trait;
@@ -8,9 +10,10 @@ use compio::fs::File;
 use http::{HeaderValue, Method, StatusCode, Uri, header};
 use percent_encoding::percent_decode;
 
-use crate::{Endpoint, IntoResponse, Request, Response};
-
-mod headers;
+use crate::{
+    Endpoint, IntoResponse, Request, Response,
+    handler::endpoint::serve_dir::headers::{IfModifiedSince, LastModified},
+};
 
 // default capacity 64KiB
 const DEFAULT_CAPACITY: usize = 65536;
@@ -86,7 +89,28 @@ pub(super) async fn open_file(
         .map(HeaderValue::from_static)
         .unwrap_or_else(|| HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()));
 
-    if req.method() == Method::HEAD {}
+    if req.method() == Method::HEAD {
+        let meta = compio::fs::metadata(&path_to_file).await?;
+        let last_modified = meta.modified().ok().map(LastModified::from);
+
+        let if_unmodified_since = req
+            .headers()
+            .get(header::IF_UNMODIFIED_SINCE)
+            .and_then(headers::IfUnmodifiedSince::from_header_value);
+
+        let if_modified_since = req
+            .headers()
+            .get(header::IF_MODIFIED_SINCE)
+            .and_then(IfModifiedSince::from_header_value);
+
+        if let Some(output) = headers::check_modified_headers(
+            last_modified.as_ref(),
+            if_unmodified_since,
+            if_modified_since,
+        ) {
+            return Ok(output);
+        }
+    }
 
     todo!()
 }
@@ -196,7 +220,7 @@ fn build_and_validate_path(base_path: &Path, requested_path: &str) -> Option<Pat
     Some(path_to_file)
 }
 
-enum OpenFileOutput {
+pub(crate) enum OpenFileOutput {
     FileOpened(Box<FileOpened>),
     Redirect { location: HeaderValue },
     FileNotFound,
@@ -206,14 +230,14 @@ enum OpenFileOutput {
     InvalidFilename,
 }
 
-struct FileOpened {
+pub(crate) struct FileOpened {
     pub(super) extent: FileRequestExtent,
     pub(super) chunk_size: usize,
     pub(super) mime_header_value: HeaderValue,
     pub(super) last_modified: Option<headers::LastModified>,
 }
 
-pub(super) enum FileRequestExtent {
+pub(crate) enum FileRequestExtent {
     Full(File, Metadata),
     Head(Metadata),
 }
