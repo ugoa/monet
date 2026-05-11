@@ -15,7 +15,7 @@ pub use crate::{
     handler::{Chain, Endpoint, Middleware, endpoint::serve_dir::ServeDir},
     request::Request,
     response::{IntoResponse, Response},
-    router::{Router, get, post},
+    router::{Router, get, post, service},
     serve::serve,
     types::{Form, Json},
 };
