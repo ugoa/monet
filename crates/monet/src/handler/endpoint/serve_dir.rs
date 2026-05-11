@@ -105,7 +105,7 @@ pub(super) async fn open_file(
     buf_size: usize,
     append: bool,
 ) -> std::io::Result<OpenFileOutput> {
-    if let Some(output) = maybe_append_index(&mut file_path, req.uri(), append).await {
+    if let Some(output) = maybe_append(&mut file_path, req.uri(), append).await {
         return Ok(output);
     }
 
@@ -177,14 +177,14 @@ pub(super) async fn open_file(
     }
 }
 
-async fn maybe_append_index(path: &mut PathBuf, uri: &Uri, append: bool) -> Option<OpenFileOutput> {
+async fn maybe_append(path: &mut PathBuf, uri: &Uri, append_index: bool) -> Option<OpenFileOutput> {
     // Check if the path exists and is a Dir, return if false
     if !compio::fs::metadata(&path).await.is_ok_and(|m| m.is_dir()) {
         return None;
     }
 
     // Found dir, but we are not allowed to give out the index.html within, so return file not found
-    if !append {
+    if !append_index {
         return Some(OpenFileOutput::FileNotFound);
     }
 
