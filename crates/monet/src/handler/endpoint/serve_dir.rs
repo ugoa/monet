@@ -102,12 +102,10 @@ async fn build_response(output: FileOpened) -> Response {
 pub(super) async fn open_file(
     req: Request,
     mut file_path: PathBuf,
-    buf_chunk_size: usize,
-    append_index_html_on_dir: bool,
+    buf_size: usize,
+    append: bool,
 ) -> std::io::Result<OpenFileOutput> {
-    if let Some(output) =
-        maybe_redirect_or_append_index(&mut file_path, req.uri(), append_index_html_on_dir).await
-    {
+    if let Some(output) = maybe_redirect_or_append_index(&mut file_path, req.uri(), append).await {
         return Ok(output);
     }
 
@@ -140,7 +138,7 @@ pub(super) async fn open_file(
 
         let file_opened = FileOpened {
             extent: FileRequestExtent::Head(meta.len()),
-            chunk_size: buf_chunk_size,
+            chunk_size: buf_size,
             mime,
             last_modified,
         };
@@ -171,7 +169,7 @@ pub(super) async fn open_file(
 
         let file_opened = FileOpened {
             extent: FileRequestExtent::Full(file, meta.len()),
-            chunk_size: buf_chunk_size,
+            chunk_size: buf_size,
             mime,
             last_modified,
         };
