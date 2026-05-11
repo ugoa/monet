@@ -73,9 +73,12 @@ impl Router {
     ) -> impl Future<Output = Result<Response, Infallible>> + 'static {
         let _method = req.method();
         let _path = req.uri().path();
+
+        dbg!(&_path);
+        dbg!(&self.inner);
         // TODO:
         //      Return 404 not found if no matching routes, given default-fallback is enabled
-        let match_ = self.inner.at(req.uri().path()).unwrap();
+        let match_ = self.inner.at(_path).unwrap();
         let idx = *match_.value;
         let route = self.routes.get(idx).expect("should be in router");
         // TODO:
