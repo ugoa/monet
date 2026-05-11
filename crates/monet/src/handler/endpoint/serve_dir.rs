@@ -50,14 +50,14 @@ impl Endpoint for ServeDir {
             return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
 
-        let Some(file_path) = build_and_validate_path(&self.base, req.uri().path()) else {
+        let Some(path) = build_and_validate_path(&self.base, req.uri().path()) else {
             return StatusCode::NOT_FOUND.into_response();
         };
 
-        let buf_chunk_size = self.buf_chunk_size;
+        let buf_size = self.buf_chunk_size;
         let append = self.append_index_html_on_dir;
 
-        match open_file(req, file_path, buf_chunk_size, append).await {
+        match open_file(req, path, buf_size, append).await {
             Ok(OpenFileOutput::FileOpened(file_output)) => build_response(*file_output).await,
             Err(_) => panic!("normal error"),
             _ => panic!("fetal error"),
