@@ -126,6 +126,7 @@ impl Router {
             self = self.at(&new_path, route);
         }
 
+        println!("{:?}", self.inner);
         self
     }
 
