@@ -1,7 +1,7 @@
-use std::path::{Component, Path, PathBuf};
+use std::path::{self, Component, Path, PathBuf};
 
 use async_trait::async_trait;
-use http::{HeaderValue, Method, StatusCode, header};
+use http::{HeaderValue, Method, StatusCode, Uri, header};
 use percent_encoding::percent_decode;
 
 use crate::{Endpoint, IntoResponse, Request, Response};
@@ -13,7 +13,7 @@ const DEFAULT_CAPACITY: usize = 65536;
 pub struct ServeDir {
     base: PathBuf,
     buf_chunk_size: usize,
-    append_index_html_on_directories: bool,
+    append_index_html_on_dir: bool,
 }
 // Todo: Support precompressed_variants
 // precompressed_variants: Option<PrecompressedVariants>,
@@ -29,7 +29,7 @@ impl ServeDir {
         Self {
             base,
             buf_chunk_size: DEFAULT_CAPACITY,
-            append_index_html_on_directories: true,
+            append_index_html_on_dir: true,
         }
     }
 }
@@ -41,7 +41,7 @@ impl Endpoint for ServeDir {
             return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
 
-        let Some(path_to_file) = build_and_validate_path(&self.base, req.uri().path()) else {
+        let Some(mut path_to_file) = build_and_validate_path(&self.base, req.uri().path()) else {
             return StatusCode::NOT_FOUND.into_response();
         };
 
@@ -52,8 +52,77 @@ impl Endpoint for ServeDir {
             .and_then(|value| value.to_str().ok())
             .map(|s| s.to_owned());
 
+        maybe_redirect_or_append_path(&mut path_to_file, req.uri(), self.append_index_html_on_dir);
+
         todo!()
     }
+}
+
+async fn maybe_redirect_or_append_path(
+    path_to_file: &mut PathBuf,
+    uri: &Uri,
+    append_index_html_on_dir: bool,
+) -> Option<OpenFileOutput> {
+    // Check if the path exists and it is indeed a Dir, return if false
+    if !compio::fs::metadata(&path_to_file)
+        .await
+        .is_ok_and(|m| m.is_dir())
+    {
+        return None;
+    }
+
+    // Found dir, but we are not allowed to give the ./index.html, so return file not found
+    if !append_index_html_on_dir {
+        return Some(OpenFileOutput::FileNotFound);
+    }
+
+    if uri.path().ends_with('/') {
+        path_to_file.push("index.html");
+        return None;
+    } else {
+        let uri = match append_slash_on_path(uri.clone()) {
+            Ok(uri) => uri,
+            Err(err) => return Some(err),
+        };
+        let location = HeaderValue::from_str(&uri.to_string()).unwrap();
+        return Some(OpenFileOutput::Redirect { location });
+    }
+}
+
+fn append_slash_on_path(uri: Uri) -> Result<Uri, OpenFileOutput> {
+    let http::uri::Parts {
+        scheme,
+        authority,
+        path_and_query,
+        ..
+    } = uri.into_parts();
+
+    let mut uri_builder = Uri::builder();
+
+    if let Some(scheme) = scheme {
+        uri_builder = uri_builder.scheme(scheme);
+    }
+
+    if let Some(authority) = authority {
+        uri_builder = uri_builder.authority(authority);
+    }
+
+    let uri_builder = if let Some(path_and_query) = path_and_query {
+        if let Some(query) = path_and_query.query() {
+            uri_builder.path_and_query(format!("{}/?{}", path_and_query.path(), query))
+        } else {
+            uri_builder.path_and_query(format!("{}/", path_and_query.path()))
+        }
+    } else {
+        uri_builder.path_and_query("/")
+    };
+
+    uri_builder.build().map_err(|_err| {
+        #[cfg(not(feature = "no-tracing"))]
+        tracing::error!(err = ?_err, "redirect uri failed to build");
+
+        OpenFileOutput::InvalidRedirectUri
+    })
 }
 
 fn build_and_validate_path(base_path: &Path, requested_path: &str) -> Option<PathBuf> {
