@@ -1,17 +1,10 @@
 mod headers;
 
-use std::{
-    fs::Metadata,
-    path::{Component, Path, PathBuf},
-};
+use std::path::{Component, Path, PathBuf};
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use compio::{
-    fs::File,
-    io::{AsyncReadAt, AsyncReadAtExt},
-};
-use futures::stream;
+use compio::{fs::File, io::AsyncReadAtExt};
 use http::{HeaderValue, Method, StatusCode, Uri, header};
 use percent_encoding::percent_decode;
 
@@ -73,8 +66,8 @@ impl Endpoint for ServeDir {
 
         match status {
             Ok(OpenFileOutput::FileOpened(file_output)) => build_response(*file_output).await,
-            Err(_) => ().into_response(),
-            _ => ().into_response(),
+            Err(_) => panic!("normal error"),
+            _ => panic!("fetal error"),
         }
     }
 }
@@ -110,6 +103,7 @@ async fn build_response(output: FileOpened) -> Response {
             HeaderValue::from_str(&last_modified.0.to_string()).unwrap(),
         );
     }
+    dbg!(&resp);
     resp
 }
 
@@ -160,13 +154,17 @@ pub(super) async fn open_file(
         };
         Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
     } else {
+        dbg!(&path_to_file);
         let file = match File::open(&path_to_file).await {
             Ok(file) => file,
             // Only applies to NULL bytes
             Err(err) if err.kind() == std::io::ErrorKind::InvalidInput => {
                 return Ok(OpenFileOutput::InvalidFilename);
             }
-            Err(err) => return Err(err),
+            Err(err) => {
+                dbg!(&err);
+                return Err(err);
+            }
         };
 
         let meta = file.metadata().await?;

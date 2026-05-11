@@ -110,6 +110,8 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
+    let service = ServeDir::new("static");
+
     let app = Router::new()
         .at("/", get(root))
         .at("/query", get(query))
@@ -117,9 +119,9 @@ fn main() {
         .at("/json", post(parse_json))
         .at("/form", post(parse_form))
         .at("/html", get(return_html))
-        .at("/static", get(ServeDir))
         .wrap(RequestCounter)
-        .wrap(set_state);
+        .wrap(set_state)
+        .at("/hello.html", get(service));
 
     monet::serve(addr, app);
 }
