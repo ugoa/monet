@@ -7,6 +7,8 @@ use crate::{
     response::{IntoResponse, Response},
 };
 
+pub mod endpoint;
+
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
     async fn transform(&self, request: Request, chain: Chain) -> Response;

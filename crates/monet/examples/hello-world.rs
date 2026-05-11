@@ -72,7 +72,7 @@ async fn parse_form(req: Request) -> Result<Form<FormPayload>, Error> {
     req.into_form().await
 }
 
-async fn return_html(req: Request) -> Html<&'static str> {
+async fn return_html(_req: Request) -> Html<&'static str> {
     Html(
         r#"
         <!doctype html>
@@ -93,6 +93,7 @@ thread_local! {
 }
 
 struct RequestCounter;
+
 #[async_trait(?Send)]
 impl Middleware for RequestCounter {
     async fn transform(&self, req: Request, chain: Chain) -> Response {

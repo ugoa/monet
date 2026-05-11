@@ -752,6 +752,7 @@ dependencies = [
  "matchit",
  "mime",
  "monet-macros",
+ "percent-encoding",
  "send_wrapper",
  "serde",
  "serde_core",
