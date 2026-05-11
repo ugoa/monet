@@ -159,17 +159,13 @@ pub(super) async fn open_file(
         };
         Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
     } else {
-        dbg!(&file_path);
         let file = match File::open(&file_path).await {
             Ok(file) => file,
             // Only applies to NULL bytes
             Err(err) if err.kind() == std::io::ErrorKind::InvalidInput => {
                 return Ok(OpenFileOutput::InvalidFilename);
             }
-            Err(err) => {
-                dbg!(&err);
-                return Err(err);
-            }
+            Err(err) => return Err(err),
         };
 
         let meta = file.metadata().await?;
