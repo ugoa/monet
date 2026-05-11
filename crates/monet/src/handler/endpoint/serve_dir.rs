@@ -246,8 +246,6 @@ fn append_slash_on_path(uri: Uri) -> Result<Uri, OpenFileOutput> {
 }
 
 fn build_and_validate_path(base_path: &Path, requested_path: &str) -> Option<PathBuf> {
-    dbg!(&base_path);
-    dbg!(&requested_path);
     let path = requested_path.trim_start_matches('/');
 
     let path_decoded = percent_decode(path.as_ref()).decode_utf8().ok()?;
