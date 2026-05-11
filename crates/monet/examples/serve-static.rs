@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use monet::{Router, get, handler::endpoint::serve_dir::ServeDir};
+use monet::{Router, ServeDir, get};
 
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
