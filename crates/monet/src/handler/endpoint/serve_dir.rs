@@ -1,10 +1,16 @@
-use std::path::{self, Component, Path, PathBuf};
+use std::{
+    fs::Metadata,
+    path::{self, Component, Path, PathBuf},
+};
 
 use async_trait::async_trait;
+use compio::fs::File;
 use http::{HeaderValue, Method, StatusCode, Uri, header};
 use percent_encoding::percent_decode;
 
 use crate::{Endpoint, IntoResponse, Request, Response};
+
+mod headers;
 
 // default capacity 64KiB
 const DEFAULT_CAPACITY: usize = 65536;
@@ -52,13 +58,40 @@ impl Endpoint for ServeDir {
             .and_then(|value| value.to_str().ok())
             .map(|s| s.to_owned());
 
-        maybe_redirect_or_append_path(&mut path_to_file, req.uri(), self.append_index_html_on_dir);
+        let _ = open_file(
+            req,
+            path_to_file,
+            buf_chunk_size,
+            self.append_index_html_on_dir,
+        );
 
         todo!()
     }
 }
 
-async fn maybe_redirect_or_append_path(
+pub(super) async fn open_file(
+    req: Request,
+    mut path_to_file: PathBuf,
+    buf_chunk_size: usize,
+    append_index_html_on_dir: bool,
+) -> std::io::Result<OpenFileOutput> {
+    if let Some(output) =
+        maybe_redirect_or_append_index(&mut path_to_file, req.uri(), append_index_html_on_dir).await
+    {
+        return Ok(output);
+    }
+
+    let mime = mime_guess::from_path(&path_to_file)
+        .first_raw()
+        .map(HeaderValue::from_static)
+        .unwrap_or_else(|| HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()));
+
+    if req.method() == Method::HEAD {}
+
+    todo!()
+}
+
+async fn maybe_redirect_or_append_index(
     path_to_file: &mut PathBuf,
     uri: &Uri,
     append_index_html_on_dir: bool,
@@ -177,9 +210,7 @@ struct FileOpened {
     pub(super) extent: FileRequestExtent,
     pub(super) chunk_size: usize,
     pub(super) mime_header_value: HeaderValue,
-    pub(super) maybe_encoding: Option<Encoding>,
-    pub(super) maybe_range: Option<Result<Vec<RangeInclusive<u64>>, RangeUnsatisfiableError>>,
-    pub(super) last_modified: Option<LastModified>,
+    pub(super) last_modified: Option<headers::LastModified>,
 }
 
 pub(super) enum FileRequestExtent {
