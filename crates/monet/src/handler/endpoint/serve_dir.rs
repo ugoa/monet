@@ -1,5 +1,3 @@
-mod headers;
-
 use std::{
     path::{Component, Path, PathBuf},
     time::SystemTime,
@@ -26,7 +24,8 @@ pub struct ServeDir {
     buf_chunk_size: usize,
     append_index_html_on_dir: bool,
 }
-// Todo: Support precompressed_variants
+
+// TODO: Support precompressed_variants
 // precompressed_variants: Option<PrecompressedVariants>,
 
 impl ServeDir {
