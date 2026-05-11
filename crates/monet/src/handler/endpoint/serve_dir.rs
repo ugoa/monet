@@ -55,16 +55,9 @@ impl Endpoint for ServeDir {
         };
 
         let buf_chunk_size = self.buf_chunk_size;
+        let append = self.append_index_html_on_dir;
 
-        let status = open_file(
-            req,
-            file_path,
-            buf_chunk_size,
-            self.append_index_html_on_dir,
-        )
-        .await;
-
-        match status {
+        match open_file(req, file_path, buf_chunk_size, append).await {
             Ok(OpenFileOutput::FileOpened(file_output)) => build_response(*file_output).await,
             Err(_) => panic!("normal error"),
             _ => panic!("fetal error"),
