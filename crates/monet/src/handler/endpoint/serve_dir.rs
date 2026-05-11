@@ -63,14 +63,14 @@ impl Endpoint for ServeDir {
             .and_then(|value| value.to_str().ok())
             .map(|s| s.to_owned());
 
-        let _ = open_file(
+        let status = open_file(
             req,
             path_to_file,
             buf_chunk_size,
             self.append_index_html_on_dir,
         );
 
-        todo!()
+        ().into_response()
     }
 }
 
@@ -123,7 +123,8 @@ pub(super) async fn open_file(
     } else {
         let file = match File::open(&path_to_file).await {
             Ok(file) => file,
-            Err(err) if is_invalid_filename_error(&err) => {
+            // Only applies to NULL bytes
+            Err(err) if err.kind() == std::io::ErrorKind::InvalidInput => {
                 return Ok(OpenFileOutput::InvalidFilename);
             }
             Err(err) => return Err(err),
@@ -147,26 +148,6 @@ pub(super) async fn open_file(
         };
         Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
     }
-}
-
-fn is_invalid_filename_error(err: &std::io::Error) -> bool {
-    // Only applies to NULL bytes
-    if err.kind() == std::io::ErrorKind::InvalidInput {
-        return true;
-    }
-
-    // FIXME: Remove when MSRV >= 1.87.
-    // `io::ErrorKind::InvalidFilename` is stabilized in v1.87
-    #[cfg(windows)]
-    if let Some(raw_err) = err.raw_os_error() {
-        // https://github.com/rust-lang/rust/blob/70e2b4a4d197f154bed0eb3dcb5cac6a948ff3a3/library/std/src/sys/pal/windows/mod.rs
-        // Lines 81 and 115
-        if (raw_err == 123) || (raw_err == 161) || (raw_err == 206) {
-            return true;
-        }
-    }
-
-    false
 }
 
 async fn maybe_redirect_or_append_index(
