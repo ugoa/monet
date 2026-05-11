@@ -22,7 +22,7 @@ const DEFAULT_CAPACITY: usize = 65536;
 pub struct ServeDir {
     base: PathBuf,
     buf_chunk_size: usize,
-    append_index_html_on_dir: bool,
+    append_index_html_on_directory: bool,
 }
 
 // TODO: Support precompressed_variants
@@ -39,7 +39,7 @@ impl ServeDir {
         Self {
             base,
             buf_chunk_size: DEFAULT_CAPACITY,
-            append_index_html_on_dir: true,
+            append_index_html_on_directory: true,
         }
     }
 }
@@ -56,7 +56,7 @@ impl Endpoint for ServeDir {
         };
 
         let buf_size = self.buf_chunk_size;
-        let append = self.append_index_html_on_dir;
+        let append = self.append_index_html_on_directory;
 
         match open_file(req, path, buf_size, append).await {
             Ok(OpenFileOutput::FileOpened(file_output)) => build_response(*file_output).await,
