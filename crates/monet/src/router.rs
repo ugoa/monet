@@ -35,9 +35,6 @@ pub struct Router {
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
 
-// #[derive(Default)]
-// pub struct Route(pub HashMap<Method, Chain>);
-
 #[derive(Default)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);
 
@@ -83,6 +80,8 @@ impl Router {
         let _method = req.method();
         let _path = req.uri().path();
 
+        dbg!(&_path);
+
         // TODO:
         //      Return 404 not found if no matching routes, given default-fallback is enabled
         let match_ = self.inner.at(_path).unwrap();
@@ -124,7 +123,7 @@ impl Router {
                     .iter_mut()
                     .for_each(|(_, chain)| chain.middlewares.push(shared.clone()));
             }
-            Route::Service(_) => (),
+            Route::Service(_) => panic!("Applying middleware to Service is not supported yet"),
         });
 
         self
@@ -135,6 +134,8 @@ impl Router {
         self.inner
             .insert(path, new_index)
             .expect("should add new path successfully");
+
+        dbg!(&self.inner);
 
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
