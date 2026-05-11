@@ -12,7 +12,9 @@ use percent_encoding::percent_decode;
 
 use crate::{
     Endpoint, IntoResponse, Request, Response,
-    handler::endpoint::serve_dir::headers::{IfModifiedSince, LastModified},
+    handler::endpoint::serve_dir::headers::{
+        IfModifiedSince, LastModified, check_modified_headers,
+    },
 };
 
 // default capacity 64KiB
@@ -89,30 +91,82 @@ pub(super) async fn open_file(
         .map(HeaderValue::from_static)
         .unwrap_or_else(|| HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()));
 
+    let if_unmodified_since = req
+        .headers()
+        .get(header::IF_UNMODIFIED_SINCE)
+        .and_then(headers::IfUnmodifiedSince::from_header_value);
+
+    let if_modified_since = req
+        .headers()
+        .get(header::IF_MODIFIED_SINCE)
+        .and_then(IfModifiedSince::from_header_value);
+
     if req.method() == Method::HEAD {
         let meta = compio::fs::metadata(&path_to_file).await?;
         let last_modified = meta.modified().ok().map(LastModified::from);
 
-        let if_unmodified_since = req
-            .headers()
-            .get(header::IF_UNMODIFIED_SINCE)
-            .and_then(headers::IfUnmodifiedSince::from_header_value);
-
-        let if_modified_since = req
-            .headers()
-            .get(header::IF_MODIFIED_SINCE)
-            .and_then(IfModifiedSince::from_header_value);
-
-        if let Some(output) = headers::check_modified_headers(
+        if let Some(output) = check_modified_headers(
             last_modified.as_ref(),
             if_unmodified_since,
             if_modified_since,
         ) {
             return Ok(output);
         }
+
+        let file_opened = FileOpened {
+            extent: FileRequestExtent::Head(meta.len()),
+            chunk_size: buf_chunk_size,
+            mime_header_value: mime,
+            last_modified,
+        };
+        Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
+    } else {
+        let file = match File::open(&path_to_file).await {
+            Ok(file) => file,
+            Err(err) if is_invalid_filename_error(&err) => {
+                return Ok(OpenFileOutput::InvalidFilename);
+            }
+            Err(err) => return Err(err),
+        };
+
+        let meta = file.metadata().await?;
+        let last_modified = meta.modified().ok().map(LastModified::from);
+        if let Some(output) = check_modified_headers(
+            last_modified.as_ref(),
+            if_unmodified_since,
+            if_modified_since,
+        ) {
+            return Ok(output);
+        }
+
+        let file_opened = FileOpened {
+            extent: FileRequestExtent::Full(file, meta.len()),
+            chunk_size: buf_chunk_size,
+            mime_header_value: mime,
+            last_modified,
+        };
+        Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
+    }
+}
+
+fn is_invalid_filename_error(err: &std::io::Error) -> bool {
+    // Only applies to NULL bytes
+    if err.kind() == std::io::ErrorKind::InvalidInput {
+        return true;
     }
 
-    todo!()
+    // FIXME: Remove when MSRV >= 1.87.
+    // `io::ErrorKind::InvalidFilename` is stabilized in v1.87
+    #[cfg(windows)]
+    if let Some(raw_err) = err.raw_os_error() {
+        // https://github.com/rust-lang/rust/blob/70e2b4a4d197f154bed0eb3dcb5cac6a948ff3a3/library/std/src/sys/pal/windows/mod.rs
+        // Lines 81 and 115
+        if (raw_err == 123) || (raw_err == 161) || (raw_err == 206) {
+            return true;
+        }
+    }
+
+    false
 }
 
 async fn maybe_redirect_or_append_index(
@@ -238,6 +292,6 @@ pub(crate) struct FileOpened {
 }
 
 pub(crate) enum FileRequestExtent {
-    Full(File, Metadata),
-    Head(Metadata),
+    Full(File, u64),
+    Head(u64),
 }
