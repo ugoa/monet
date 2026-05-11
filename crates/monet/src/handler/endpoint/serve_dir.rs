@@ -118,12 +118,6 @@ pub(super) async fn open_file(
         .map(HeaderValue::from_static)
         .unwrap_or_else(|| HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()));
 
-    let name1 = header::IF_UNMODIFIED_SINCE;
-    let if_unmodified_since = req.headers().get(name1).and_then(parse_to_systime);
-
-    let name2 = header::IF_MODIFIED_SINCE;
-    let if_modified_since = req.headers().get(name2).and_then(parse_to_systime);
-
     let (maybe_file, metadata) = if req.method() == Method::HEAD {
         (None, compio::fs::metadata(&file_path).await?)
     } else {
@@ -144,11 +138,22 @@ pub(super) async fn open_file(
 
     // Client requested content to be unmodified since time T,
     // but if the content has been modified before T, return PreconditionFailed
+    let if_unmodified_since = req
+        .headers()
+        .get(header::IF_UNMODIFIED_SINCE)
+        .and_then(parse_to_systime);
+
     if let Some(since) = if_unmodified_since
         && last_modified.is_none_or(|this| this >= since)
     {
         return Ok(OpenFileOutput::PreconditionFailed);
     }
+
+    let if_modified_since = req
+        .headers()
+        .get(header::IF_MODIFIED_SINCE)
+        .and_then(parse_to_systime);
+
     if let Some(since) = if_modified_since
         && last_modified.is_some_and(|this| this <= since)
     {
