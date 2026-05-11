@@ -95,6 +95,19 @@ impl Router {
         self
     }
 
+    pub fn nest(self, path: &str, other: Self) -> Self {
+        todo!()
+    }
+
+    pub fn merge(self, path: &str, other: Self) -> Self {
+        todo!()
+    }
+
+    pub fn service(mut self, path: &str, service: impl Endpoint) -> Self {
+        todo!();
+        self
+    }
+
     pub fn wrap(mut self, middleware: impl Middleware) -> Self {
         trace!("Adding middleware {}", middleware.name());
         let shared = Rc::new(middleware);
