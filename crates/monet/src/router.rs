@@ -91,7 +91,7 @@ impl Router {
         let resp_fut = match route {
             Route::Service(svc) => svc.call(req),
             Route::MethodGraph(map) => {
-                let chain = map.0.get(_method).unwrap().clone();
+                let chain = map.0.get(_method).expect("handler should exist").clone();
                 Box::pin(chain.next(req))
             }
         };
