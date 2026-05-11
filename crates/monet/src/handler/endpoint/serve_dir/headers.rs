@@ -3,6 +3,7 @@ use std::time::SystemTime;
 use http::header::HeaderValue;
 use httpdate::HttpDate;
 
+// Remove
 pub(super) struct LastModified(pub(super) HttpDate);
 
 impl From<SystemTime> for LastModified {
@@ -11,6 +12,7 @@ impl From<SystemTime> for LastModified {
     }
 }
 
+// Remove
 pub(super) struct IfModifiedSince(HttpDate);
 
 impl IfModifiedSince {
@@ -32,6 +34,7 @@ pub(super) struct IfUnmodifiedSince(HttpDate);
 
 impl IfUnmodifiedSince {
     /// Check if the supplied time passes the precondtion.
+    /// TODO remove this
     pub(super) fn precondition_passes(&self, last_modified: &LastModified) -> bool {
         self.0 >= last_modified.0
     }
@@ -51,6 +54,7 @@ pub(super) fn check_modified_headers(
     if_modified_since: Option<IfModifiedSince>,
 ) -> Option<super::OpenFileOutput> {
     if let Some(since) = if_unmodified_since {
+        // TODO use is_some_and
         let precondition = modified
             .as_ref()
             .map(|time| since.precondition_passes(time))
@@ -62,6 +66,7 @@ pub(super) fn check_modified_headers(
     }
 
     if let Some(since) = if_modified_since {
+        // TODO use is_some_and
         let unmodified = modified
             .as_ref()
             .map(|time| !since.is_modified(time))
