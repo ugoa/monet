@@ -7,7 +7,10 @@ use std::{
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use compio::{fs::File, io::AsyncReadAtExt};
+use compio::{
+    fs::{File, metadata},
+    io::AsyncReadAtExt,
+};
 use http::{
     HeaderValue, Method, StatusCode, Uri,
     header::{self, AsHeaderName},
@@ -73,12 +76,8 @@ impl Endpoint for ServeDir {
 }
 
 async fn build_response(output: FileOpened) -> Response {
-    let (maybe_file, size) = match output.extent {
-        FileRequestExtent::Full(file, size) => (Some(file), size),
-        FileRequestExtent::Head(size) => (None, size),
-    };
     // Load file all at once into buffer, not good for big files. Room for improve to use stream
-    let mut resp = if let Some(file) = maybe_file {
+    let mut resp = if let Some(file) = output.file {
         let (_, buffer) = file
             .read_to_end_at(Vec::with_capacity(65536), 0)
             .await
@@ -92,7 +91,7 @@ async fn build_response(output: FileOpened) -> Response {
 
     let headers = resp.headers_mut();
     headers.insert(header::CONTENT_TYPE, output.mime);
-    headers.insert(header::CONTENT_LENGTH, size.into());
+    headers.insert(header::CONTENT_LENGTH, output.size.into());
 
     // TODO support partial request with ranges
     // headers.insert(header::ACCEPT_RANGES, "bytes");
@@ -133,31 +132,8 @@ pub(super) async fn open_file(
     let name2 = header::IF_MODIFIED_SINCE;
     let if_modified_since = req.headers().get(name2).and_then(parse_to_systime);
 
-    if req.method() == Method::HEAD {
-        let metadata = compio::fs::metadata(&file_path).await?;
-
-        let last_modified: Option<SystemTime> = metadata.modified().ok();
-
-        // Client requested content to be unmodified since time T,
-        // but if the content has been modified before T, return PreconditionFailed
-        if let Some(since) = if_unmodified_since
-            && last_modified.is_none_or(|this| this >= since)
-        {
-            return Ok(OpenFileOutput::PreconditionFailed);
-        }
-        if let Some(since) = if_modified_since
-            && last_modified.is_some_and(|this| this <= since)
-        {
-            return Ok(OpenFileOutput::NotModified);
-        }
-
-        let file_opened = FileOpened {
-            extent: FileRequestExtent::Head(metadata.len()),
-            chunk_size: buf_size,
-            mime,
-            last_modified: last_modified.map(|time| time.into()),
-        };
-        Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
+    let (maybe_file, metadata) = if req.method() == Method::HEAD {
+        (None, compio::fs::metadata(&file_path).await?)
     } else {
         let file = match File::open(&file_path).await {
             Ok(file) => file,
@@ -168,30 +144,32 @@ pub(super) async fn open_file(
             Err(err) => return Err(err),
         };
 
-        let meta = file.metadata().await?;
-        let last_modified = meta.modified().ok();
+        let metadata = file.metadata().await?;
+        (Some(file), metadata)
+    };
 
-        // Client requested content to be unmodified since time T,
-        // but if the content has been modified before T, return PreconditionFailed
-        if let Some(since) = if_unmodified_since
-            && last_modified.is_none_or(|this| this <= since)
-        {
-            return Ok(OpenFileOutput::PreconditionFailed);
-        }
-        if let Some(since) = if_modified_since
-            && last_modified.is_some_and(|this| this <= since)
-        {
-            return Ok(OpenFileOutput::NotModified);
-        }
+    let last_modified: Option<SystemTime> = metadata.modified().ok();
 
-        let file_opened = FileOpened {
-            extent: FileRequestExtent::Full(file, meta.len()),
-            chunk_size: buf_size,
-            mime,
-            last_modified: last_modified.map(|time| time.into()),
-        };
-        Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
+    // Client requested content to be unmodified since time T,
+    // but if the content has been modified before T, return PreconditionFailed
+    if let Some(since) = if_unmodified_since
+        && last_modified.is_none_or(|this| this >= since)
+    {
+        return Ok(OpenFileOutput::PreconditionFailed);
     }
+    if let Some(since) = if_modified_since
+        && last_modified.is_some_and(|this| this <= since)
+    {
+        return Ok(OpenFileOutput::NotModified);
+    }
+
+    Ok(OpenFileOutput::FileOpened(Box::new(FileOpened {
+        file: maybe_file,
+        size: metadata.len(),
+        chunk_size: buf_size,
+        mime,
+        last_modified: last_modified.map(|time| time.into()),
+    })))
 }
 
 async fn maybe_append(path: &mut PathBuf, uri: &Uri, append_index: bool) -> Option<OpenFileOutput> {
@@ -300,7 +278,8 @@ pub(crate) enum OpenFileOutput {
 }
 
 pub(crate) struct FileOpened {
-    pub(super) extent: FileRequestExtent,
+    pub(super) file: Option<File>,
+    pub(super) size: u64,
     pub(super) chunk_size: usize,
     pub(super) mime: HeaderValue,
     pub(super) last_modified: Option<HttpDate>,
