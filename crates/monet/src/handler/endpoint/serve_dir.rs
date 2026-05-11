@@ -194,10 +194,7 @@ async fn maybe_append(path: &mut PathBuf, uri: &Uri, append_index: bool) -> Opti
     }
 
     match append_slash_on_path(uri.clone()) {
-        Ok(uri) => {
-            let location = HeaderValue::from_str(&uri.to_string()).unwrap();
-            Some(OpenFileOutput::Redirect { location })
-        }
+        Ok(uri) => Some(OpenFileOutput::Redirect(uri.to_string())),
         Err(err) => Some(err),
     }
 }
@@ -277,7 +274,7 @@ fn build_and_validate_path(base_path: &Path, requested_path: &str) -> Option<Pat
 
 pub(crate) enum OpenFileOutput {
     FileOpened(Box<FileOpened>),
-    Redirect { location: HeaderValue },
+    Redirect(String),
     FileNotFound,
     PreconditionFailed,
     NotModified,
