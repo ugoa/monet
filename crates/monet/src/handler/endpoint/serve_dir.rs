@@ -7,23 +7,15 @@ use std::{
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use compio::{
-    fs::{File, metadata},
-    io::AsyncReadAtExt,
-};
+use compio::{fs::File, io::AsyncReadAtExt};
 use http::{
     HeaderValue, Method, StatusCode, Uri,
-    header::{self, AsHeaderName},
+    header::{self},
 };
 use httpdate::HttpDate;
 use percent_encoding::percent_decode;
 
-use crate::{
-    Endpoint, IntoResponse, Request, Response,
-    handler::endpoint::serve_dir::headers::{
-        IfModifiedSince, LastModified, check_modified_headers,
-    },
-};
+use crate::{Endpoint, IntoResponse, Request, Response};
 
 // default capacity 64KiB
 const DEFAULT_CAPACITY: usize = 65536;
