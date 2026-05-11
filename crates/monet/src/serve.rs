@@ -130,16 +130,6 @@ impl<S: AsyncWrite + Unpin + 'static> hyper::rt::Write for HyperStream<S> {
     }
 }
 
-impl hyper::service::Service<Request> for Router {
-    type Response = crate::Response;
-    type Error = Infallible;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
-
-    fn call(&self, req: Request) -> Self::Future {
-        Box::pin(self.run(req))
-    }
-}
-
 pub fn serve(addr: SocketAddr, router: Router) {
     let app = async {
         let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();

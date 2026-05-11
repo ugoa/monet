@@ -112,7 +112,7 @@ impl Router {
         let idx = *match_.value;
         let route = self.routes.get(idx).expect("should be in router");
 
-        let res_fut = match route {
+        let resp_fut = match route {
             Route::Service(svc) => svc.call(req),
             Route::MethodGraph(map) => {
                 let chain = map.0.get(req.method()).unwrap().clone();
@@ -120,7 +120,7 @@ impl Router {
             }
         };
 
-        res_fut.map(Ok::<_, Infallible>)
+        resp_fut.map(Ok::<_, Infallible>)
     }
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
