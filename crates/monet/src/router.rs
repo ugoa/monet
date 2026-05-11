@@ -46,29 +46,6 @@ pub enum Route {
     Service(Rc<dyn Endpoint>),
 }
 
-impl Route {
-    fn register(mut self, h: impl Endpoint, m: Method) -> Self {
-        let chain = Chain {
-            endpoint: Rc::new(h),
-            middlewares: Default::default(),
-        };
-
-        if let Self::MethodGraph(ref mut map) = self {
-            match map.0.entry(m.clone()) {
-                Entry::Vacant(e) => e.insert(chain),
-                Entry::Occupied(_) => {
-                    panic!(
-                        "Overlapping method route. Cannot add two methods that both handle `{m}`"
-                    )
-                }
-            };
-        } else {
-            panic!("Cannot register A service already registered at current path")
-        }
-        self
-    }
-}
-
 impl MethodGraph {
     pub fn new() -> Self {
         Default::default()
