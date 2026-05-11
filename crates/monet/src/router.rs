@@ -106,11 +106,34 @@ impl Router {
         self
     }
 
-    pub fn nest(self, _path: &str, _other: Self) -> Self {
-        todo!()
+    pub fn nest(mut self, prefix: &str, other: Self) -> Self {
+        assert!(prefix.starts_with('/'));
+        assert!(prefix.len() > 1);
+
+        if prefix.split('/').any(|segment| {
+            segment.starts_with("{*") && segment.ends_with('}') && !segment.ends_with("}}")
+        }) {
+            panic!("Invalid route: nested routes cannot contain wildcards (*)");
+        }
+
+        for (id, route) in other.routes.into_iter().enumerate() {
+            let inner_path = other
+                .index_to_path
+                .get(&id)
+                .expect("should always succeed. It is a bug in monet if not found");
+            let new_path = concat_path(prefix, inner_path);
+
+            self = self.at(&new_path, route);
+        }
+
+        self
     }
 
     pub fn merge(self, _path: &str, _other: Self) -> Self {
+        todo!()
+    }
+
+    pub fn service(self, _path: &str, _handler: impl Endpoint) -> Self {
         todo!()
     }
 
@@ -135,10 +158,21 @@ impl Router {
             .insert(path, new_index)
             .expect("should add new path successfully");
 
-        dbg!(&self.inner);
-
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
         self.index_to_path.insert(new_index, path.into());
+    }
+}
+
+fn concat_path(prefix: &str, path: &str) -> String {
+    debug_assert!(prefix.starts_with('/'));
+    debug_assert!(path.starts_with('/'));
+
+    if prefix.ends_with('/') {
+        format!("{prefix}{}", path.trim_start_matches('/'))
+    } else if path == "/" {
+        prefix.into()
+    } else {
+        format!("{prefix}{path}")
     }
 }
