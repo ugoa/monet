@@ -50,7 +50,7 @@ impl Endpoint for ServeDir {
             return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
 
-        let Some(mut path_to_file) = build_and_validate_path(&self.base, req.uri().path()) else {
+        let Some(file_path) = build_and_validate_path(&self.base, req.uri().path()) else {
             return StatusCode::NOT_FOUND.into_response();
         };
 
@@ -58,7 +58,7 @@ impl Endpoint for ServeDir {
 
         let status = open_file(
             req,
-            path_to_file,
+            file_path,
             buf_chunk_size,
             self.append_index_html_on_dir,
         )
@@ -109,17 +109,17 @@ async fn build_response(output: FileOpened) -> Response {
 
 pub(super) async fn open_file(
     req: Request,
-    mut path_to_file: PathBuf,
+    mut file_path: PathBuf,
     buf_chunk_size: usize,
     append_index_html_on_dir: bool,
 ) -> std::io::Result<OpenFileOutput> {
     if let Some(output) =
-        maybe_redirect_or_append_index(&mut path_to_file, req.uri(), append_index_html_on_dir).await
+        maybe_redirect_or_append_index(&mut file_path, req.uri(), append_index_html_on_dir).await
     {
         return Ok(output);
     }
 
-    let mime = mime_guess::from_path(&path_to_file)
+    let mime = mime_guess::from_path(&file_path)
         .first_raw()
         .map(HeaderValue::from_static)
         .unwrap_or_else(|| HeaderValue::from_static(mime::APPLICATION_OCTET_STREAM.as_ref()));
@@ -135,7 +135,7 @@ pub(super) async fn open_file(
         .and_then(IfModifiedSince::from_header_value);
 
     if req.method() == Method::HEAD {
-        let meta = compio::fs::metadata(&path_to_file).await?;
+        let meta = compio::fs::metadata(&file_path).await?;
         let last_modified = meta.modified().ok().map(LastModified::from);
 
         if let Some(output) = check_modified_headers(
@@ -154,8 +154,8 @@ pub(super) async fn open_file(
         };
         Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
     } else {
-        dbg!(&path_to_file);
-        let file = match File::open(&path_to_file).await {
+        dbg!(&file_path);
+        let file = match File::open(&file_path).await {
             Ok(file) => file,
             // Only applies to NULL bytes
             Err(err) if err.kind() == std::io::ErrorKind::InvalidInput => {
