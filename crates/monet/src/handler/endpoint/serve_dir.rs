@@ -63,7 +63,7 @@ async fn maybe_redirect_or_append_path(
     uri: &Uri,
     append_index_html_on_dir: bool,
 ) -> Option<OpenFileOutput> {
-    // Check if the path exists and it is indeed a Dir, return if false
+    // Check if the path exists and is a Dir, return if false
     if !compio::fs::metadata(&path_to_file)
         .await
         .is_ok_and(|m| m.is_dir())
@@ -79,13 +79,14 @@ async fn maybe_redirect_or_append_path(
     if uri.path().ends_with('/') {
         path_to_file.push("index.html");
         return None;
-    } else {
-        let uri = match append_slash_on_path(uri.clone()) {
-            Ok(uri) => uri,
-            Err(err) => return Some(err),
-        };
-        let location = HeaderValue::from_str(&uri.to_string()).unwrap();
-        return Some(OpenFileOutput::Redirect { location });
+    }
+
+    match append_slash_on_path(uri.clone()) {
+        Ok(uri) => {
+            let location = HeaderValue::from_str(&uri.to_string()).unwrap();
+            Some(OpenFileOutput::Redirect { location })
+        }
+        Err(err) => Some(err),
     }
 }
 
