@@ -71,7 +71,7 @@ async fn build_response(output: FileOpened) -> Response {
     // Load file all at once into buffer, not good for big files. Room for improve to use stream
     let mut resp = if let Some(file) = output.file {
         let (_, buffer) = file
-            .read_to_end_at(Vec::with_capacity(65536), 0)
+            .read_to_end_at(Vec::with_capacity(output.buf_size), 0)
             .await
             .unwrap();
 
@@ -160,7 +160,7 @@ pub(super) async fn open_file(
     Ok(OpenFileOutput::FileOpened(Box::new(FileOpened {
         file: maybe_file,
         size: metadata.len(),
-        chunk_size: buf_size,
+        buf_size,
         mime,
         last_modified: last_modified.map(|time| time.into()),
     })))
@@ -274,7 +274,7 @@ pub(crate) enum OpenFileOutput {
 pub(crate) struct FileOpened {
     pub(super) file: Option<File>,
     pub(super) size: u64,
-    pub(super) chunk_size: usize,
+    pub(super) buf_size: usize,
     pub(super) mime: HeaderValue,
     pub(super) last_modified: Option<HttpDate>,
 }
