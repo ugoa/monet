@@ -84,6 +84,7 @@ async fn build_response(output: FileOpened) -> Response {
         FileRequestExtent::Full(file, size) => (Some(file), size),
         FileRequestExtent::Head(size) => (None, size),
     };
+    // Load file all at once into buffer, not good for big files. Room for improve to use stream
     let mut resp = if let Some(file) = maybe_file {
         let (_, buffer) = file
             .read_to_end_at(Vec::with_capacity(65536), 0)
