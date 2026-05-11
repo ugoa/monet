@@ -138,23 +138,20 @@ pub(super) async fn open_file(
 
     // Client requested content to be unmodified since time T,
     // but if the content has been modified before T, return PreconditionFailed
-    let if_unmodified_since = req
+
+    if let Some(since) = req
         .headers()
         .get(header::IF_UNMODIFIED_SINCE)
-        .and_then(parse_to_systime);
-
-    if let Some(since) = if_unmodified_since
+        .and_then(parse_to_systime)
         && last_modified.is_none_or(|this| this >= since)
     {
         return Ok(OpenFileOutput::PreconditionFailed);
     }
 
-    let if_modified_since = req
+    if let Some(since) = req
         .headers()
         .get(header::IF_MODIFIED_SINCE)
-        .and_then(parse_to_systime);
-
-    if let Some(since) = if_modified_since
+        .and_then(parse_to_systime)
         && last_modified.is_some_and(|this| this <= since)
     {
         return Ok(OpenFileOutput::NotModified);
