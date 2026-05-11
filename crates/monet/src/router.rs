@@ -80,7 +80,7 @@ impl Router {
         let _method = req.method();
         let _path = req.uri().path();
 
-        dbg!(&_path);
+        dbg!(&self.inner);
 
         // TODO:
         //      Return 404 not found if no matching routes, given default-fallback is enabled
@@ -91,7 +91,7 @@ impl Router {
         let resp_fut = match route {
             Route::Service(svc) => svc.call(req),
             Route::MethodGraph(map) => {
-                let chain = map.0.get(req.method()).unwrap().clone();
+                let chain = map.0.get(_method).unwrap().clone();
                 Box::pin(chain.next(req))
             }
         };
