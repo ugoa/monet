@@ -8,19 +8,23 @@ use futures_util::FutureExt;
 use http::Method;
 use tracing::trace;
 
-pub fn get(handler: impl Endpoint) -> Route {
-    Route::new().get(handler)
-}
-
-pub fn post(handler: impl Endpoint) -> Route {
-    Route::new().post(handler)
-}
-
 use crate::{
     handler::{Chain, Endpoint, Middleware},
     request::Request,
     response::Response,
 };
+
+pub fn get(handler: impl Endpoint) -> Route {
+    Route::MethodGraph(MethodGraph::new().post(handler))
+}
+
+pub fn post(handler: impl Endpoint) -> Route {
+    Route::MethodGraph(MethodGraph::new().post(handler))
+}
+
+pub fn service(handler: impl Endpoint) -> Route {
+    Route::Service(Rc::new(handler))
+}
 
 #[derive(Default)]
 pub struct Router {
@@ -31,10 +35,41 @@ pub struct Router {
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
 
+// #[derive(Default)]
+// pub struct Route(pub HashMap<Method, Chain>);
+
 #[derive(Default)]
-pub struct Route(pub HashMap<Method, Chain>);
+pub struct MethodGraph(pub HashMap<Method, Chain>);
+
+pub enum Route {
+    MethodGraph(MethodGraph),
+    Service(Rc<dyn Endpoint>),
+}
 
 impl Route {
+    fn register(mut self, h: impl Endpoint, m: Method) -> Self {
+        let chain = Chain {
+            endpoint: Rc::new(h),
+            middlewares: Default::default(),
+        };
+
+        if let Self::MethodGraph(ref mut map) = self {
+            match map.0.entry(m.clone()) {
+                Entry::Vacant(e) => e.insert(chain),
+                Entry::Occupied(_) => {
+                    panic!(
+                        "Overlapping method route. Cannot add two methods that both handle `{m}`"
+                    )
+                }
+            };
+        } else {
+            panic!("Cannot register A service already registered at current path")
+        }
+        self
+    }
+}
+
+impl MethodGraph {
     pub fn new() -> Self {
         Default::default()
     }
@@ -67,25 +102,25 @@ impl Router {
         Default::default()
     }
 
-    pub fn run(
-        &self,
-        req: Request,
-    ) -> impl Future<Output = Result<Response, Infallible>> + 'static {
+    pub fn run(&self, req: Request) -> impl Future<Output = Result<Response, Infallible>> {
         let _method = req.method();
         let _path = req.uri().path();
 
-        dbg!(&_path);
-        dbg!(&self.inner);
         // TODO:
         //      Return 404 not found if no matching routes, given default-fallback is enabled
         let match_ = self.inner.at(_path).unwrap();
         let idx = *match_.value;
         let route = self.routes.get(idx).expect("should be in router");
-        // TODO:
-        //      Return 404 not found if no matching method, given default-fallback is enabled
-        let chain = route.0.get(req.method()).unwrap().clone();
 
-        chain.next(req).map(Ok::<_, Infallible>)
+        let res_fut = match route {
+            Route::Service(svc) => svc.call(req),
+            Route::MethodGraph(map) => {
+                let chain = map.0.get(req.method()).unwrap().clone();
+                Box::pin(chain.next(req))
+            }
+        };
+
+        res_fut.map(Ok::<_, Infallible>)
     }
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
@@ -95,28 +130,26 @@ impl Router {
         self
     }
 
-    pub fn nest(self, path: &str, other: Self) -> Self {
+    pub fn nest(self, _path: &str, _other: Self) -> Self {
         todo!()
     }
 
-    pub fn merge(self, path: &str, other: Self) -> Self {
+    pub fn merge(self, _path: &str, _other: Self) -> Self {
         todo!()
-    }
-
-    pub fn service(mut self, path: &str, service: impl Endpoint) -> Self {
-        todo!();
-        self
     }
 
     pub fn wrap(mut self, middleware: impl Middleware) -> Self {
         trace!("Adding middleware {}", middleware.name());
         let shared = Rc::new(middleware);
-        self.routes.iter_mut().for_each(|route| {
-            route
-                .0
-                .iter_mut()
-                .for_each(|(_, chain)| chain.middlewares.push(shared.clone()));
+        self.routes.iter_mut().for_each(|route| match route {
+            Route::MethodGraph(map) => {
+                map.0
+                    .iter_mut()
+                    .for_each(|(_, chain)| chain.middlewares.push(shared.clone()));
+            }
+            Route::Service(_) => (),
         });
+
         self
     }
 
