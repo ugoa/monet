@@ -17,7 +17,6 @@ use percent_encoding::percent_decode;
 
 use crate::{
     Endpoint, IntoResponse, Request, Response,
-    body::Body,
     handler::endpoint::serve_dir::headers::{
         IfModifiedSince, LastModified, check_modified_headers,
     },
@@ -63,11 +62,6 @@ impl Endpoint for ServeDir {
         };
 
         let buf_chunk_size = self.buf_chunk_size;
-        let range_header = req
-            .headers()
-            .get(header::RANGE)
-            .and_then(|value| value.to_str().ok())
-            .map(|s| s.to_owned());
 
         let status = open_file(
             req,
@@ -104,6 +98,7 @@ async fn build_response(output: FileOpened) -> Response {
 
     let headers = resp.headers_mut();
     headers.insert(header::CONTENT_TYPE, output.mime);
+    headers.insert(header::CONTENT_LENGTH, size.into());
 
     // TODO support partial request with ranges
     // headers.insert(header::ACCEPT_RANGES, "bytes");

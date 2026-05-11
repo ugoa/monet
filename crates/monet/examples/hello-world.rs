@@ -6,8 +6,8 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, get, post,
-    request::Request, types::Html,
+    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, get,
+    handler::endpoint::serve_dir::ServeDir, post, request::Request, types::Html,
 };
 use serde::{Deserialize, Serialize};
 
@@ -117,6 +117,7 @@ fn main() {
         .at("/json", post(parse_json))
         .at("/form", post(parse_form))
         .at("/html", get(return_html))
+        .at("/static", get(ServeDir))
         .wrap(RequestCounter)
         .wrap(set_state);
 
