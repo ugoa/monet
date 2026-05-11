@@ -6,12 +6,18 @@ use std::{
 };
 
 use async_trait::async_trait;
-use compio::fs::File;
+use bytes::Bytes;
+use compio::{
+    fs::File,
+    io::{AsyncReadAt, AsyncReadAtExt},
+};
+use futures::stream;
 use http::{HeaderValue, Method, StatusCode, Uri, header};
 use percent_encoding::percent_decode;
 
 use crate::{
     Endpoint, IntoResponse, Request, Response,
+    body::Body,
     handler::endpoint::serve_dir::headers::{
         IfModifiedSince, LastModified, check_modified_headers,
     },
@@ -68,10 +74,47 @@ impl Endpoint for ServeDir {
             path_to_file,
             buf_chunk_size,
             self.append_index_html_on_dir,
-        );
+        )
+        .await;
 
-        ().into_response()
+        match status {
+            Ok(OpenFileOutput::FileOpened(file_output)) => build_response(*file_output).await,
+            Err(_) => ().into_response(),
+            _ => ().into_response(),
+        }
     }
+}
+
+async fn build_response(output: FileOpened) -> Response {
+    let (maybe_file, size) = match output.extent {
+        FileRequestExtent::Full(file, size) => (Some(file), size),
+        FileRequestExtent::Head(size) => (None, size),
+    };
+    let mut resp = if let Some(file) = maybe_file {
+        let (_, buffer) = file
+            .read_to_end_at(Vec::with_capacity(65536), 0)
+            .await
+            .unwrap();
+
+        let bytes: Bytes = buffer.into();
+        bytes.into_response()
+    } else {
+        ().into_response()
+    };
+
+    let headers = resp.headers_mut();
+    headers.insert(header::CONTENT_TYPE, output.mime);
+
+    // TODO support partial request with ranges
+    // headers.insert(header::ACCEPT_RANGES, "bytes");
+
+    if let Some(last_modified) = output.last_modified {
+        headers.insert(
+            header::LAST_MODIFIED,
+            HeaderValue::from_str(&last_modified.0.to_string()).unwrap(),
+        );
+    }
+    resp
 }
 
 pub(super) async fn open_file(
@@ -116,7 +159,7 @@ pub(super) async fn open_file(
         let file_opened = FileOpened {
             extent: FileRequestExtent::Head(meta.len()),
             chunk_size: buf_chunk_size,
-            mime_header_value: mime,
+            mime,
             last_modified,
         };
         Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
@@ -143,7 +186,7 @@ pub(super) async fn open_file(
         let file_opened = FileOpened {
             extent: FileRequestExtent::Full(file, meta.len()),
             chunk_size: buf_chunk_size,
-            mime_header_value: mime,
+            mime,
             last_modified,
         };
         Ok(OpenFileOutput::FileOpened(Box::new(file_opened)))
@@ -268,7 +311,7 @@ pub(crate) enum OpenFileOutput {
 pub(crate) struct FileOpened {
     pub(super) extent: FileRequestExtent,
     pub(super) chunk_size: usize,
-    pub(super) mime_header_value: HeaderValue,
+    pub(super) mime: HeaderValue,
     pub(super) last_modified: Option<headers::LastModified>,
 }
 
