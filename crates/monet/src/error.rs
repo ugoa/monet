@@ -27,6 +27,9 @@ pub enum Error {
 
     #[error("Failed to deserialize Query: {0}")]
     FailedToDeserializeQuery(#[source] serde_path_to_error::Error<serde_urlencoded::de::Error>),
+
+    #[error("No paths parameters found for matched route")]
+    MissingPathParams,
 }
 
 impl IntoResponse for Error {
@@ -39,6 +42,7 @@ impl IntoResponse for Error {
             Self::InvalidFormContentType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::FailedToDeserializeForm(_) => StatusCode::BAD_REQUEST,
             Self::FailedToDeserializeQuery(_) => StatusCode::BAD_REQUEST,
+            Self::MissingPathParams => StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status_code, self.to_string()).into_response()
     }
