@@ -17,7 +17,7 @@ use crate::{
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url_params::{NEST_TAIL_PARAM, attach_url_params},
+    router::url_params::{NEST_TAIL_PARAM, insert_matched_params},
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
@@ -53,7 +53,7 @@ impl Router {
 
         dbg!(&matched.params);
 
-        attach_url_params(req.extensions_mut(), &matched.params);
+        insert_matched_params(req.extensions_mut(), &matched.params);
 
         let idx = *matched.value;
         let route = self.routes.get(idx).expect("should be in router");
