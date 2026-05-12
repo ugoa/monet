@@ -10,14 +10,14 @@ use futures_util::FutureExt;
 use http::{Extensions, Method};
 use tracing::trace;
 
-pub(crate) mod url_params;
+pub(crate) mod url;
 
 use crate::{
     ServeDir,
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url_params::{NEST_TAIL_PARAM, NEST_TAIL_PARAM_WILDCARD, insert_matched_params},
+    router::url::{NEST_TAIL_PARAM, NEST_TAIL_PARAM_WILDCARD, insert_matched_params},
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
@@ -55,7 +55,7 @@ impl Router {
 
         let ext_mut = req.extensions_mut();
 
-        #[cfg(not(feature = "no-matched-path"))]
+        // #[cfg(not(feature = "no-matched-path"))]
         insert_matched_path(ext_mut, self.index_to_path.get(&id).unwrap());
 
         insert_matched_params(ext_mut, &matched.params);

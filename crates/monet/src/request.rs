@@ -14,7 +14,7 @@ use serde_core::de::DeserializeOwned;
 use crate::{
     body::Body,
     error::Error,
-    router::{MatchedPath, url_params::UrlParams},
+    router::{MatchedPath, url::UrlParams},
     types::{Form, Json, Path, Query, has_content_type},
 };
 
