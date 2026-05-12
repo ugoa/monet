@@ -37,6 +37,8 @@ pub struct Router {
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
 
+pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
+
 #[derive(Default, Debug)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);
 
@@ -133,6 +135,8 @@ impl Router {
     }
 
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
+        let wildcard_path = format!("{}/{{*{}}}", path.trim_end_matches('/'), NEST_TAIL_PARAM);
+
         self.at(path, Route::Service(Rc::new(ServeDir::new(dir))))
     }
 
