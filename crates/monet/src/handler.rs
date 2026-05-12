@@ -68,11 +68,24 @@ where
 
 #[derive(Clone, Debug)]
 pub struct Chain {
-    pub(crate) endpoint: Rc<dyn Endpoint>,
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
+    pub(crate) endpoint: Rc<dyn Endpoint>,
 }
 
 impl Chain {
+    pub fn new(endpoint: impl Endpoint) -> Self {
+        Chain {
+            middlewares: Default::default(),
+            endpoint: Rc::new(endpoint),
+        }
+    }
+
+    pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
+        let shared = Rc::new(middleware);
+        self.middlewares.push(shared.clone());
+        self
+    }
+
     pub async fn next(mut self, req: Request) -> Response {
         if let Some(current) = self.middlewares.pop() {
             current.transform(req, self).await

@@ -5,7 +5,7 @@ use http::Uri;
 
 use crate::{Chain, Middleware, Request, Response};
 
-pub struct StripPrefix(Arc<str>);
+pub struct StripPrefix(pub Arc<String>);
 
 #[async_trait(?Send)]
 impl Middleware for StripPrefix {

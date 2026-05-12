@@ -2,7 +2,9 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     convert::Infallible,
     path::Path,
+    process::Child,
     rc::Rc,
+    sync::Arc,
 };
 
 use futures_util::FutureExt;
@@ -11,7 +13,7 @@ use tracing::trace;
 
 use crate::{
     ServeDir,
-    handler::{Chain, Endpoint, Middleware},
+    handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
 };
@@ -31,45 +33,6 @@ pub struct Router {
     pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub path_to_index: HashMap<Rc<str>, usize>,
     pub index_to_path: HashMap<usize, Rc<str>>,
-}
-
-pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
-
-#[derive(Default, Debug, Clone)]
-pub struct MethodGraph(pub HashMap<Method, Chain>);
-
-#[derive(Debug, Clone)]
-pub enum Route {
-    MethodGraph(MethodGraph),
-    Service(Chain),
-}
-
-impl MethodGraph {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn get(self, h: impl Endpoint) -> Self {
-        self.register(h, Method::GET)
-    }
-
-    pub fn post(self, h: impl Endpoint) -> Self {
-        self.register(h, Method::POST)
-    }
-
-    fn register(mut self, h: impl Endpoint, m: Method) -> Self {
-        let chain = Chain {
-            endpoint: Rc::new(h),
-            middlewares: Default::default(),
-        };
-        match self.0.entry(m.clone()) {
-            Entry::Vacant(e) => e.insert(chain),
-            Entry::Occupied(_) => {
-                panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
-            }
-        };
-        self
-    }
 }
 
 impl Router {
@@ -133,20 +96,16 @@ impl Router {
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
         let wildcard_path = format!("{}/{{*{}}}", path.trim_end_matches('/'), NEST_TAIL_PARAM);
 
-        self.at(path, Route::Service(Rc::new(ServeDir::new(dir))))
+        let chain = Chain::new(ServeDir::new(dir)).wrap_by(StripPrefix(Arc::new(path.to_string())));
+        self.at(&wildcard_path, Route::Service(chain))
     }
 
     pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
         trace!("Adding middleware {}", middleware.name());
         let shared = Rc::new(middleware);
-        self.routes.iter_mut().for_each(|route| match route {
-            Route::MethodGraph(map) => {
-                map.0
-                    .iter_mut()
-                    .for_each(|(_, chain)| chain.middlewares.push(shared.clone()));
-            }
-            Route::Service(_) => panic!("Applying middleware to Service is not supported yet"),
-        });
+        self.routes
+            .iter_mut()
+            .for_each(|route| route.wrap_by(shared.clone()));
 
         self
     }
@@ -160,6 +119,58 @@ impl Router {
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
         self.index_to_path.insert(new_index, path.into());
+    }
+}
+
+pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
+
+#[derive(Default, Debug, Clone)]
+pub struct MethodGraph(pub HashMap<Method, Chain>);
+
+#[derive(Debug, Clone)]
+pub enum Route {
+    MethodGraph(MethodGraph),
+    Service(Chain),
+}
+
+impl Route {
+    pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
+        match self {
+            Route::MethodGraph(map) => {
+                map.0
+                    .iter_mut()
+                    .for_each(|(_, chain)| chain.middlewares.push(middleware.clone()));
+            }
+            Route::Service(_) => panic!("Applying middleware to Service is not supported yet"),
+        }
+    }
+}
+
+impl MethodGraph {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn get(self, h: impl Endpoint) -> Self {
+        self.register(h, Method::GET)
+    }
+
+    pub fn post(self, h: impl Endpoint) -> Self {
+        self.register(h, Method::POST)
+    }
+
+    fn register(mut self, h: impl Endpoint, m: Method) -> Self {
+        let chain = Chain {
+            endpoint: Rc::new(h),
+            middlewares: Default::default(),
+        };
+        match self.0.entry(m.clone()) {
+            Entry::Vacant(e) => e.insert(chain),
+            Entry::Occupied(_) => {
+                panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
+            }
+        };
+        self
     }
 }
 
