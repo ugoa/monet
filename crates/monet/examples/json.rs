@@ -19,5 +19,5 @@ fn main() {
 
     let app = Router::new().at("/", get(return_json));
 
-    monet::serve(addr, app);
+    monet::run(addr, app);
 }

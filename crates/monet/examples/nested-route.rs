@@ -18,5 +18,5 @@ fn main() {
 
     let app = Router::new().nest("/api", nested);
 
-    monet::serve(addr, app);
+    monet::run(addr, app);
 }

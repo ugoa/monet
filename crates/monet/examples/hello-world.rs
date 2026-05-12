@@ -123,5 +123,5 @@ fn main() {
         .wrap_by(set_state)
         .at("/hello.html", get(service));
 
-    monet::serve(addr, app);
+    monet::run(addr, app);
 }

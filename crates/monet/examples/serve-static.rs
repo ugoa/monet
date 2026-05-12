@@ -8,5 +8,5 @@ fn main() {
 
     let app = Router::new().at("/hello.html", service(ServeDir::new("static")));
 
-    monet::serve(addr, app);
+    monet::run(addr, app);
 }
