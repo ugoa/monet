@@ -7,7 +7,7 @@ use std::{
 };
 
 use futures_util::FutureExt;
-use http::Method;
+use http::{Extensions, Method};
 use tracing::trace;
 
 pub(crate) mod url_params;
@@ -17,7 +17,7 @@ use crate::{
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url_params::{NEST_TAIL_PARAM, insert_matched_params},
+    router::url_params::{NEST_TAIL_PARAM, NEST_TAIL_PARAM_WILDCARD, insert_matched_params},
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
@@ -33,8 +33,8 @@ pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
     pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
-    pub path_to_index: HashMap<Rc<str>, usize>,
-    pub index_to_path: HashMap<usize, Rc<str>>,
+    pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
+    pub index_to_path: HashMap<usize, Arc<str>>,
 }
 
 impl Router {
@@ -43,20 +43,24 @@ impl Router {
     }
 
     pub fn handle(&self, mut req: Request) -> impl Future<Output = Result<Response, Infallible>> {
-        let path = req.uri().path().to_string();
+        let request_path = req.uri().path().to_string();
 
-        let Ok(matched) = self.inner.at(path.as_str()) else {
+        let Ok(matched) = self.inner.at(request_path.as_str()) else {
             // TODO:
             //      Return 404 not found if no matching routes, given default-fallback is enabled
-            panic!("Path {} not found", path);
+            panic!("Path {} not found", request_path);
         };
+
+        let id = *matched.value;
+
+        let ext_mut = req.extensions_mut();
+        let path = self.index_to_path.get(&id).unwrap();
+        insert_matched_path(ext_mut, path);
+        insert_matched_params(ext_mut, &matched.params);
 
         // dbg!(&matched.params);
 
-        insert_matched_params(req.extensions_mut(), &matched.params);
-
-        let idx = *matched.value;
-        let route = self.routes.get(idx).expect("should be in router");
+        let route = self.routes.get(id).expect("should be in router");
 
         let method = req.method();
         let resp_fut = match route {
@@ -141,6 +145,41 @@ impl Router {
     }
 }
 
+#[derive(Clone, Debug)]
+struct MatchedNestedPath(Arc<str>);
+
+#[derive(Clone, Debug)]
+pub struct MatchedPath(pub(crate) Arc<str>);
+
+fn insert_matched_path(ext: &mut Extensions, path: &str) {
+    let matched_path = append_nested_matched_path(&Arc::new(path), ext);
+
+    if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
+        ext.insert(MatchedNestedPath(matched_path));
+        debug_assert!(ext.remove::<MatchedPath>().is_none());
+    } else {
+        ext.insert(MatchedPath(matched_path));
+        ext.remove::<MatchedNestedPath>();
+    }
+}
+
+fn append_nested_matched_path(matched_path: &Arc<str>, extensions: &http::Extensions) -> Arc<str> {
+    if let Some(previous) = extensions
+        .get::<MatchedPath>()
+        .map(|matched_path| matched_path.as_str())
+        .or_else(|| Some(&extensions.get::<MatchedNestedPath>()?.0))
+    {
+        let previous = previous
+            .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
+            .unwrap_or(previous);
+
+        let matched_path = format!("{previous}{matched_path}");
+        matched_path.into()
+    } else {
+        Arc::clone(matched_path)
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);
 
@@ -201,5 +240,28 @@ fn concat_path(prefix: &str, path: &str) -> String {
         prefix.into()
     } else {
         format!("{prefix}{path}")
+    }
+}
+
+pub(crate) fn set_matched_path_for_request(
+    id: usize,
+    route_id_to_path: &HashMap<RouteId, Arc<str>>,
+    extensions: &mut http::Extensions,
+) {
+    let Some(matched_path) = route_id_to_path.get(&id) else {
+        #[cfg(debug_assertions)]
+        panic!("should always have a matched path for a route id");
+        #[cfg(not(debug_assertions))]
+        return;
+    };
+
+    let matched_path = append_nested_matched_path(matched_path, extensions);
+
+    if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
+        extensions.insert(MatchedNestedPath(matched_path));
+        debug_assert!(extensions.remove::<MatchedPath>().is_none());
+    } else {
+        extensions.insert(MatchedPath(matched_path));
+        extensions.remove::<MatchedNestedPath>();
     }
 }
