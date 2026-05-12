@@ -28,7 +28,7 @@ pub(super) fn attach_url_params(extensions: &mut Extensions, params: &Params<'_,
     let params = params
         .iter()
         .filter(|(key, _)| !key.starts_with(NEST_TAIL_PARAM))
-        // .filter(|(key, _)| !key.starts_with(super::FALLBACK_PARAM))
+        .filter(|(key, _)| !key.starts_with(FALLBACK_PARAM))
         .map(|(k, v)| {
             if let Some(decoded) = pct_decode(v) {
                 Ok((Arc::from(k), decoded))
