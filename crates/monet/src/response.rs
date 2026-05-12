@@ -29,6 +29,17 @@ impl IntoResponse for Body {
     }
 }
 
+impl IntoResponse for Cow<'static, str> {
+    fn into_response(self) -> Response {
+        let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
+        res.headers_mut().insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
+        );
+        res
+    }
+}
+
 impl IntoResponse for String {
     fn into_response(self) -> Response {
         Cow::<'static, str>::Owned(self).into_response()
@@ -44,17 +55,6 @@ impl IntoResponse for &'static str {
 impl IntoResponse for Box<str> {
     fn into_response(self) -> Response {
         String::from(self).into_response()
-    }
-}
-
-impl IntoResponse for Cow<'static, str> {
-    fn into_response(self) -> Response {
-        let mut res = Response::new(Body::new(http_body_util::Full::from(self)));
-        res.headers_mut().insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
-        );
-        res
     }
 }
 
