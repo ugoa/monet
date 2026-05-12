@@ -27,7 +27,7 @@ where
     fn from_parts(parts: &mut Parts) -> Result<Self, crate::Error> {
         match T::deserialize(PathDeserializer::new(get_params(parts)?)) {
             Ok(val) => Ok(Self(val)),
-            Err(e) => todo!(),
+            Err(_) => Err(crate::Error::FailedToDeserializePathParams),
         }
     }
 }

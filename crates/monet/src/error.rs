@@ -33,6 +33,9 @@ pub enum Error {
 
     #[error("Invalid UTF-8 in path parameters found for matched route")]
     InvalidUtf8InPathParam { key: String },
+
+    #[error("Failed to Deserialize Path params for many reasons")]
+    FailedToDeserializePathParams,
 }
 
 impl IntoResponse for Error {
@@ -47,6 +50,7 @@ impl IntoResponse for Error {
             Self::FailedToDeserializeQuery(_) => StatusCode::BAD_REQUEST,
             Self::MissingPathParams => StatusCode::INTERNAL_SERVER_ERROR,
             Self::InvalidUtf8InPathParam { key: _ } => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::FailedToDeserializePathParams => StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status_code, self.to_string()).into_response()
     }
