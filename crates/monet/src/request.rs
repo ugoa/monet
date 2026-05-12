@@ -79,6 +79,8 @@ impl Request {
     where
         T: DeserializeOwned,
     {
+        // Convert matchit params Vec<(str, str)> to query string, then deserialize it.
+        // REF: https://docs.rs/matchit/latest/matchit/#parameters
         match self.extensions().get::<UrlParams>() {
             Some(UrlParams::Params(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
@@ -93,12 +95,10 @@ impl Request {
                     .map(Path)
                     .map_err(Error::FailedToDeserializePathParams)
             }
-            Some(UrlParams::InvalidUtf8InPathParam { key }) => {
-                Err(crate::Error::InvalidUtf8InPathParam {
-                    key: key.to_string(),
-                })
-            }
-            None => Err(crate::Error::MissingPathParams),
+            Some(UrlParams::InvalidUtf8InPathParam { key }) => Err(Error::InvalidUtf8InPathParam {
+                key: key.to_string(),
+            }),
+            None => Err(Error::MissingPathParams),
         }
     }
 
