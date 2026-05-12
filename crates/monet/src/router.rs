@@ -77,7 +77,7 @@ impl Router {
         Default::default()
     }
 
-    pub fn run(&self, req: Request) -> impl Future<Output = Result<Response, Infallible>> {
+    pub fn handle(&self, req: Request) -> impl Future<Output = Result<Response, Infallible>> {
         let _method = req.method();
         let _path = req.uri().path();
 
