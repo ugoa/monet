@@ -79,7 +79,8 @@ impl Router {
         }
 
         for (id, route) in other.routes.into_iter().enumerate() {
-            let assertion = "The path should be registered already, otherwise please report a bug";
+            let assertion =
+                "The path should've been registered already, otherwise please report a bug";
             let inner_path = other.index_to_path.get(&id).expect(assertion);
 
             let new_path = concat_path(prefix, inner_path);
@@ -91,7 +92,8 @@ impl Router {
 
     pub fn merge(mut self, other: Self) -> Self {
         for (id, route) in other.routes.into_iter().enumerate() {
-            let assertion = "The path should be registered already, otherwise please report a bug";
+            let assertion =
+                "The path should've been registered already, otherwise please report a bug";
             let path = other.index_to_path.get(&id).expect(assertion);
 
             self = self.at(path, route);
