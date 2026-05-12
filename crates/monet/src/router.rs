@@ -2,7 +2,6 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     convert::Infallible,
     path::Path,
-    process::Child,
     rc::Rc,
     sync::Arc,
 };
@@ -10,6 +9,8 @@ use std::{
 use futures_util::FutureExt;
 use http::Method;
 use tracing::trace;
+
+pub(crate) mod url_params;
 
 use crate::{
     ServeDir,
@@ -46,8 +47,12 @@ impl Router {
 
         // TODO:
         //      Return 404 not found if no matching routes, given default-fallback is enabled
-        let match_ = self.inner.at(_path).unwrap();
-        let idx = *match_.value;
+
+        let Ok(matched) = self.inner.at(req.uri().path()) else {
+            panic!("Path {} not found", req.uri().path());
+        };
+
+        let idx = *matched.value;
         let route = self.routes.get(idx).expect("should be in router");
 
         let resp_fut = match route {
