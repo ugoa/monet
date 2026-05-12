@@ -51,7 +51,7 @@ impl Router {
             panic!("Path {} not found", path);
         };
 
-        dbg!(&matched.params);
+        // dbg!(&matched.params);
 
         insert_matched_params(req.extensions_mut(), &matched.params);
 
