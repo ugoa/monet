@@ -31,19 +31,19 @@ impl IntoResponse for Body {
 
 impl IntoResponse for String {
     fn into_response(self) -> Response {
-        Response::new(Body::new(http_body_util::Full::from(self)))
+        Cow::<'static, str>::Owned(self).into_response()
     }
 }
 
 impl IntoResponse for &'static str {
     fn into_response(self) -> Response {
-        Response::new(Body::new(http_body_util::Full::from(self)))
+        Cow::Borrowed(self).into_response()
     }
 }
 
 impl IntoResponse for Box<str> {
     fn into_response(self) -> Response {
-        Response::new(Body::new(http_body_util::Full::from(String::from(self))))
+        String::from(self).into_response()
     }
 }
 
@@ -119,6 +119,30 @@ impl IntoResponse for Cow<'static, [u8]> {
 impl IntoResponse for Vec<u8> {
     fn into_response(self) -> Response {
         Cow::<'static, [u8]>::Owned(self).into_response()
+    }
+}
+
+impl IntoResponse for &'static [u8] {
+    fn into_response(self) -> Response {
+        Cow::Borrowed(self).into_response()
+    }
+}
+
+impl<const N: usize> IntoResponse for &'static [u8; N] {
+    fn into_response(self) -> Response {
+        self.as_slice().into_response()
+    }
+}
+
+impl<const N: usize> IntoResponse for [u8; N] {
+    fn into_response(self) -> Response {
+        self.to_vec().into_response()
+    }
+}
+
+impl IntoResponse for Box<[u8]> {
+    fn into_response(self) -> Response {
+        Vec::from(self).into_response()
     }
 }
 
