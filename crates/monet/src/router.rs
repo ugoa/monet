@@ -69,7 +69,7 @@ impl Router {
     }
 
     pub fn nest(mut self, prefix: &str, other: Self) -> Self {
-        assert!(prefix.starts_with('/'));
+        assert!(prefix.starts_with('/'),);
         assert!(prefix.len() > 1);
 
         if prefix.split('/').any(|segment| {
@@ -79,7 +79,7 @@ impl Router {
         }
 
         for (id, route) in other.routes.into_iter().enumerate() {
-            let assertion = "should always succeed, otherwise it would be a monet bug";
+            let assertion = "The path should be registered already, otherwise please report a bug";
             let inner_path = other.index_to_path.get(&id).expect(assertion);
 
             let new_path = concat_path(prefix, inner_path);
@@ -89,8 +89,14 @@ impl Router {
         self
     }
 
-    pub fn merge(self, _path: &str, _other: Self) -> Self {
-        todo!()
+    pub fn merge(mut self, other: Self) -> Self {
+        for (id, route) in other.routes.into_iter().enumerate() {
+            let assertion = "The path should be registered already, otherwise please report a bug";
+            let path = other.index_to_path.get(&id).expect(assertion);
+
+            self = self.at(path, route);
+        }
+        self
     }
 
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
