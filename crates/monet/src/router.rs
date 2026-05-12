@@ -81,8 +81,6 @@ impl Router {
         let _method = req.method();
         let _path = req.uri().path();
 
-        dbg!(&self.inner);
-
         // TODO:
         //      Return 404 not found if no matching routes, given default-fallback is enabled
         let match_ = self.inner.at(_path).unwrap();
