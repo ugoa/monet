@@ -43,7 +43,7 @@ fn get_params(parts: &Parts) -> Result<&[(Arc<str>, Arc<str>)], crate::Error> {
             };
             Err(FailedToDeserializePathParams(err).into())
         }
-        None => Err(MissingPathParams.into()),
+        None => Err(crate::Error::MissingPathParams),
     }
 }
 
@@ -296,11 +296,6 @@ impl FailedToDeserializePathParams {
 impl IntoResponse for FailedToDeserializePathParams {
     fn into_response(self) -> Response {
         let body = self.body_text();
-        axum_core::__log_rejection!(
-            rejection_type = Self,
-            body_text = body,
-            status = self.status(),
-        );
         (self.status(), body).into_response()
     }
 }
@@ -312,92 +307,6 @@ impl fmt::Display for FailedToDeserializePathParams {
 }
 
 impl std::error::Error for FailedToDeserializePathParams {}
-
-/// Extractor that will get captures from the URL without deserializing them.
-///
-/// In general you should prefer to use [`Path`] as it is higher level, however `RawPathParams` is
-/// suitable if just want the raw params without deserializing them and thus saving some
-/// allocations.
-///
-/// Any percent encoded parameters will be automatically decoded. The decoded parameters must be
-/// valid UTF-8, otherwise `RawPathParams` will fail and return a `400 Bad Request` response.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use axum::{
-///     extract::RawPathParams,
-///     routing::get,
-///     Router,
-/// };
-///
-/// async fn users_teams_show(params: RawPathParams) {
-///     for (key, value) in &params {
-///         println!("{key:?} = {value:?}");
-///     }
-/// }
-///
-/// let app = Router::new().route("/users/{user_id}/team/{team_id}", get(users_teams_show));
-/// # let _: Router = app;
-/// ```
-#[derive(Debug)]
-pub struct RawPathParams(Vec<(Arc<str>, PercentDecodedStr)>);
-
-impl<S> FromRequestParts<S> for RawPathParams
-where
-    S: Send + Sync,
-{
-    type Rejection = RawPathParamsRejection;
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let params = match parts.extensions.get::<UrlParams>() {
-            Some(UrlParams::Params(params)) => params,
-            Some(UrlParams::InvalidUtf8InPathParam { key }) => {
-                return Err(InvalidUtf8InPathParam {
-                    key: Arc::clone(key),
-                }
-                .into());
-            }
-            None => {
-                return Err(MissingPathParams.into());
-            }
-        };
-
-        Ok(Self(params.clone()))
-    }
-}
-
-impl RawPathParams {
-    /// Get an iterator over the path parameters.
-    #[must_use]
-    pub fn iter(&self) -> RawPathParamsIter<'_> {
-        self.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a RawPathParams {
-    type Item = (&'a str, &'a str);
-    type IntoIter = RawPathParamsIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        RawPathParamsIter(self.0.iter())
-    }
-}
-
-/// An iterator over raw path parameters.
-///
-/// Created with [`RawPathParams::iter`].
-#[derive(Debug)]
-pub struct RawPathParamsIter<'a>(std::slice::Iter<'a, (Arc<str>, PercentDecodedStr)>);
-
-impl<'a> Iterator for RawPathParamsIter<'a> {
-    type Item = (&'a str, &'a str);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (key, value) = self.0.next()?;
-        Some((&**key, value.as_str()))
-    }
-}
 
 /// Rejection used by [`RawPathParams`] if a parameter contained text that, once percent decoded,
 /// wasn't valid UTF-8.
@@ -431,25 +340,17 @@ impl std::error::Error for InvalidUtf8InPathParam {}
 impl IntoResponse for InvalidUtf8InPathParam {
     fn into_response(self) -> Response {
         let body = self.body_text();
-        axum_core::__log_rejection!(
-            rejection_type = Self,
-            body_text = body,
-            status = self.status(),
-        );
         (self.status(), body).into_response()
     }
 }
 
-use std::{any::type_name, sync::Arc};
+use std::any::type_name;
 
 use serde_core::{
     Deserializer,
     de::{self, DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor},
     forward_to_deserialize_any,
 };
-
-use super::{ErrorKind, PathDeserializationError};
-use crate::util::PercentDecodedStr;
 
 macro_rules! unsupported_type {
     ($trait_fn:ident) => {
@@ -478,7 +379,7 @@ macro_rules! parse_single_value {
 
             let value = self.url_params[0].1.parse().map_err(|_| {
                 PathDeserializationError::new(ErrorKind::ParseError {
-                    value: self.url_params[0].1.as_str().to_owned(),
+                    value: self.url_params[0].1.to_string(),
                     expected_type: $ty,
                 })
             })?;
@@ -488,12 +389,12 @@ macro_rules! parse_single_value {
 }
 
 pub(crate) struct PathDeserializer<'de> {
-    url_params: &'de [(Arc<str>, PercentDecodedStr)],
+    url_params: &'de [(Arc<str>, Arc<str>)],
 }
 
 impl<'de> PathDeserializer<'de> {
     #[inline]
-    pub(crate) fn new(url_params: &'de [(Arc<str>, PercentDecodedStr)]) -> Self {
+    pub(crate) fn new(url_params: &'de [(Arc<str>, Arc<str>)]) -> Self {
         PathDeserializer { url_params }
     }
 }
@@ -547,7 +448,7 @@ impl<'de> Deserializer<'de> for PathDeserializer<'de> {
                 if let ErrorKind::Message(message) = &e.kind {
                     PathDeserializationError::new(ErrorKind::DeserializeError {
                         key: key.to_string(),
-                        value: value.as_str().to_owned(),
+                        value: value.to_string(),
                         message: message.to_owned(),
                     })
                 } else {
@@ -675,9 +576,9 @@ impl<'de> Deserializer<'de> for PathDeserializer<'de> {
 }
 
 struct MapDeserializer<'de> {
-    params: &'de [(Arc<str>, PercentDecodedStr)],
+    params: &'de [(Arc<str>, Arc<str>)],
     key: Option<KeyOrIdx<'de>>,
-    value: Option<&'de PercentDecodedStr>,
+    value: Option<&'de Arc<str>>,
 }
 
 impl<'de> MapAccess<'de> for MapDeserializer<'de> {
@@ -759,19 +660,19 @@ macro_rules! parse_value {
                     let kind = match key {
                         KeyOrIdx::Key(key) => ErrorKind::ParseErrorAtKey {
                             key: key.to_owned(),
-                            value: self.value.as_str().to_owned(),
+                            value: self.value.to_string().to_owned(),
                             expected_type: $ty,
                         },
                         KeyOrIdx::Idx { idx: index, key: _ } => ErrorKind::ParseErrorAtIndex {
                             index,
-                            value: self.value.as_str().to_owned(),
+                            value: self.value.to_string().to_owned(),
                             expected_type: $ty,
                         },
                     };
                     PathDeserializationError::new(kind)
                 } else {
                     PathDeserializationError::new(ErrorKind::ParseError {
-                        value: self.value.as_str().to_owned(),
+                        value: self.value.to_string().to_owned(),
                         expected_type: $ty,
                     })
                 }
@@ -784,7 +685,7 @@ macro_rules! parse_value {
 #[derive(Debug)]
 struct ValueDeserializer<'de> {
     key: Option<KeyOrIdx<'de>>,
-    value: &'de PercentDecodedStr,
+    value: &'de Arc<str>,
 }
 
 impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
@@ -827,7 +728,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
                 if let (ErrorKind::Message(message), Some(key)) = (&e.kind, self.key.as_ref()) {
                     PathDeserializationError::new(ErrorKind::DeserializeError {
                         key: key.key().to_owned(),
-                        value: self.value.as_str().to_owned(),
+                        value: self.value.to_string().to_owned(),
                         message: message.to_owned(),
                     })
                 } else {
@@ -885,7 +786,7 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
     {
         struct PairDeserializer<'de> {
             key: Option<KeyOrIdx<'de>>,
-            value: Option<&'de PercentDecodedStr>,
+            value: Option<&'de Arc<str>>,
         }
 
         impl<'de> SeqAccess<'de> for PairDeserializer<'de> {
@@ -1049,7 +950,7 @@ impl<'de> VariantAccess<'de> for UnitVariant {
 }
 
 struct SeqDeserializer<'de> {
-    params: &'de [(Arc<str>, PercentDecodedStr)],
+    params: &'de [(Arc<str>, Arc<str>)],
     idx: usize,
 }
 
