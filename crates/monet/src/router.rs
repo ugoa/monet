@@ -1,3 +1,5 @@
+pub(crate) mod url;
+
 use std::{
     collections::{HashMap, hash_map::Entry},
     convert::Infallible,
@@ -7,17 +9,15 @@ use std::{
 };
 
 use futures_util::FutureExt;
-use http::{Extensions, Method};
+use http::Method;
 use tracing::trace;
-
-pub(crate) mod url;
 
 use crate::{
     ServeDir,
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, NEST_TAIL_PARAM_WILDCARD, insert_matched_params},
+    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
@@ -147,41 +147,6 @@ impl Router {
     }
 }
 
-#[derive(Clone, Debug)]
-struct MatchedNestedPath(Arc<str>);
-
-#[derive(Clone, Debug)]
-pub struct MatchedPath(pub(crate) Arc<str>);
-
-fn insert_matched_path(ext: &mut Extensions, path: &Arc<str>) {
-    let matched_path = append_nested_matched_path(&Arc::new(path), ext);
-
-    if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
-        ext.insert(MatchedNestedPath(matched_path));
-        debug_assert!(ext.remove::<MatchedPath>().is_none());
-    } else {
-        ext.insert(MatchedPath(matched_path));
-        ext.remove::<MatchedNestedPath>();
-    }
-}
-
-fn append_nested_matched_path(matched_path: &Arc<str>, extensions: &http::Extensions) -> Arc<str> {
-    if let Some(previous) = extensions
-        .get::<MatchedPath>()
-        .map(|matched_path| &matched_path.0)
-        .or_else(|| Some(&extensions.get::<MatchedNestedPath>()?.0))
-    {
-        let previous = previous
-            .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
-            .unwrap_or(previous);
-
-        let matched_path = format!("{previous}{matched_path}");
-        matched_path.into()
-    } else {
-        Arc::clone(matched_path)
-    }
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);
 
@@ -229,18 +194,5 @@ impl MethodGraph {
             }
         };
         self
-    }
-}
-
-fn concat_path(prefix: &str, path: &str) -> String {
-    debug_assert!(prefix.starts_with('/'));
-    debug_assert!(path.starts_with('/'));
-
-    if prefix.ends_with('/') {
-        format!("{prefix}{}", path.trim_start_matches('/'))
-    } else if path == "/" {
-        prefix.into()
-    } else {
-        format!("{prefix}{path}")
     }
 }
