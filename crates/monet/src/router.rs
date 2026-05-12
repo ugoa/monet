@@ -96,7 +96,9 @@ impl Router {
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
         let wildcard_path = format!("{}/{{*{}}}", path.trim_end_matches('/'), NEST_TAIL_PARAM);
 
-        let chain = Chain::new(ServeDir::new(dir)).wrap_by(StripPrefix(Arc::new(path.to_string())));
+        let mut chain = Chain::new(ServeDir::new(dir));
+        let stripe_prefix_middleware = Rc::new(StripPrefix(Arc::new(path.to_string())));
+        chain.wrap_by(stripe_prefix_middleware);
         self.at(&wildcard_path, Route::Service(chain))
     }
 
@@ -139,9 +141,9 @@ impl Route {
             Route::MethodGraph(map) => {
                 map.0
                     .iter_mut()
-                    .for_each(|(_, chain)| chain.middlewares.push(middleware.clone()));
+                    .for_each(|(_, chain)| chain.wrap_by(middleware.clone()));
             }
-            Route::Service(_) => panic!("Applying middleware to Service is not supported yet"),
+            Route::Service(chain) => chain.wrap_by(middleware.clone()),
         }
     }
 }
