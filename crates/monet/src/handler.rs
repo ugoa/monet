@@ -8,6 +8,7 @@ use crate::{
 };
 
 pub mod endpoint;
+pub mod middleware;
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
