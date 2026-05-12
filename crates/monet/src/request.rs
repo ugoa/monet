@@ -2,10 +2,11 @@ use std::{
     any::{Any, TypeId},
     collections::HashMap,
     hash::{BuildHasherDefault, Hasher},
+    sync::Arc,
 };
 
 use bytes::Bytes;
-use http::{HeaderMap, HeaderValue, Method, Uri, Version, request::Parts};
+use http::{Extensions, HeaderMap, Method, Uri, Version, request::Parts};
 use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
@@ -13,7 +14,8 @@ use serde_core::de::DeserializeOwned;
 use crate::{
     body::Body,
     error::Error,
-    types::{Form, Json, has_content_type},
+    router::{MatchedPath, url_params::UrlParams},
+    types::{Form, Json, Path, Query, has_content_type},
 };
 
 pub struct Request {
@@ -63,14 +65,58 @@ impl Request {
         &mut self.head.headers
     }
 
-    pub fn query<T>(&self) -> Result<T, Error>
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.head.extensions
+    }
+
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.head.extensions
+    }
+
+    pub fn path<T>(&self) -> Result<Path<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        // Convert matchit params Vec<(str, str)> to query string, then deserialize it.
+        // REF: https://docs.rs/matchit/latest/matchit/#parameters
+        match self.extensions().get::<UrlParams>() {
+            Some(UrlParams::Params(params)) => {
+                let mut serializer = form_urlencoded::Serializer::new(String::new());
+                params.iter().for_each(|(k, v)| {
+                    serializer.append_pair(k, v);
+                });
+                let encoded_querystring = serializer.finish();
+
+                let parser = form_urlencoded::parse(encoded_querystring.as_bytes());
+                let deserializer = serde_urlencoded::Deserializer::new(parser);
+                serde_path_to_error::deserialize(deserializer)
+                    .map(Path)
+                    .map_err(Error::FailedToDeserializePathParams)
+            }
+            Some(UrlParams::InvalidUtf8InPathParam { key }) => Err(Error::InvalidUtf8InPathParam {
+                key: key.to_string(),
+            }),
+            None => Err(Error::MissingPathParams),
+        }
+    }
+
+    pub fn query<T>(&self) -> Result<Query<T>, Error>
     where
         T: DeserializeOwned,
     {
         let query = self.uri().query().unwrap_or_default();
         let parser = form_urlencoded::parse(query.as_bytes());
         let deserializer = serde_urlencoded::Deserializer::new(parser);
-        serde_path_to_error::deserialize(deserializer).map_err(Error::FailedToDeserializeQuery)
+        serde_path_to_error::deserialize(deserializer)
+            .map(Query)
+            .map_err(Error::FailedToDeserializeQuery)
+    }
+
+    #[cfg(not(feature = "no-matched-path"))]
+    pub fn matched_path(&self) -> Option<&Arc<str>> {
+        self.extensions().get::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -213,21 +259,6 @@ impl Hasher for IdHasher {
     fn finish(&self) -> u64 {
         self.0
     }
-}
-
-#[derive(Clone)]
-struct XParts {
-    /// The request's method
-    method: Method,
-
-    /// The request's URI
-    uri: Uri,
-
-    /// The request's version
-    version: Version,
-
-    /// The request's headers
-    headers: HeaderMap<HeaderValue>,
 }
 
 pub(crate) trait AnyClone: Any {

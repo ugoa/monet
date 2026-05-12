@@ -11,11 +11,11 @@ pub use async_trait::async_trait;
 
 // pub use monet_macros::handler;
 pub use crate::{
-    error::{BodyError, BoxError},
+    error::{BodyError, BoxError, Error},
     handler::{Chain, Endpoint, Middleware, endpoint::serve_dir::ServeDir},
     request::Request,
     response::{IntoResponse, Response},
     router::{Router, get, post},
     serve::run,
-    types::{Form, Json},
+    types::{Form, Json, Path},
 };

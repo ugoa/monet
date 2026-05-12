@@ -2,20 +2,22 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     convert::Infallible,
     path::Path,
-    process::Child,
     rc::Rc,
     sync::Arc,
 };
 
 use futures_util::FutureExt;
-use http::Method;
+use http::{Extensions, Method};
 use tracing::trace;
+
+pub(crate) mod url_params;
 
 use crate::{
     ServeDir,
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
+    router::url_params::{NEST_TAIL_PARAM, NEST_TAIL_PARAM_WILDCARD, insert_matched_params},
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
@@ -31,8 +33,8 @@ pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
     pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
-    pub path_to_index: HashMap<Rc<str>, usize>,
-    pub index_to_path: HashMap<usize, Rc<str>>,
+    pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
+    pub index_to_path: HashMap<usize, Arc<str>>,
 }
 
 impl Router {
@@ -40,20 +42,33 @@ impl Router {
         Default::default()
     }
 
-    pub fn handle(&self, req: Request) -> impl Future<Output = Result<Response, Infallible>> {
-        let _method = req.method();
-        let _path = req.uri().path();
+    pub fn handle(&self, mut req: Request) -> impl Future<Output = Result<Response, Infallible>> {
+        let request_path = req.uri().path().to_string();
 
-        // TODO:
-        //      Return 404 not found if no matching routes, given default-fallback is enabled
-        let match_ = self.inner.at(_path).unwrap();
-        let idx = *match_.value;
-        let route = self.routes.get(idx).expect("should be in router");
+        let Ok(matched) = self.inner.at(request_path.as_str()) else {
+            // TODO:
+            //      Return 404 not found if no matching routes, given default-fallback is enabled
+            panic!("Path {} not found", request_path);
+        };
 
+        let id = *matched.value;
+
+        let ext_mut = req.extensions_mut();
+
+        #[cfg(not(feature = "no-matched-path"))]
+        insert_matched_path(ext_mut, self.index_to_path.get(&id).unwrap());
+
+        insert_matched_params(ext_mut, &matched.params);
+
+        // dbg!(&matched.params);
+
+        let route = self.routes.get(id).expect("should be in router");
+
+        let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodGraph(map) => {
-                let chain = map.0.get(_method).expect("handler should exist").clone();
+                let chain = map.0.get(method).expect("handler should exist").clone();
                 chain.next(req)
             }
         };
@@ -132,7 +147,40 @@ impl Router {
     }
 }
 
-pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
+#[derive(Clone, Debug)]
+struct MatchedNestedPath(Arc<str>);
+
+#[derive(Clone, Debug)]
+pub struct MatchedPath(pub(crate) Arc<str>);
+
+fn insert_matched_path(ext: &mut Extensions, path: &Arc<str>) {
+    let matched_path = append_nested_matched_path(&Arc::new(path), ext);
+
+    if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
+        ext.insert(MatchedNestedPath(matched_path));
+        debug_assert!(ext.remove::<MatchedPath>().is_none());
+    } else {
+        ext.insert(MatchedPath(matched_path));
+        ext.remove::<MatchedNestedPath>();
+    }
+}
+
+fn append_nested_matched_path(matched_path: &Arc<str>, extensions: &http::Extensions) -> Arc<str> {
+    if let Some(previous) = extensions
+        .get::<MatchedPath>()
+        .map(|matched_path| &matched_path.0)
+        .or_else(|| Some(&extensions.get::<MatchedNestedPath>()?.0))
+    {
+        let previous = previous
+            .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
+            .unwrap_or(previous);
+
+        let matched_path = format!("{previous}{matched_path}");
+        matched_path.into()
+    } else {
+        Arc::clone(matched_path)
+    }
+}
 
 #[derive(Default, Debug, Clone)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);
