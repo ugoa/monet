@@ -24,10 +24,6 @@ pub fn post(handler: impl Endpoint) -> Route {
     Route::MethodGraph(MethodGraph::new().post(handler))
 }
 
-pub fn service(handler: impl Endpoint) -> Route {
-    Route::Service(Rc::new(handler))
-}
-
 #[derive(Default, Debug)]
 pub struct Router {
     pub inner: matchit::Router<usize>,
@@ -39,13 +35,13 @@ pub struct Router {
 
 pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Route {
     MethodGraph(MethodGraph),
-    Service(Rc<dyn Endpoint>),
+    Service(Chain),
 }
 
 impl MethodGraph {
@@ -92,10 +88,10 @@ impl Router {
         let route = self.routes.get(idx).expect("should be in router");
 
         let resp_fut = match route {
-            Route::Service(svc) => svc.call(req),
+            Route::Service(svc) => svc.clone().next(req),
             Route::MethodGraph(map) => {
                 let chain = map.0.get(_method).expect("handler should exist").clone();
-                Box::pin(chain.next(req))
+                chain.next(req)
             }
         };
 
