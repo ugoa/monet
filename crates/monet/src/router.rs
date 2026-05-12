@@ -17,6 +17,7 @@ use crate::{
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
+    router::url_params::NEST_TAIL_PARAM,
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
@@ -136,8 +137,6 @@ impl Router {
         self.index_to_path.insert(new_index, path.into());
     }
 }
-
-pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
 
 #[derive(Default, Debug, Clone)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);

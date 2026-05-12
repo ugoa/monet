@@ -3,6 +3,14 @@ use std::sync::Arc;
 use http::Extensions;
 use matchit::Params;
 
+pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
+
+pub(crate) const NEST_TAIL_PARAM_WILDCARD: &str = "/{*__private__axum_nest_tail_param}";
+
+pub(crate) const FALLBACK_PARAM: &str = "__private__axum_fallback";
+
+pub(crate) const FALLBACK_PARAM_WILDCARD: &str = "/{*__private__axum_fallback}";
+
 #[derive(Clone)]
 pub(crate) enum UrlParams {
     Params(Vec<(Arc<str>, Arc<str>)>),
@@ -19,7 +27,7 @@ pub(super) fn attach_url_params(extensions: &mut Extensions, params: &Params<'_,
 
     let params = params
         .iter()
-        .filter(|(key, _)| !key.starts_with(super::NEST_TAIL_PARAM))
+        .filter(|(key, _)| !key.starts_with(NEST_TAIL_PARAM))
         // .filter(|(key, _)| !key.starts_with(super::FALLBACK_PARAM))
         .map(|(k, v)| {
             if let Some(decoded) = pct_decode(v) {
