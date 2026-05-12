@@ -98,12 +98,12 @@ impl Router {
 
         let mut chain = Chain::new(ServeDir::new(dir));
         let stripe_prefix_middleware = Rc::new(StripPrefix(Arc::new(path.to_string())));
-        chain.wrap_by(stripe_prefix_middleware);
+        chain.append(stripe_prefix_middleware);
         self.at(&wildcard_path, Route::Service(chain))
     }
 
     pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
-        trace!("Adding middleware {}", middleware.name());
+        trace!("Adding middleware: {}", middleware.name());
         let shared = Rc::new(middleware);
         self.routes
             .iter_mut()
@@ -141,9 +141,9 @@ impl Route {
             Route::MethodGraph(map) => {
                 map.0
                     .iter_mut()
-                    .for_each(|(_, chain)| chain.wrap_by(middleware.clone()));
+                    .for_each(|(_, chain)| chain.append(middleware.clone()));
             }
-            Route::Service(chain) => chain.wrap_by(middleware.clone()),
+            Route::Service(chain) => chain.append(middleware.clone()),
         }
     }
 }

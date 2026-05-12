@@ -80,7 +80,7 @@ impl Chain {
         }
     }
 
-    pub fn wrap_by(&mut self, m: Rc<impl Middleware>) {
+    pub fn append(&mut self, m: Rc<impl Middleware>) {
         self.middlewares.push(m.clone());
     }
 
