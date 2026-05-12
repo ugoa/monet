@@ -13,7 +13,7 @@ use serde_core::de::DeserializeOwned;
 use crate::{
     body::Body,
     error::Error,
-    types::{Form, Json, has_content_type},
+    types::{Form, Json, Query, has_content_type},
 };
 
 pub struct Request {
@@ -73,7 +73,7 @@ impl Request {
         &mut self.head.extensions
     }
 
-    pub fn query<T>(&self) -> Result<T, Error>
+    pub fn path<T>(&self) -> Result<T, Error>
     where
         T: DeserializeOwned,
     {
@@ -81,6 +81,18 @@ impl Request {
         let parser = form_urlencoded::parse(query.as_bytes());
         let deserializer = serde_urlencoded::Deserializer::new(parser);
         serde_path_to_error::deserialize(deserializer).map_err(Error::FailedToDeserializeQuery)
+    }
+
+    pub fn query<T>(&self) -> Result<Query<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        let query = self.uri().query().unwrap_or_default();
+        let parser = form_urlencoded::parse(query.as_bytes());
+        let deserializer = serde_urlencoded::Deserializer::new(parser);
+        serde_path_to_error::deserialize(deserializer)
+            .map(Query)
+            .map_err(Error::FailedToDeserializeQuery)
     }
 
     pub fn raw_query(&self) -> Option<String> {
