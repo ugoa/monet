@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
     convert::Infallible,
+    path::Path,
     rc::Rc,
 };
 
@@ -9,6 +10,7 @@ use http::Method;
 use tracing::trace;
 
 use crate::{
+    ServeDir,
     handler::{Chain, Endpoint, Middleware},
     request::Request,
     response::Response,
@@ -130,8 +132,8 @@ impl Router {
         todo!()
     }
 
-    pub fn serve_dir(self, _path: &str, _handler: impl Endpoint) -> Self {
-        todo!()
+    pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
+        self.at(path, Route::Service(Rc::new(ServeDir::new(dir))))
     }
 
     pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
