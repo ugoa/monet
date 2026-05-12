@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use monet::{Request, Router, extract::path::Path, get};
+use monet::{Path, Request, Router, get};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

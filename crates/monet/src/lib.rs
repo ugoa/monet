@@ -17,5 +17,5 @@ pub use crate::{
     response::{IntoResponse, Response},
     router::{Router, get, post},
     serve::run,
-    types::{Form, Json},
+    types::{Form, Json, Path},
 };
