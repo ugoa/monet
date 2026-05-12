@@ -7,6 +7,9 @@ use crate::{
     response::{IntoResponse, Response},
 };
 
+pub mod endpoint;
+pub mod middleware;
+
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
     async fn transform(&self, request: Request, chain: Chain) -> Response;
@@ -14,6 +17,12 @@ pub trait Middleware: 'static {
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
+    }
+}
+
+impl std::fmt::Debug for dyn Middleware {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Endpoint: {{{}}}", self.name())
     }
 }
 
@@ -32,6 +41,17 @@ where
 #[async_trait(?Send)]
 pub trait Endpoint: 'static {
     async fn call(&self, req: Request) -> Response;
+
+    /// Set the middleware's name. By default it uses the type signature.
+    fn name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+}
+
+impl std::fmt::Debug for dyn Endpoint {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Endpoint: {{{}}}", self.name())
+    }
 }
 
 #[async_trait(?Send)]
@@ -46,13 +66,26 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Chain {
-    pub(crate) endpoint: Rc<dyn Endpoint>,
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
+    pub(crate) endpoint: Rc<dyn Endpoint>,
 }
 
 impl Chain {
+    pub fn new(endpoint: impl Endpoint) -> Self {
+        Chain {
+            middlewares: Default::default(),
+            endpoint: Rc::new(endpoint),
+        }
+    }
+
+    pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
+        let shared = Rc::new(middleware);
+        self.middlewares.push(shared.clone());
+        self
+    }
+
     pub async fn next(mut self, req: Request) -> Response {
         if let Some(current) = self.middlewares.pop() {
             current.transform(req, self).await

@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use http::{HeaderMap, HeaderValue, Method, Uri, Version};
+use http::{HeaderMap, HeaderValue, Method, Uri, Version, request::Parts};
 use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
@@ -18,8 +18,8 @@ use crate::{
 
 pub struct Request {
     pub body: Body,
+    pub head: Parts,
     pub state: State,
-    head: Parts,
 }
 
 impl Request {
@@ -132,24 +132,10 @@ impl Request {
 
 impl From<http::Request<IncomingBody>> for Request {
     fn from(http_req: http::Request<IncomingBody>) -> Self {
-        let (
-            http::request::Parts {
-                method,
-                uri,
-                version,
-                headers,
-                ..
-            },
-            body,
-        ) = http_req.into_parts();
+        let (parts, body) = http_req.into_parts();
 
         Self {
-            head: Parts {
-                method,
-                uri,
-                version,
-                headers,
-            },
+            head: parts,
             body: Body::new(body),
             state: State { inner: None },
         }
@@ -230,7 +216,7 @@ impl Hasher for IdHasher {
 }
 
 #[derive(Clone)]
-struct Parts {
+struct XParts {
     /// The request's method
     method: Method,
 

@@ -1,7 +1,5 @@
 use std::{
-    convert::Infallible,
     future::Future,
-    io::{self},
     net::SocketAddr,
     ops::DerefMut,
     panic::AssertUnwindSafe,
@@ -18,7 +16,35 @@ use futures_concurrency::future::FutureGroup;
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::{Request, Router};
+use crate::Router;
+
+pub fn run(addr: SocketAddr, router: Router) {
+    dbg!(&router);
+    let app = async {
+        let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
+        let mut group = FutureGroup::new();
+        loop {
+            tokio::select! {
+                biased;
+                stream = listener.accepts() => {
+                    println!("Received at {}", jiff::Timestamp::now());
+                    group.insert(AssertUnwindSafe(async {
+                        http1::Builder::new()
+                            .serve_connection(
+                                HyperStream::new(stream.0),
+                                service_fn(async |req| router.handle(req.into()).await),
+                            )
+                            .await
+                            .expect("Should handle request successfully")
+                    }).catch_unwind());
+                },
+                _ =  group.next(), if !group.is_empty()  => (),
+            }
+        }
+    };
+    let rt = compio::runtime::Runtime::new().expect("cannot create runtime");
+    rt.block_on(app);
+}
 
 /// Types that can listen for connections.
 pub trait Listener: 'static {
@@ -35,7 +61,7 @@ pub trait Listener: 'static {
     fn accepts(&mut self) -> impl Future<Output = (Self::Io, Self::Addr)>;
 
     /// Returns the local address that this listener is bound to.
-    fn local_addr(&self) -> io::Result<Self::Addr>;
+    fn local_addr(&self) -> std::io::Result<Self::Addr>;
 }
 
 impl Listener for TcpListener {
@@ -51,7 +77,7 @@ impl Listener for TcpListener {
         }
     }
 
-    fn local_addr(&self) -> io::Result<Self::Addr> {
+    fn local_addr(&self) -> std::io::Result<Self::Addr> {
         Self::local_addr(self)
     }
 }
@@ -69,7 +95,7 @@ impl Listener for UnixListener {
         }
     }
 
-    fn local_addr(&self) -> io::Result<Self::Addr> {
+    fn local_addr(&self) -> std::io::Result<Self::Addr> {
         Self::local_addr(self)
     }
 }
@@ -100,7 +126,7 @@ impl<S: AsyncRead + Unpin + 'static> hyper::rt::Read for HyperStream<S> {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         mut buf: hyper::rt::ReadBufCursor<'_>,
-    ) -> Poll<io::Result<()>> {
+    ) -> Poll<std::io::Result<()>> {
         let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
         let slice = unsafe { buf.as_mut() };
         let len = ready!(stream.poll_read_uninit(cx, slice))?;
@@ -114,55 +140,18 @@ impl<S: AsyncWrite + Unpin + 'static> hyper::rt::Write for HyperStream<S> {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+    ) -> Poll<std::io::Result<usize>> {
         let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
         futures_util::AsyncWrite::poll_write(stream, cx, buf)
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
         futures_util::AsyncWrite::poll_flush(stream, cx)
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         let stream = unsafe { self.map_unchecked_mut(|this| this.0.deref_mut()) };
         futures_util::AsyncWrite::poll_close(stream, cx)
     }
-}
-
-impl hyper::service::Service<Request> for Router {
-    type Response = crate::Response;
-    type Error = Infallible;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
-
-    fn call(&self, req: Request) -> Self::Future {
-        Box::pin(self.run(req))
-    }
-}
-
-pub fn serve(addr: SocketAddr, router: Router) {
-    let app = async {
-        let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
-        let mut group = FutureGroup::new();
-        loop {
-            tokio::select! {
-                biased;
-                stream = listener.accepts() => {
-                    println!("Received at {}", jiff::Timestamp::now());
-                    group.insert(AssertUnwindSafe(async {
-                        http1::Builder::new()
-                            .serve_connection(
-                                HyperStream::new(stream.0),
-                                service_fn(async |req| router.run(req.into()).await),
-                            )
-                            .await
-                            .expect("Should handle request successfully")
-                    }).catch_unwind());
-                },
-                _ =  group.next(), if !group.is_empty()  => (),
-            }
-        }
-    };
-    let rt = compio::runtime::Runtime::new().expect("cannot create runtime");
-    rt.block_on(app);
 }

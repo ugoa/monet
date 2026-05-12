@@ -6,8 +6,8 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, get, post,
-    request::Request, types::Html,
+    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, get,
+    handler::endpoint::serve_dir::ServeDir, post, request::Request, types::Html,
 };
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +72,7 @@ async fn parse_form(req: Request) -> Result<Form<FormPayload>, Error> {
     req.into_form().await
 }
 
-async fn return_html(req: Request) -> Html<&'static str> {
+async fn return_html(_req: Request) -> Html<&'static str> {
     Html(
         r#"
         <!doctype html>
@@ -93,6 +93,7 @@ thread_local! {
 }
 
 struct RequestCounter;
+
 #[async_trait(?Send)]
 impl Middleware for RequestCounter {
     async fn transform(&self, req: Request, chain: Chain) -> Response {
@@ -109,15 +110,18 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
+    let service = ServeDir::new("static");
+
     let app = Router::new()
         .at("/", get(root))
         .at("/query", get(query))
-        .wrap(simple_middleware)
+        .wrap_by(simple_middleware)
         .at("/json", post(parse_json))
         .at("/form", post(parse_form))
         .at("/html", get(return_html))
-        .wrap(RequestCounter)
-        .wrap(set_state);
+        .wrap_by(RequestCounter)
+        .wrap_by(set_state)
+        .at("/hello.html", get(service));
 
-    monet::serve(addr, app);
+    monet::run(addr, app);
 }
