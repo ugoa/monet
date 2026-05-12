@@ -130,7 +130,7 @@ impl Router {
         todo!()
     }
 
-    pub fn service(self, _path: &str, _handler: impl Endpoint) -> Self {
+    pub fn serve_dir(self, _path: &str, _handler: impl Endpoint) -> Self {
         todo!()
     }
 
