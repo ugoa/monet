@@ -55,6 +55,7 @@ impl Router {
 
         let ext_mut = req.extensions_mut();
         let path = self.index_to_path.get(&id).unwrap();
+
         insert_matched_path(ext_mut, path);
         insert_matched_params(ext_mut, &matched.params);
 
@@ -151,7 +152,7 @@ struct MatchedNestedPath(Arc<str>);
 #[derive(Clone, Debug)]
 pub struct MatchedPath(pub(crate) Arc<str>);
 
-fn insert_matched_path(ext: &mut Extensions, path: &str) {
+fn insert_matched_path(ext: &mut Extensions, path: &Arc<str>) {
     let matched_path = append_nested_matched_path(&Arc::new(path), ext);
 
     if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
@@ -166,7 +167,7 @@ fn insert_matched_path(ext: &mut Extensions, path: &str) {
 fn append_nested_matched_path(matched_path: &Arc<str>, extensions: &http::Extensions) -> Arc<str> {
     if let Some(previous) = extensions
         .get::<MatchedPath>()
-        .map(|matched_path| matched_path.as_str())
+        .map(|matched_path| &matched_path.0)
         .or_else(|| Some(&extensions.get::<MatchedNestedPath>()?.0))
     {
         let previous = previous
@@ -240,28 +241,5 @@ fn concat_path(prefix: &str, path: &str) -> String {
         prefix.into()
     } else {
         format!("{prefix}{path}")
-    }
-}
-
-pub(crate) fn set_matched_path_for_request(
-    id: usize,
-    route_id_to_path: &HashMap<RouteId, Arc<str>>,
-    extensions: &mut http::Extensions,
-) {
-    let Some(matched_path) = route_id_to_path.get(&id) else {
-        #[cfg(debug_assertions)]
-        panic!("should always have a matched path for a route id");
-        #[cfg(not(debug_assertions))]
-        return;
-    };
-
-    let matched_path = append_nested_matched_path(matched_path, extensions);
-
-    if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
-        extensions.insert(MatchedNestedPath(matched_path));
-        debug_assert!(extensions.remove::<MatchedPath>().is_none());
-    } else {
-        extensions.insert(MatchedPath(matched_path));
-        extensions.remove::<MatchedNestedPath>();
     }
 }
