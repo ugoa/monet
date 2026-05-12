@@ -134,7 +134,7 @@ impl Router {
         todo!()
     }
 
-    pub fn wrap(mut self, middleware: impl Middleware) -> Self {
+    pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
         trace!("Adding middleware {}", middleware.name());
         let shared = Rc::new(middleware);
         self.routes.iter_mut().for_each(|route| match route {

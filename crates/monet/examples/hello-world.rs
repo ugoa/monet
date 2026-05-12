@@ -115,12 +115,12 @@ fn main() {
     let app = Router::new()
         .at("/", get(root))
         .at("/query", get(query))
-        .wrap(simple_middleware)
+        .wrap_by(simple_middleware)
         .at("/json", post(parse_json))
         .at("/form", post(parse_form))
         .at("/html", get(return_html))
-        .wrap(RequestCounter)
-        .wrap(set_state)
+        .wrap_by(RequestCounter)
+        .wrap_by(set_state)
         .at("/hello.html", get(service));
 
     monet::serve(addr, app);
