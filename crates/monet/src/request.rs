@@ -2,6 +2,7 @@ use std::{
     any::{Any, TypeId},
     collections::HashMap,
     hash::{BuildHasherDefault, Hasher},
+    sync::Arc,
 };
 
 use bytes::Bytes;
@@ -113,7 +114,6 @@ impl Request {
             .map_err(Error::FailedToDeserializeQuery)
     }
 
-    #[cfg(not(feature = "no-matched-path"))]
     pub fn matched_path(&self) -> Option<&Arc<str>> {
         use crate::router::url::MatchedPath;
 

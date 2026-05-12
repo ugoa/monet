@@ -17,7 +17,7 @@ use crate::{
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
