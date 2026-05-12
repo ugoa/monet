@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use http::{Extensions, HeaderMap, HeaderValue, Method, Uri, Version, header, request::Parts};
+use http::{Extensions, HeaderMap, Method, Uri, Version, request::Parts};
 use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
@@ -14,6 +14,7 @@ use crate::{
     body::Body,
     error::Error,
     extract::path::Path,
+    router::url_params::UrlParams,
     types::{Form, Json, Query, has_content_type},
 };
 
@@ -78,7 +79,27 @@ impl Request {
     where
         T: DeserializeOwned,
     {
-        todo!()
+        match self.extensions().get::<UrlParams>() {
+            Some(UrlParams::Params(params)) => {
+                let mut serializer = form_urlencoded::Serializer::new(String::new());
+                params.iter().for_each(|(k, v)| {
+                    serializer.append_pair(k, v);
+                });
+                let encoded_querystring = serializer.finish();
+
+                let parser = form_urlencoded::parse(encoded_querystring.as_bytes());
+                let deserializer = serde_urlencoded::Deserializer::new(parser);
+                serde_path_to_error::deserialize(deserializer)
+                    .map(Path)
+                    .map_err(Error::FailedToDeserializePathParams)
+            }
+            Some(UrlParams::InvalidUtf8InPathParam { key }) => {
+                Err(crate::Error::InvalidUtf8InPathParam {
+                    key: key.to_string(),
+                })
+            }
+            None => Err(crate::Error::MissingPathParams),
+        }
     }
 
     pub fn query<T>(&self) -> Result<Query<T>, Error>
@@ -233,21 +254,6 @@ impl Hasher for IdHasher {
     fn finish(&self) -> u64 {
         self.0
     }
-}
-
-#[derive(Clone)]
-struct XParts {
-    /// The request's method
-    method: Method,
-
-    /// The request's URI
-    uri: Uri,
-
-    /// The request's version
-    version: Version,
-
-    /// The request's headers
-    headers: HeaderMap<HeaderValue>,
 }
 
 pub(crate) trait AnyClone: Any {

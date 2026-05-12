@@ -19,7 +19,7 @@ use send_wrapper::SendWrapper;
 use crate::Router;
 
 pub fn run(addr: SocketAddr, router: Router) {
-    dbg!(&router);
+    // dbg!(&router);
     let app = async {
         let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
         let mut group = FutureGroup::new();
