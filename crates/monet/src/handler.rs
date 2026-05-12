@@ -80,10 +80,8 @@ impl Chain {
         }
     }
 
-    pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
-        let shared = Rc::new(middleware);
-        self.middlewares.push(shared.clone());
-        self
+    pub fn append(&mut self, m: Rc<impl Middleware>) {
+        self.middlewares.push(m.clone());
     }
 
     pub async fn next(mut self, req: Request) -> Response {

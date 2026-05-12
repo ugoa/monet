@@ -79,7 +79,8 @@ impl Router {
         }
 
         for (id, route) in other.routes.into_iter().enumerate() {
-            let assertion = "should always succeed, otherwise it would be a monet bug";
+            let assertion =
+                "The path should've been registered already, otherwise please report a bug";
             let inner_path = other.index_to_path.get(&id).expect(assertion);
 
             let new_path = concat_path(prefix, inner_path);
@@ -89,19 +90,28 @@ impl Router {
         self
     }
 
-    pub fn merge(self, _path: &str, _other: Self) -> Self {
-        todo!()
+    pub fn merge(mut self, other: Self) -> Self {
+        for (id, route) in other.routes.into_iter().enumerate() {
+            let assertion =
+                "The path should've been registered already, otherwise please report a bug";
+            let path = other.index_to_path.get(&id).expect(assertion);
+
+            self = self.at(path, route);
+        }
+        self
     }
 
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
         let wildcard_path = format!("{}/{{*{}}}", path.trim_end_matches('/'), NEST_TAIL_PARAM);
 
-        let chain = Chain::new(ServeDir::new(dir)).wrap_by(StripPrefix(Arc::new(path.to_string())));
+        let mut chain = Chain::new(ServeDir::new(dir));
+        let stripe_prefix_middleware = Rc::new(StripPrefix(Arc::new(path.to_string())));
+        chain.append(stripe_prefix_middleware);
         self.at(&wildcard_path, Route::Service(chain))
     }
 
     pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
-        trace!("Adding middleware {}", middleware.name());
+        trace!("Adding middleware: {}", middleware.name());
         let shared = Rc::new(middleware);
         self.routes
             .iter_mut()
@@ -139,9 +149,9 @@ impl Route {
             Route::MethodGraph(map) => {
                 map.0
                     .iter_mut()
-                    .for_each(|(_, chain)| chain.middlewares.push(middleware.clone()));
+                    .for_each(|(_, chain)| chain.append(middleware.clone()));
             }
-            Route::Service(_) => panic!("Applying middleware to Service is not supported yet"),
+            Route::Service(chain) => chain.append(middleware.clone()),
         }
     }
 }
