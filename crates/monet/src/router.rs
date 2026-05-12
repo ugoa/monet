@@ -69,7 +69,7 @@ impl Router {
     }
 
     pub fn nest(mut self, prefix: &str, other: Self) -> Self {
-        assert!(prefix.starts_with('/'),);
+        assert!(prefix.starts_with('/'));
         assert!(prefix.len() > 1);
 
         if prefix.split('/').any(|segment| {
