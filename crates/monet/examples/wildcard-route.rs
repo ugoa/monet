@@ -2,8 +2,9 @@ use std::net::SocketAddr;
 
 use monet::{Request, Router, get};
 
-async fn catch_all(_req: Request) -> String {
-    "nothing excapes me".to_string()
+async fn catch_all(req: Request) -> String {
+    let matched = req.matched_path().unwrap();
+    format!("nothing excapes by matcher: {matched}")
 }
 
 fn main() {

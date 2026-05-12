@@ -2,6 +2,7 @@ use std::{
     any::{Any, TypeId},
     collections::HashMap,
     hash::{BuildHasherDefault, Hasher},
+    sync::Arc,
 };
 
 use bytes::Bytes;
@@ -13,7 +14,7 @@ use serde_core::de::DeserializeOwned;
 use crate::{
     body::Body,
     error::Error,
-    router::url_params::UrlParams,
+    router::{MatchedPath, url_params::UrlParams},
     types::{Form, Json, Path, Query, has_content_type},
 };
 
@@ -111,6 +112,10 @@ impl Request {
         serde_path_to_error::deserialize(deserializer)
             .map(Query)
             .map_err(Error::FailedToDeserializeQuery)
+    }
+
+    pub fn matched_path(&self) -> Option<&Arc<str>> {
+        self.extensions().get::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
