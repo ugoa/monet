@@ -8,8 +8,8 @@ pub mod serve;
 pub mod types;
 
 pub use async_trait::async_trait;
-pub use monet_macros::handler;
 
+// pub use monet_macros::handler;
 pub use crate::{
     error::{BodyError, BoxError},
     handler::{Chain, Endpoint, Middleware, endpoint::serve_dir::ServeDir},
