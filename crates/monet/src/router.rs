@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
-    Route::MethodGraph(MethodGraph::new().post(handler))
+    Route::MethodGraph(MethodGraph::new().get(handler))
 }
 
 pub fn post(handler: impl Endpoint) -> Route {
@@ -26,7 +26,7 @@ pub fn service(handler: impl Endpoint) -> Route {
     Route::Service(Rc::new(handler))
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
@@ -35,9 +35,10 @@ pub struct Router {
     pub index_to_path: HashMap<usize, Rc<str>>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct MethodGraph(pub HashMap<Method, Chain>);
 
+#[derive(Debug)]
 pub enum Route {
     MethodGraph(MethodGraph),
     Service(Rc<dyn Endpoint>),
@@ -101,6 +102,7 @@ impl Router {
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
         if !self.path_to_index.contains_key(path) {
+            println!("adding {}", &path);
             self.new_path(path, route);
         }
         self
@@ -117,16 +119,17 @@ impl Router {
         }
 
         for (id, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other
-                .index_to_path
-                .get(&id)
-                .expect("should always succeed. It is a bug in monet if not found");
+            let assertion = "should always succeed, otherwise it would be a monet bug";
+            let inner_path = other.index_to_path.get(&id).expect(assertion);
+
             let new_path = concat_path(prefix, inner_path);
+            dbg!(&new_path);
+            println!("{:?}", route);
 
             self = self.at(&new_path, route);
         }
 
-        println!("{:?}", self.inner);
+        println!("{:?}", &self);
         self
     }
 

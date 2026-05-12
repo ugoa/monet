@@ -19,6 +19,12 @@ pub trait Middleware: 'static {
     }
 }
 
+impl std::fmt::Debug for dyn Middleware {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Endpoint: {{{}}}", self.name())
+    }
+}
+
 #[async_trait(?Send)]
 impl<F, Fut, Resp> Middleware for F
 where
@@ -34,6 +40,17 @@ where
 #[async_trait(?Send)]
 pub trait Endpoint: 'static {
     async fn call(&self, req: Request) -> Response;
+
+    /// Set the middleware's name. By default it uses the type signature.
+    fn name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+}
+
+impl std::fmt::Debug for dyn Endpoint {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Endpoint: {{{}}}", self.name())
+    }
 }
 
 #[async_trait(?Send)]
@@ -48,7 +65,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Chain {
     pub(crate) endpoint: Rc<dyn Endpoint>,
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
