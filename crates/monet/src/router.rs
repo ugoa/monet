@@ -54,9 +54,7 @@ impl Router {
         let id = *matched.value;
 
         let ext_mut = req.extensions_mut();
-        let path = self.index_to_path.get(&id).unwrap();
-
-        insert_matched_path(ext_mut, path);
+        insert_matched_path(ext_mut, self.index_to_path.get(&id).unwrap());
         insert_matched_params(ext_mut, &matched.params);
 
         // dbg!(&matched.params);
