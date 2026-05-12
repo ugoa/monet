@@ -39,17 +39,17 @@ pub(super) fn insert_matched_params(extensions: &mut Extensions, params: &Params
         .collect::<Result<Vec<_>, _>>();
 
     match (current_params, params) {
-        (Some(UrlParams::InvalidUtf8InPathParam { .. }), _) => {
-            unreachable!("we check for this state earlier in this method")
-        }
-        (_, Err(invalid_key)) => {
-            extensions.insert(UrlParams::InvalidUtf8InPathParam { key: invalid_key });
+        (None, Ok(params)) => {
+            extensions.insert(UrlParams::Params(params));
         }
         (Some(UrlParams::Params(current)), Ok(params)) => {
             current.extend(params);
         }
-        (None, Ok(params)) => {
-            extensions.insert(UrlParams::Params(params));
+        (_, Err(invalid_key)) => {
+            extensions.insert(UrlParams::InvalidUtf8InPathParam { key: invalid_key });
+        }
+        (Some(UrlParams::InvalidUtf8InPathParam { .. }), _) => {
+            unreachable!("we check for this state earlier in this method")
         }
     }
 }
