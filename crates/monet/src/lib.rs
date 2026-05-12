@@ -1,6 +1,5 @@
 pub mod body;
 pub mod error;
-pub mod extract;
 pub mod handler;
 pub mod request;
 pub mod response;

@@ -13,9 +13,8 @@ use serde_core::de::DeserializeOwned;
 use crate::{
     body::Body,
     error::Error,
-    extract::path::Path,
     router::url_params::UrlParams,
-    types::{Form, Json, Query, has_content_type},
+    types::{Form, Json, Path, Query, has_content_type},
 };
 
 pub struct Request {
