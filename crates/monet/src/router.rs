@@ -17,7 +17,7 @@ use crate::{
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url_params::NEST_TAIL_PARAM,
+    router::url_params::{NEST_TAIL_PARAM, attach_url_params},
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
@@ -42,24 +42,27 @@ impl Router {
         Default::default()
     }
 
-    pub fn handle(&self, req: Request) -> impl Future<Output = Result<Response, Infallible>> {
-        let _method = req.method();
-        let _path = req.uri().path();
+    pub fn handle(&self, mut req: Request) -> impl Future<Output = Result<Response, Infallible>> {
+        let path = req.uri().path().to_string();
 
-        // TODO:
-        //      Return 404 not found if no matching routes, given default-fallback is enabled
-
-        let Ok(matched) = self.inner.at(req.uri().path()) else {
-            panic!("Path {} not found", req.uri().path());
+        let Ok(matched) = self.inner.at(path.as_str()) else {
+            // TODO:
+            //      Return 404 not found if no matching routes, given default-fallback is enabled
+            panic!("Path {} not found", path);
         };
+
+        dbg!(&matched.params);
+
+        attach_url_params(req.extensions_mut(), &matched.params);
 
         let idx = *matched.value;
         let route = self.routes.get(idx).expect("should be in router");
 
+        let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodGraph(map) => {
-                let chain = map.0.get(_method).expect("handler should exist").clone();
+                let chain = map.0.get(method).expect("handler should exist").clone();
                 chain.next(req)
             }
         };

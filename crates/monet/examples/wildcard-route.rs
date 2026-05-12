@@ -10,7 +10,7 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    let app = Router::new().at("/wild/{*rest}", get(catch_all));
+    let app = Router::new().at("/wild/{id}/card/{*another}", get(catch_all));
 
     monet::run(addr, app);
 }

@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use http::{HeaderMap, HeaderValue, Method, Uri, Version, request::Parts};
+use http::{Extensions, HeaderMap, HeaderValue, Method, Uri, Version, header, request::Parts};
 use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
@@ -61,6 +61,16 @@ impl Request {
     #[inline]
     pub fn headers_mut(&mut self) -> &mut HeaderMap {
         &mut self.head.headers
+    }
+
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.head.extensions
+    }
+
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.head.extensions
     }
 
     pub fn query<T>(&self) -> Result<T, Error>
