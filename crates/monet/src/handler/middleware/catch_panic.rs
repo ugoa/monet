@@ -1,8 +1,8 @@
-use std::{any::Any, panic::AssertUnwindSafe};
+use std::panic::AssertUnwindSafe;
 
 use async_trait::async_trait;
 use futures_util::FutureExt;
-use http::{HeaderValue, StatusCode};
+use http::StatusCode;
 
 use crate::{Chain, IntoResponse, Middleware, Request, Response};
 
@@ -20,10 +20,6 @@ impl Middleware for CatchPanic {
 
                 let mut resp = "Service panicked".into_response();
                 *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-
-                let text = HeaderValue::from_static("text/plain; charset=utf-8");
-                resp.headers_mut().insert(http::header::CONTENT_TYPE, text);
-
                 resp
             })
     }

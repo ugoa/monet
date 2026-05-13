@@ -1,4 +1,5 @@
 use std::{
+    convert::Infallible,
     future::Future,
     net::SocketAddr,
     ops::DerefMut,
@@ -11,12 +12,13 @@ use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
 };
-use futures::{FutureExt, stream::StreamExt};
+use futures::stream::StreamExt;
 use futures_concurrency::future::FutureGroup;
+use futures_util::FutureExt;
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::Router;
+use crate::{GUARANTEE, Router};
 
 pub fn run(addr: SocketAddr, router: Router) {
     // dbg!(&router);
@@ -27,15 +29,16 @@ pub fn run(addr: SocketAddr, router: Router) {
             tokio::select! {
                 biased;
                 stream = listener.accepts() => {
-                    println!("Received at {}", jiff::Timestamp::now());
                     group.insert(AssertUnwindSafe(async {
                         http1::Builder::new()
                             .serve_connection(
                                 HyperStream::new(stream.0),
-                                service_fn(async |req| router.handle(req.into()).await),
+                                service_fn(async |req| {
+                                    router.handle(req.into()).map(Ok::<_, Infallible>).await
+                                }),
                             )
                             .await
-                            .expect("Should handle request successfully")
+                            .expect(GUARANTEE)
                     }).catch_unwind());
                 },
                 _ =  group.next(), if !group.is_empty()  => (),

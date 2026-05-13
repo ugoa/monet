@@ -1,19 +1,20 @@
+#[cfg(test)]
+pub(crate) mod tests;
+
 pub(crate) mod url;
 
+use core::panic;
 use std::{
     collections::{HashMap, hash_map::Entry},
-    convert::Infallible,
     path::Path,
     rc::Rc,
     sync::Arc,
 };
 
-use futures_util::FutureExt;
 use http::Method;
-use tracing::trace;
 
 use crate::{
-    ServeDir,
+    GUARANTEE, ServeDir,
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
@@ -21,20 +22,34 @@ use crate::{
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
-    Route::MethodGraph(MethodGraph::new().get(handler))
+    let mut md = MethodDispatch::new();
+    md.register(handler, Method::GET);
+
+    Route::MethodDispatch(md)
 }
 
 pub fn post(handler: impl Endpoint) -> Route {
-    Route::MethodGraph(MethodGraph::new().post(handler))
+    let mut md = MethodDispatch::new();
+    md.register(handler, Method::POST);
+
+    Route::MethodDispatch(md)
+}
+
+pub fn catch(handler: impl Endpoint) -> Route {
+    let mut md = MethodDispatch::new();
+    md.fallback(handler);
+
+    Route::MethodDispatch(md)
 }
 
 #[derive(Default, Debug)]
 pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
-    pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
+    pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Router {
@@ -42,43 +57,69 @@ impl Router {
         Default::default()
     }
 
-    pub fn handle(&self, mut req: Request) -> impl Future<Output = Result<Response, Infallible>> {
+    pub fn handle(&self, mut req: Request) -> impl Future<Output = Response> {
         let request_path = req.uri().path().to_string();
 
         let Ok(matched) = self.inner.at(request_path.as_str()) else {
-            // TODO:
-            //      Return 404 not found if no matching routes, given default-fallback is enabled
-            panic!("Path {} not found", request_path);
+            match &self.fallback {
+                Some(handler) => return handler.call(req),
+                None => panic!("Path {} not found", request_path),
+            }
         };
 
-        let id = *matched.value;
+        let index = *matched.value;
 
         let ext_mut = req.extensions_mut();
 
         // #[cfg(not(feature = "no-matched-path"))]
-        insert_matched_path(ext_mut, self.index_to_path.get(&id).unwrap());
+        insert_matched_path(ext_mut, self.index_to_path.get(&index).unwrap());
 
         insert_matched_params(ext_mut, &matched.params);
 
         // dbg!(&matched.params);
 
-        let route = self.routes.get(id).expect("should be in router");
+        let route = self.routes.get(index).expect(GUARANTEE);
 
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodGraph(map) => {
-                let chain = map.0.get(method).expect("handler should exist").clone();
-                chain.next(req)
-            }
+            Route::MethodDispatch(dispatch) => match dispatch.inner.get(method) {
+                Some(chain) => chain.clone().next(req),
+                None => match &dispatch.fallback {
+                    Some(handler) => return handler.call(req),
+                    None => panic!("No handler for {} Method at Route {}", method, request_path),
+                },
+            },
         };
 
-        resp_fut.map(Ok::<_, Infallible>)
+        Box::pin(resp_fut)
     }
 
-    pub fn at(mut self, path: &str, route: Route) -> Self {
-        if !self.path_to_index.contains_key(path) {
-            self.new_path(path, route);
+    pub fn at(mut self, path: &str, other_route: Route) -> Self {
+        if let Some(index) = self.path_to_index.get(path) {
+            let existing_route = self.routes.get_mut(*index).unwrap();
+            existing_route.merge(other_route);
+        } else {
+            self.new_route(path, other_route);
+        }
+
+        self
+    }
+
+    pub fn merge(mut self, other: Self) -> Self {
+        // Merge fallback
+        match (&self.fallback, &other.fallback) {
+            (Some(f), None) | (None, Some(f)) => self.fallback = Some(f.clone()),
+            (None, None) => (),
+            (Some(_), Some(_)) => {
+                panic!("Cannot merge two `Router`s that both have a fallback")
+            }
+        }
+
+        for (index, route) in other.routes.into_iter().enumerate() {
+            let path = other.index_to_path.get(&index).expect(GUARANTEE);
+
+            self = self.at(path, route);
         }
         self
     }
@@ -93,26 +134,13 @@ impl Router {
             panic!("Invalid route: nested routes cannot contain wildcards (*)");
         }
 
-        for (id, route) in other.routes.into_iter().enumerate() {
-            let assertion =
-                "The path should've been registered already, otherwise please report a bug";
-            let inner_path = other.index_to_path.get(&id).expect(assertion);
+        for (index, route) in other.routes.into_iter().enumerate() {
+            let inner_path = other.index_to_path.get(&index).expect(GUARANTEE);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
         }
 
-        self
-    }
-
-    pub fn merge(mut self, other: Self) -> Self {
-        for (id, route) in other.routes.into_iter().enumerate() {
-            let assertion =
-                "The path should've been registered already, otherwise please report a bug";
-            let path = other.index_to_path.get(&id).expect(assertion);
-
-            self = self.at(path, route);
-        }
         self
     }
 
@@ -126,7 +154,6 @@ impl Router {
     }
 
     pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
-        trace!("Adding middleware: {}", middleware.name());
         let shared = Rc::new(middleware);
         self.routes
             .iter_mut()
@@ -135,11 +162,14 @@ impl Router {
         self
     }
 
-    fn new_path(&mut self, path: &str, route: Route) {
+    pub fn catch_all(mut self, h: impl Endpoint) -> Self {
+        self.fallback = Some(Rc::new(h));
+        self
+    }
+
+    fn new_route(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
-        self.inner
-            .insert(path, new_index)
-            .expect("should add new path successfully");
+        self.inner.insert(path, new_index).expect(GUARANTEE);
 
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
@@ -148,51 +178,94 @@ impl Router {
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct MethodGraph(pub HashMap<Method, Chain>);
+pub struct MethodDispatch {
+    pub inner: HashMap<Method, Chain>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
+}
 
 #[derive(Debug, Clone)]
 pub enum Route {
-    MethodGraph(MethodGraph),
+    MethodDispatch(MethodDispatch),
     Service(Chain),
 }
 
 impl Route {
-    pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
-        match self {
-            Route::MethodGraph(map) => {
-                map.0
-                    .iter_mut()
-                    .for_each(|(_, chain)| chain.append(middleware.clone()));
-            }
-            Route::Service(chain) => chain.append(middleware.clone()),
-        }
-    }
-}
-
-impl MethodGraph {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn get(self, h: impl Endpoint) -> Self {
-        self.register(h, Method::GET)
+        self.register(h, Method::POST)
     }
 
     pub fn post(self, h: impl Endpoint) -> Self {
         self.register(h, Method::POST)
     }
 
-    fn register(mut self, h: impl Endpoint, m: Method) -> Self {
+    pub fn merge(&mut self, other: Route) {
+        if let &mut Route::MethodDispatch(ref mut this) = self
+            && let Route::MethodDispatch(ref other) = other
+        {
+            match (&this.fallback, &other.fallback) {
+                (Some(f), None) | (None, Some(f)) => this.fallback = Some(f.clone()),
+                (None, None) => (),
+                (Some(_), Some(_)) => {
+                    panic!("Cannot merge two `Route`s of same path that both have a fallback")
+                }
+            }
+            other.inner.iter().for_each(|(method, chain)| {
+                match this.inner.entry(method.clone()) {
+                    Entry::Vacant(e) => e.insert(chain.clone()),
+                    Entry::Occupied(_) => {
+                        panic!("Overlapping route. Cannot add two endpoints that both handle `{method}`")
+                    }
+                };
+            });
+        }
+    }
+
+    pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
+        match self {
+            Route::MethodDispatch(dispatch) => {
+                dispatch
+                    .inner
+                    .iter_mut()
+                    .for_each(|(_, chain)| chain.append(middleware.clone()));
+            }
+            Route::Service(chain) => chain.append(middleware.clone()),
+        }
+    }
+
+    pub fn register(mut self, h: impl Endpoint, m: Method) -> Self {
+        if let Route::MethodDispatch(ref mut dispatch) = self {
+            dispatch.register(h, m);
+        }
+        self
+    }
+
+    pub fn catch(mut self, h: impl Endpoint) -> Self {
+        if let Route::MethodDispatch(ref mut dispatch) = self {
+            dispatch.fallback = Some(Rc::new(h));
+        }
+        self
+    }
+}
+
+impl MethodDispatch {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn fallback(&mut self, h: impl Endpoint) {
+        self.fallback = Some(Rc::new(h));
+    }
+
+    fn register(&mut self, h: impl Endpoint, m: Method) {
         let chain = Chain {
             endpoint: Rc::new(h),
             middlewares: Default::default(),
         };
-        match self.0.entry(m.clone()) {
+        match self.inner.entry(m.clone()) {
             Entry::Vacant(e) => e.insert(chain),
             Entry::Occupied(_) => {
                 panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
             }
         };
-        self
     }
 }

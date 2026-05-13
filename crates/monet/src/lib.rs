@@ -20,3 +20,5 @@ pub use crate::{
     serve::run,
     types::{Form, Json, Path},
 };
+
+pub(crate) const GUARANTEE: &str = "Should never fail. Please file a bug if it does";
