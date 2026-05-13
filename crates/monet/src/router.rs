@@ -80,9 +80,9 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodDispatch(map) => match map.inner.get(method) {
+            Route::MethodDispatch(dispatcher) => match dispatcher.inner.get(method) {
                 Some(chain) => chain.clone().next(req),
-                None => match &map.fallback {
+                None => match &dispatcher.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
                 },
@@ -193,8 +193,9 @@ impl Route {
 
     pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
         match self {
-            Route::MethodDispatch(map) => {
-                map.inner
+            Route::MethodDispatch(dispatcher) => {
+                dispatcher
+                    .inner
                     .iter_mut()
                     .for_each(|(_, chain)| chain.append(middleware.clone()));
             }
@@ -203,15 +204,15 @@ impl Route {
     }
 
     pub fn register(mut self, h: impl Endpoint, m: Method) -> Self {
-        if let Route::MethodDispatch(ref mut graph) = self {
-            graph.register(h, m);
+        if let Route::MethodDispatch(ref mut dispatcher) = self {
+            dispatcher.register(h, m);
         }
         self
     }
 
     pub fn catch(mut self, h: impl Endpoint) -> Self {
-        if let Route::MethodDispatch(ref mut graph) = self {
-            graph.fallback = Some(Rc::new(h));
+        if let Route::MethodDispatch(ref mut dispatcher) = self {
+            dispatcher.fallback = Some(Rc::new(h));
         }
         self
     }
