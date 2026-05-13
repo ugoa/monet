@@ -1,10 +1,18 @@
 use std::net::SocketAddr;
 
 use http::StatusCode;
-use monet::{Request, Router, get};
+use monet::{Request, Router, get, router::fallback};
 
 async fn hello(_req: Request) -> &'static str {
     "hello"
+}
+
+async fn partial_support(_req: Request) -> &'static str {
+    "Only GET is supported at this path"
+}
+
+async fn no_support(_req: Request) -> &'static str {
+    "No support at this path"
 }
 
 async fn notfound_404(_req: Request) -> (StatusCode, &'static str) {
@@ -16,7 +24,8 @@ fn main() {
     println!("Server running at: {}", addr);
 
     let app = Router::new()
-        .at("/hello", get(hello))
+        .at("/hi", fallback(no_support))
+        .at("/hello", get(hello).fallback(partial_support))
         .fallback(notfound_404);
 
     monet::run(addr, app);

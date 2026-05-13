@@ -18,11 +18,24 @@ use crate::{
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
-    Route::MethodGraph(MethodGraph::new().get(handler))
+    let mut mg = MethodGraph::new();
+    mg.register(handler, Method::GET);
+
+    Route::MethodGraph(mg)
 }
 
 pub fn post(handler: impl Endpoint) -> Route {
-    Route::MethodGraph(MethodGraph::new().post(handler))
+    let mut mg = MethodGraph::new();
+    mg.register(handler, Method::POST);
+
+    Route::MethodGraph(mg)
+}
+
+pub fn fallback(handler: impl Endpoint) -> Route {
+    let mut mg = MethodGraph::new();
+    mg.fallback(handler);
+
+    Route::MethodGraph(mg)
 }
 
 #[derive(Default, Debug)]
@@ -66,10 +79,13 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodGraph(map) => {
-                let chain = map.inner.get(method).expect(GUARANTEE).clone();
-                chain.next(req)
-            }
+            Route::MethodGraph(map) => match map.inner.get(method) {
+                Some(chain) => chain.clone().next(req),
+                None => match &map.fallback {
+                    Some(handler) => return handler.call(req),
+                    None => panic!("No handler for {} Method at Route {}", method, request_path),
+                },
+            },
         };
 
         Box::pin(resp_fut)
@@ -157,6 +173,14 @@ pub enum Route {
 }
 
 impl Route {
+    pub fn get(self, h: impl Endpoint) -> Self {
+        self.register(h, Method::POST)
+    }
+
+    pub fn post(self, h: impl Endpoint) -> Self {
+        self.register(h, Method::POST)
+    }
+
     pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
         match self {
             Route::MethodGraph(map) => {
@@ -167,6 +191,20 @@ impl Route {
             Route::Service(chain) => chain.append(middleware.clone()),
         }
     }
+
+    pub fn register(mut self, h: impl Endpoint, m: Method) -> Self {
+        if let Route::MethodGraph(ref mut graph) = self {
+            graph.register(h, m);
+        }
+        self
+    }
+
+    pub fn fallback(mut self, h: impl Endpoint) -> Self {
+        if let Route::MethodGraph(ref mut graph) = self {
+            graph.fallback = Some(Rc::new(h));
+        }
+        self
+    }
 }
 
 impl MethodGraph {
@@ -174,20 +212,11 @@ impl MethodGraph {
         Default::default()
     }
 
-    pub fn get(self, h: impl Endpoint) -> Self {
-        self.register(h, Method::GET)
-    }
-
-    pub fn post(self, h: impl Endpoint) -> Self {
-        self.register(h, Method::POST)
-    }
-
-    pub fn fallback(mut self, h: impl Endpoint) -> Self {
+    pub fn fallback(&mut self, h: impl Endpoint) {
         self.fallback = Some(Rc::new(h));
-        self
     }
 
-    fn register(mut self, h: impl Endpoint, m: Method) -> Self {
+    fn register(&mut self, h: impl Endpoint, m: Method) {
         let chain = Chain {
             endpoint: Rc::new(h),
             middlewares: Default::default(),
@@ -198,6 +227,5 @@ impl MethodGraph {
                 panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
             }
         };
-        self
     }
 }
