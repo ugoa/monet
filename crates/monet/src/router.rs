@@ -1,5 +1,6 @@
 pub(crate) mod url;
 
+use core::panic;
 use std::{
     collections::{HashMap, hash_map::Entry},
     path::Path,
@@ -45,7 +46,7 @@ pub struct Router {
     pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
+    pub maybe_fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Router {
@@ -57,7 +58,7 @@ impl Router {
         let request_path = req.uri().path().to_string();
 
         let Ok(matched) = self.inner.at(request_path.as_str()) else {
-            match &self.fallback {
+            match &self.maybe_fallback {
                 Some(handler) => return handler.call(req),
                 None => panic!("Path {} not found", request_path),
             }
@@ -119,6 +120,15 @@ impl Router {
     }
 
     pub fn merge(mut self, other: Self) -> Self {
+        // Merge fallback
+        match (&self.maybe_fallback, &other.maybe_fallback) {
+            (Some(f), None) | (None, Some(f)) => self.maybe_fallback = Some(f.clone()),
+            (None, None) => (),
+            (Some(_), Some(_)) => {
+                panic!("Cannot merge two `Router`s that both have a fallback")
+            }
+        }
+
         for (id, route) in other.routes.into_iter().enumerate() {
             let path = other.index_to_path.get(&id).expect(GUARANTEE);
 
@@ -146,7 +156,7 @@ impl Router {
     }
 
     pub fn fallback(mut self, h: impl Endpoint) -> Self {
-        self.fallback = Some(Rc::new(h));
+        self.maybe_fallback = Some(Rc::new(h));
         self
     }
 
