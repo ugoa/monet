@@ -210,7 +210,7 @@ impl Route {
                 match this.inner.entry(method.clone()) {
                     Entry::Vacant(e) => e.insert(chain.clone()),
                     Entry::Occupied(_) => {
-                        panic!("Overlapping method route. Cannot add two methods that both handle `{method}`")
+                        panic!("Overlapping route. Cannot add two endpoints that both handle `{method}`")
                     }
                 };
             });

@@ -7,6 +7,10 @@ async fn hello(_req: Request) -> &'static str {
     "hello"
 }
 
+async fn hi(_req: Request) -> &'static str {
+    "hello"
+}
+
 async fn notfound(_req: Request) -> (StatusCode, &'static str) {
     (StatusCode::NOT_FOUND, "Page not Found")
 }
@@ -25,6 +29,16 @@ fn main() {
 
     let app3 = Router::new().at("/hello", get(hello).catch(no_support));
     let app4 = Router::new().at("/hi", post(hello).catch(no_support));
-    // Should also panic
-    app3.merge(app4);
+    // Should panic
+    // app3.merge(app4);
+
+    let app5 = Router::new().at("/hi", get(hello));
+    let app6 = Router::new().at("/hi", post(hello));
+    // Should Succeed
+    // app5.merge(app6);
+
+    let app5 = Router::new().at("/hi", get(hello));
+    let app6 = Router::new().at("/hi", get(hi));
+    // Should panic
+    app5.merge(app6);
 }
