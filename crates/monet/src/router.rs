@@ -84,6 +84,10 @@ impl Router {
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodDispatch(dispatch) => match dispatch.inner.get(method) {
+                // TODO: Given a layer with M middlewares and 1 endpoint,
+                // A total of M(middleware Rc) + 3(The Vec) + 1(endpoint Rc) words(8 bytes of each)
+                // are being allocated by the .clone() per request, this is a bit wasteful
+                // and it can be avoided by change Vec to slice of Vec.
                 Some(layer) => layer.clone().next(req),
                 None => match &dispatch.fallback {
                     Some(handler) => return handler.call(req),
