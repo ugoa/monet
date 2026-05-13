@@ -2,7 +2,7 @@ use std::panic::AssertUnwindSafe;
 
 use async_trait::async_trait;
 use futures_util::FutureExt;
-use http::{HeaderValue, StatusCode, header::CONTENT_TYPE};
+use http::StatusCode;
 
 use crate::{Chain, IntoResponse, Middleware, Request, Response};
 
