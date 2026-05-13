@@ -77,7 +77,7 @@ impl Router {
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
         if !self.path_to_index.contains_key(path) {
-            self.new_path(path, route);
+            self.create(path, route);
         }
         self
     }
@@ -138,7 +138,7 @@ impl Router {
         self
     }
 
-    fn new_path(&mut self, path: &str, route: Route) {
+    fn create(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
         self.inner
             .insert(path, new_index)
