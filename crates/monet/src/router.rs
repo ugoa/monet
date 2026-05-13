@@ -109,8 +109,8 @@ impl Router {
             panic!("Invalid route: nested routes cannot contain wildcards (*)");
         }
 
-        for (id, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.index_to_path.get(&id).expect(GUARANTEE);
+        for (index, route) in other.routes.into_iter().enumerate() {
+            let inner_path = other.index_to_path.get(&index).expect(GUARANTEE);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -129,8 +129,8 @@ impl Router {
             }
         }
 
-        for (id, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&id).expect(GUARANTEE);
+        for (index, route) in other.routes.into_iter().enumerate() {
+            let path = other.index_to_path.get(&index).expect(GUARANTEE);
 
             self = self.at(path, route);
         }
