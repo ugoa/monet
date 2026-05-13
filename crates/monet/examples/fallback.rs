@@ -8,11 +8,11 @@ async fn hello(_req: Request) -> &'static str {
 }
 
 async fn partial_support(_req: Request) -> &'static str {
-    "Only GET is supported at this path"
+    "Only GET is supported at this route"
 }
 
 async fn no_support(_req: Request) -> &'static str {
-    "No support at this path"
+    "No support at this route"
 }
 
 async fn global_notfound(_req: Request) -> (StatusCode, &'static str) {
