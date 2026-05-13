@@ -80,9 +80,9 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodDispatch(dispatcher) => match dispatcher.inner.get(method) {
+            Route::MethodDispatch(dispatch) => match dispatch.inner.get(method) {
                 Some(chain) => chain.clone().next(req),
-                None => match &dispatcher.fallback {
+                None => match &dispatch.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
                 },
@@ -92,9 +92,31 @@ impl Router {
         Box::pin(resp_fut)
     }
 
-    pub fn at(mut self, path: &str, route: Route) -> Self {
-        if !self.path_to_index.contains_key(path) {
-            self.new_route(path, route);
+    pub fn at(mut self, path: &str, other_route: Route) -> Self {
+        if let Some(index) = self.path_to_index.get(path) {
+            let existing_route = self.routes.get_mut(*index).unwrap();
+            existing_route.merge(other_route);
+        } else {
+            self.new_route(path, other_route);
+        }
+
+        self
+    }
+
+    pub fn merge(mut self, other: Self) -> Self {
+        // Merge fallback
+        match (&self.fallback, &other.fallback) {
+            (Some(f), None) | (None, Some(f)) => self.fallback = Some(f.clone()),
+            (None, None) => (),
+            (Some(_), Some(_)) => {
+                panic!("Cannot merge two `Router`s that both have a fallback")
+            }
+        }
+
+        for (index, route) in other.routes.into_iter().enumerate() {
+            let path = other.index_to_path.get(&index).expect(GUARANTEE);
+
+            self = self.at(path, route);
         }
         self
     }
@@ -116,24 +138,6 @@ impl Router {
             self = self.at(&new_path, route);
         }
 
-        self
-    }
-
-    pub fn merge(mut self, other: Self) -> Self {
-        // Merge fallback
-        match (&self.fallback, &other.fallback) {
-            (Some(f), None) | (None, Some(f)) => self.fallback = Some(f.clone()),
-            (None, None) => (),
-            (Some(_), Some(_)) => {
-                panic!("Cannot merge two `Router`s that both have a fallback")
-            }
-        }
-
-        for (index, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&index).expect(GUARANTEE);
-
-            self = self.at(path, route);
-        }
         self
     }
 
@@ -191,10 +195,24 @@ impl Route {
         self.register(h, Method::POST)
     }
 
+    pub fn merge(&mut self, other: Route) {
+        if let &mut Route::MethodDispatch(ref mut dispatch) = self
+            && let Route::MethodDispatch(ref other_dispatch) = other
+        {
+            match (&dispatch.fallback, &other_dispatch.fallback) {
+                (Some(f), None) | (None, Some(f)) => dispatch.fallback = Some(f.clone()),
+                (None, None) => (),
+                (Some(_), Some(_)) => {
+                    panic!("Cannot merge two `Route`s that both have a fallback")
+                }
+            }
+        }
+    }
+
     pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
         match self {
-            Route::MethodDispatch(dispatcher) => {
-                dispatcher
+            Route::MethodDispatch(dispatch) => {
+                dispatch
                     .inner
                     .iter_mut()
                     .for_each(|(_, chain)| chain.append(middleware.clone()));
@@ -204,15 +222,15 @@ impl Route {
     }
 
     pub fn register(mut self, h: impl Endpoint, m: Method) -> Self {
-        if let Route::MethodDispatch(ref mut dispatcher) = self {
-            dispatcher.register(h, m);
+        if let Route::MethodDispatch(ref mut dispatch) = self {
+            dispatch.register(h, m);
         }
         self
     }
 
     pub fn catch(mut self, h: impl Endpoint) -> Self {
-        if let Route::MethodDispatch(ref mut dispatcher) = self {
-            dispatcher.fallback = Some(Rc::new(h));
+        if let Route::MethodDispatch(ref mut dispatch) = self {
+            dispatch.fallback = Some(Rc::new(h));
         }
         self
     }
