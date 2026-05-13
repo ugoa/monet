@@ -196,16 +196,24 @@ impl Route {
     }
 
     pub fn merge(&mut self, other: Route) {
-        if let &mut Route::MethodDispatch(ref mut dispatch) = self
-            && let Route::MethodDispatch(ref other_dispatch) = other
+        if let &mut Route::MethodDispatch(ref mut this) = self
+            && let Route::MethodDispatch(ref other) = other
         {
-            match (&dispatch.fallback, &other_dispatch.fallback) {
-                (Some(f), None) | (None, Some(f)) => dispatch.fallback = Some(f.clone()),
+            match (&this.fallback, &other.fallback) {
+                (Some(f), None) | (None, Some(f)) => this.fallback = Some(f.clone()),
                 (None, None) => (),
                 (Some(_), Some(_)) => {
                     panic!("Cannot merge two `Route`s that both have a fallback")
                 }
             }
+            other.inner.iter().for_each(|(method, chain)| {
+                match this.inner.entry(method.clone()) {
+                    Entry::Vacant(e) => e.insert(chain.clone()),
+                    Entry::Occupied(_) => {
+                        panic!("Overlapping method route. Cannot add two methods that both handle `{method}`")
+                    }
+                };
+            });
         }
     }
 
