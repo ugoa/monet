@@ -19,24 +19,24 @@ use crate::{
 };
 
 pub fn get(handler: impl Endpoint) -> Route {
-    let mut mg = MethodGraph::new();
-    mg.register(handler, Method::GET);
+    let mut md = MethodDispatch::new();
+    md.register(handler, Method::GET);
 
-    Route::MethodGraph(mg)
+    Route::MethodDispatch(md)
 }
 
 pub fn post(handler: impl Endpoint) -> Route {
-    let mut mg = MethodGraph::new();
-    mg.register(handler, Method::POST);
+    let mut md = MethodDispatch::new();
+    md.register(handler, Method::POST);
 
-    Route::MethodGraph(mg)
+    Route::MethodDispatch(md)
 }
 
 pub fn catch(handler: impl Endpoint) -> Route {
-    let mut mg = MethodGraph::new();
-    mg.fallback(handler);
+    let mut md = MethodDispatch::new();
+    md.fallback(handler);
 
-    Route::MethodGraph(mg)
+    Route::MethodDispatch(md)
 }
 
 #[derive(Default, Debug)]
@@ -80,7 +80,7 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodGraph(map) => match map.inner.get(method) {
+            Route::MethodDispatch(map) => match map.inner.get(method) {
                 Some(chain) => chain.clone().next(req),
                 None => match &map.fallback {
                     Some(handler) => return handler.call(req),
@@ -171,14 +171,14 @@ impl Router {
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct MethodGraph {
+pub struct MethodDispatch {
     pub inner: HashMap<Method, Chain>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Route {
-    MethodGraph(MethodGraph),
+    MethodDispatch(MethodDispatch),
     Service(Chain),
 }
 
@@ -193,7 +193,7 @@ impl Route {
 
     pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
         match self {
-            Route::MethodGraph(map) => {
+            Route::MethodDispatch(map) => {
                 map.inner
                     .iter_mut()
                     .for_each(|(_, chain)| chain.append(middleware.clone()));
@@ -203,21 +203,21 @@ impl Route {
     }
 
     pub fn register(mut self, h: impl Endpoint, m: Method) -> Self {
-        if let Route::MethodGraph(ref mut graph) = self {
+        if let Route::MethodDispatch(ref mut graph) = self {
             graph.register(h, m);
         }
         self
     }
 
     pub fn catch(mut self, h: impl Endpoint) -> Self {
-        if let Route::MethodGraph(ref mut graph) = self {
+        if let Route::MethodDispatch(ref mut graph) = self {
             graph.fallback = Some(Rc::new(h));
         }
         self
     }
 }
 
-impl MethodGraph {
+impl MethodDispatch {
     pub fn new() -> Self {
         Default::default()
     }
