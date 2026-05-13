@@ -21,4 +21,4 @@ pub use crate::{
     types::{Form, Json, Path},
 };
 
-pub(crate) const LIBRARY_GUARANTEE: &str = "Should never fail. Please file a bug if it does";
+pub(crate) const GUARANTEE: &str = "Should never fail. Please file a bug if it does";

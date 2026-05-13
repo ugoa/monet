@@ -10,7 +10,7 @@ use std::{
 use http::Method;
 
 use crate::{
-    LIBRARY_GUARANTEE, ServeDir,
+    GUARANTEE, ServeDir,
     handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
@@ -61,13 +61,13 @@ impl Router {
 
         // dbg!(&matched.params);
 
-        let route = self.routes.get(id).expect(LIBRARY_GUARANTEE);
+        let route = self.routes.get(id).expect(GUARANTEE);
 
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodGraph(map) => {
-                let chain = map.0.get(method).expect(LIBRARY_GUARANTEE).clone();
+                let chain = map.0.get(method).expect(GUARANTEE).clone();
                 chain.next(req)
             }
         };
@@ -93,7 +93,7 @@ impl Router {
         }
 
         for (id, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.index_to_path.get(&id).expect(LIBRARY_GUARANTEE);
+            let inner_path = other.index_to_path.get(&id).expect(GUARANTEE);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -104,7 +104,7 @@ impl Router {
 
     pub fn merge(mut self, other: Self) -> Self {
         for (id, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&id).expect(LIBRARY_GUARANTEE);
+            let path = other.index_to_path.get(&id).expect(GUARANTEE);
 
             self = self.at(path, route);
         }
@@ -136,7 +136,7 @@ impl Router {
 
     fn create(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
-        self.inner.insert(path, new_index).expect(LIBRARY_GUARANTEE);
+        self.inner.insert(path, new_index).expect(GUARANTEE);
 
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
