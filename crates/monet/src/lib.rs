@@ -13,7 +13,7 @@ pub use async_trait::async_trait;
 pub use crate::{
     error::{BodyError, BoxError, Error},
     handler::middleware::catch_panic::CatchPanic,
-    handler::{Chain, Endpoint, Middleware, endpoint::serve_dir::ServeDir},
+    handler::{Endpoint, Layer, Middleware, endpoint::serve_dir::ServeDir},
     request::Request,
     response::{IntoResponse, Response},
     router::{Router, get, post},

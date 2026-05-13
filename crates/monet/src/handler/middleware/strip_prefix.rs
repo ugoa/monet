@@ -3,17 +3,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use http::Uri;
 
-use crate::{Chain, Middleware, Request, Response};
+use crate::{Layer, Middleware, Request, Response};
 
 pub struct StripPrefix(pub Arc<String>);
 
 #[async_trait(?Send)]
 impl Middleware for StripPrefix {
-    async fn transform(&self, mut req: Request, chain: Chain) -> Response {
+    async fn transform(&self, mut req: Request, layer: Layer) -> Response {
         if let Some(new_uri) = strip_prefix(req.uri(), &self.0) {
             *req.uri_mut() = new_uri;
         };
-        chain.next(req).await
+        layer.next(req).await
     }
 }
 
