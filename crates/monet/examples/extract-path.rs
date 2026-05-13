@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use monet::{Path, Request, Router, get};
+use monet::{Error, Path, Request, Router, get};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -9,9 +9,9 @@ struct Expected {
     name: String,
 }
 
-async fn parse_path(req: Request) -> String {
-    let path: Path<Expected> = req.path().expect("Wildcard params should be parsed fine");
-    format!("Received id: {}, name: {}", path.id, path.name)
+async fn parse_path(req: Request) -> Result<String, Error> {
+    let path: Path<Expected> = req.path()?;
+    Ok(format!("Received id: {}, name: {}", path.id, path.name))
 }
 
 // curl http://0.0.0.0:9527/wild/8797/card/larry.

@@ -1,3 +1,6 @@
+pub mod endpoint;
+pub mod middleware;
+
 use std::rc::Rc;
 
 use async_trait::async_trait;
@@ -6,9 +9,6 @@ use crate::{
     request::Request,
     response::{IntoResponse, Response},
 };
-
-pub mod endpoint;
-pub mod middleware;
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {

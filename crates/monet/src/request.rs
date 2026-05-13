@@ -14,7 +14,7 @@ use serde_core::de::DeserializeOwned;
 use crate::{
     body::Body,
     error::Error,
-    router::{MatchedPath, url_params::UrlParams},
+    router::url::UrlParams,
     types::{Form, Json, Path, Query, has_content_type},
 };
 
@@ -114,8 +114,10 @@ impl Request {
             .map_err(Error::FailedToDeserializeQuery)
     }
 
-    #[cfg(not(feature = "no-matched-path"))]
+    // #[cfg(not(feature = "no-matched-path"))]
     pub fn matched_path(&self) -> Option<&Arc<str>> {
+        use crate::router::url::MatchedPath;
+
         self.extensions().get::<MatchedPath>().map(|s| &s.0)
     }
 

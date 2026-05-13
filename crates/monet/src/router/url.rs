@@ -54,7 +54,7 @@ pub(super) fn insert_matched_params(extensions: &mut Extensions, params: &Params
     }
 }
 
-fn pct_decode<S>(s: S) -> Option<Arc<str>>
+pub(crate) fn pct_decode<S>(s: S) -> Option<Arc<str>>
 where
     S: AsRef<str>,
 {
@@ -62,4 +62,55 @@ where
         .decode_utf8()
         .ok()
         .map(|decoded| decoded.as_ref().into())
+}
+
+#[derive(Clone, Debug)]
+struct MatchedNestedPath(Arc<str>);
+
+#[derive(Clone, Debug)]
+pub struct MatchedPath(pub(crate) Arc<str>);
+
+pub(crate) fn insert_matched_path(ext: &mut Extensions, path: &Arc<str>) {
+    let matched_path = append_nested_matched_path(&Arc::new(path), ext);
+
+    if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
+        ext.insert(MatchedNestedPath(matched_path));
+        debug_assert!(ext.remove::<MatchedPath>().is_none());
+    } else {
+        ext.insert(MatchedPath(matched_path));
+        ext.remove::<MatchedNestedPath>();
+    }
+}
+
+pub(crate) fn append_nested_matched_path(
+    matched_path: &Arc<str>,
+    extensions: &http::Extensions,
+) -> Arc<str> {
+    if let Some(previous) = extensions
+        .get::<MatchedPath>()
+        .map(|matched_path| &matched_path.0)
+        .or_else(|| Some(&extensions.get::<MatchedNestedPath>()?.0))
+    {
+        let previous = previous
+            .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
+            .unwrap_or(previous);
+
+        let matched_path = format!("{previous}{matched_path}");
+        matched_path.into()
+    } else {
+        Arc::clone(matched_path)
+    }
+}
+
+pub(crate) fn concat_path(prefix: &str, path: &str) -> String {
+    debug_assert!(prefix.starts_with('/'));
+    debug_assert!(path.starts_with('/'));
+
+    if prefix.ends_with('/') {
+        format!("{prefix}{}", path.trim_start_matches('/'))
+    } else if path == "/" {
+        prefix.into()
+    } else {
+        format!("{prefix}{path}")
+    }
 }
