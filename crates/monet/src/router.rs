@@ -8,7 +8,6 @@ use std::{
 };
 
 use http::Method;
-use tracing::trace;
 
 use crate::{
     ServeDir,
@@ -126,7 +125,6 @@ impl Router {
     }
 
     pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
-        trace!("Adding middleware: {}", middleware.name());
         let shared = Rc::new(middleware);
         self.routes
             .iter_mut()
