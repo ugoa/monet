@@ -181,16 +181,16 @@ impl Router {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct MethodDispatch {
-    pub inner: HashMap<Method, Layer>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
-}
-
 #[derive(Debug, Clone)]
 pub enum Route {
     MethodDispatch(MethodDispatch),
     Service(Layer),
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct MethodDispatch {
+    pub inner: HashMap<Method, Layer>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Route {
