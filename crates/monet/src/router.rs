@@ -182,6 +182,11 @@ impl MethodGraph {
         self.register(h, Method::POST)
     }
 
+    pub fn fallback(mut self, h: impl Endpoint) -> Self {
+        self.fallback = Some(Rc::new(h));
+        self
+    }
+
     fn register(mut self, h: impl Endpoint, m: Method) -> Self {
         let chain = Chain {
             endpoint: Rc::new(h),
