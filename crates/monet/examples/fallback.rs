@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use http::StatusCode;
-use monet::{Request, Router, get, router::fallback};
+use monet::{Request, Router, get, router::catch};
 
 async fn hello(_req: Request) -> &'static str {
     "hello"
@@ -24,8 +24,8 @@ fn main() {
     println!("Server running at: {}", addr);
 
     let app = Router::new()
-        .at("/hi", fallback(no_support))
-        .at("/hello", get(hello).fallback(partial_support))
+        .at("/hi", catch(no_support))
+        .at("/hello", get(hello).catch(partial_support))
         .catch_all(global_notfound);
 
     monet::run(addr, app);

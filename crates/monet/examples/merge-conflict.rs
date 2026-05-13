@@ -23,8 +23,8 @@ fn main() {
     // Should panic
     // app1.merge(app2);
 
-    let app3 = Router::new().at("/hello", get(hello).fallback(no_support));
-    let app4 = Router::new().at("/hi", post(hello).fallback(no_support));
+    let app3 = Router::new().at("/hello", get(hello).catch(no_support));
+    let app4 = Router::new().at("/hi", post(hello).catch(no_support));
     // Should also panic
     app3.merge(app4);
 }

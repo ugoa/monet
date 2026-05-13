@@ -32,7 +32,7 @@ pub fn post(handler: impl Endpoint) -> Route {
     Route::MethodGraph(mg)
 }
 
-pub fn fallback(handler: impl Endpoint) -> Route {
+pub fn catch(handler: impl Endpoint) -> Route {
     let mut mg = MethodGraph::new();
     mg.fallback(handler);
 
@@ -46,7 +46,7 @@ pub struct Router {
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
     pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
-    pub maybe_fallback: Option<Rc<dyn Endpoint>>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Router {
@@ -58,7 +58,7 @@ impl Router {
         let request_path = req.uri().path().to_string();
 
         let Ok(matched) = self.inner.at(request_path.as_str()) else {
-            match &self.maybe_fallback {
+            match &self.fallback {
                 Some(handler) => return handler.call(req),
                 None => panic!("Path {} not found", request_path),
             }
@@ -82,7 +82,7 @@ impl Router {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodGraph(map) => match map.inner.get(method) {
                 Some(chain) => chain.clone().next(req),
-                None => match &map.maybe_fallback {
+                None => match &map.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
                 },
@@ -121,8 +121,8 @@ impl Router {
 
     pub fn merge(mut self, other: Self) -> Self {
         // Merge fallback
-        match (&self.maybe_fallback, &other.maybe_fallback) {
-            (Some(f), None) | (None, Some(f)) => self.maybe_fallback = Some(f.clone()),
+        match (&self.fallback, &other.fallback) {
+            (Some(f), None) | (None, Some(f)) => self.fallback = Some(f.clone()),
             (None, None) => (),
             (Some(_), Some(_)) => {
                 panic!("Cannot merge two `Router`s that both have a fallback")
@@ -156,7 +156,7 @@ impl Router {
     }
 
     pub fn catch_all(mut self, h: impl Endpoint) -> Self {
-        self.maybe_fallback = Some(Rc::new(h));
+        self.fallback = Some(Rc::new(h));
         self
     }
 
@@ -173,7 +173,7 @@ impl Router {
 #[derive(Default, Debug, Clone)]
 pub struct MethodGraph {
     pub inner: HashMap<Method, Chain>,
-    pub maybe_fallback: Option<Rc<dyn Endpoint>>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 #[derive(Debug, Clone)]
@@ -209,9 +209,9 @@ impl Route {
         self
     }
 
-    pub fn fallback(mut self, h: impl Endpoint) -> Self {
+    pub fn catch(mut self, h: impl Endpoint) -> Self {
         if let Route::MethodGraph(ref mut graph) = self {
-            graph.maybe_fallback = Some(Rc::new(h));
+            graph.fallback = Some(Rc::new(h));
         }
         self
     }
@@ -223,7 +223,7 @@ impl MethodGraph {
     }
 
     pub fn fallback(&mut self, h: impl Endpoint) {
-        self.maybe_fallback = Some(Rc::new(h));
+        self.fallback = Some(Rc::new(h));
     }
 
     fn register(&mut self, h: impl Endpoint, m: Method) {
