@@ -82,7 +82,7 @@ impl Router {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodGraph(map) => match map.inner.get(method) {
                 Some(chain) => chain.clone().next(req),
-                None => match &map.fallback {
+                None => match &map.maybe_fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
                 },
@@ -173,7 +173,7 @@ impl Router {
 #[derive(Default, Debug, Clone)]
 pub struct MethodGraph {
     pub inner: HashMap<Method, Chain>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
+    pub maybe_fallback: Option<Rc<dyn Endpoint>>,
 }
 
 #[derive(Debug, Clone)]
@@ -211,7 +211,7 @@ impl Route {
 
     pub fn fallback(mut self, h: impl Endpoint) -> Self {
         if let Route::MethodGraph(ref mut graph) = self {
-            graph.fallback = Some(Rc::new(h));
+            graph.maybe_fallback = Some(Rc::new(h));
         }
         self
     }
@@ -223,7 +223,7 @@ impl MethodGraph {
     }
 
     pub fn fallback(&mut self, h: impl Endpoint) {
-        self.fallback = Some(Rc::new(h));
+        self.maybe_fallback = Some(Rc::new(h));
     }
 
     fn register(&mut self, h: impl Endpoint, m: Method) {
