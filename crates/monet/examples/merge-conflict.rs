@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use http::StatusCode;
-use monet::{Request, Router, get};
+use monet::{Request, Router, get, post};
 
 async fn hello(_req: Request) -> &'static str {
     "hello"
@@ -17,16 +17,14 @@ async fn no_support(_req: Request) -> String {
 
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    println!("Server running at: {}", addr);
 
     let app1 = Router::new().at("/hello", get(hello)).catch_all(notfound);
-
     let app2 = Router::new().at("/hi", get(hello)).catch_all(notfound);
+    // Should panic
+    // app1.merge(app2);
 
     let app3 = Router::new().at("/hello", get(hello).fallback(no_support));
-
-    let app4 = Router::new().at("/hi", get(hello).fallback(notfound));
-
-    // Should panic
-    app1.merge(app2);
+    let app4 = Router::new().at("/hi", post(hello).fallback(no_support));
+    // Should also panic
+    app3.merge(app4);
 }
