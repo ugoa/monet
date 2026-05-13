@@ -7,7 +7,7 @@ async fn hello(_req: Request) -> &'static str {
 }
 
 async fn hi(_req: Request) -> &'static str {
-    "hello"
+    "hi"
 }
 
 fn main() {
