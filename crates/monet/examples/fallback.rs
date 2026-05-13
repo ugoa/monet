@@ -15,7 +15,7 @@ async fn no_support(_req: Request) -> &'static str {
     "No support at this path"
 }
 
-async fn notfound_404(_req: Request) -> (StatusCode, &'static str) {
+async fn global_notfound(_req: Request) -> (StatusCode, &'static str) {
     (StatusCode::NOT_FOUND, "Page not Found")
 }
 
@@ -26,7 +26,7 @@ fn main() {
     let app = Router::new()
         .at("/hi", fallback(no_support))
         .at("/hello", get(hello).fallback(partial_support))
-        .fallback(notfound_404);
+        .fallback(global_notfound);
 
     monet::run(addr, app);
 }
