@@ -43,9 +43,9 @@ pub fn fallback(handler: impl Endpoint) -> Route {
 pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
-    pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
+    pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub maybe_fallback: Option<Rc<dyn Endpoint>>,
 }
 
