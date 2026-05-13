@@ -26,7 +26,7 @@ fn main() {
     let app = Router::new()
         .at("/hi", fallback(no_support))
         .at("/hello", get(hello).fallback(partial_support))
-        .fallback(global_notfound);
+        .catch_all(global_notfound);
 
     monet::run(addr, app);
 }

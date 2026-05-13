@@ -155,7 +155,7 @@ impl Router {
         self
     }
 
-    pub fn fallback(mut self, h: impl Endpoint) -> Self {
+    pub fn catch_all(mut self, h: impl Endpoint) -> Self {
         self.maybe_fallback = Some(Rc::new(h));
         self
     }
