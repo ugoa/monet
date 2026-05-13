@@ -2,19 +2,17 @@ pub(crate) mod url;
 
 use std::{
     collections::{HashMap, hash_map::Entry},
-    convert::Infallible,
     path::Path,
     rc::Rc,
     sync::Arc,
 };
 
-use futures_util::FutureExt;
 use http::Method;
 use tracing::trace;
 
 use crate::{
     ServeDir,
-    handler::{self, Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},

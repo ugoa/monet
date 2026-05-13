@@ -12,7 +12,7 @@ use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
 };
-use futures::{FutureExt, stream::StreamExt};
+use futures::stream::StreamExt;
 use futures_concurrency::future::FutureGroup;
 use futures_util::FutureExt;
 use hyper::{server::conn::http1, service::service_fn};
@@ -34,7 +34,9 @@ pub fn run(addr: SocketAddr, router: Router) {
                         http1::Builder::new()
                             .serve_connection(
                                 HyperStream::new(stream.0),
-                                service_fn(async |req| router.handle(req.into()).await ),
+                                service_fn(async |req| {
+                                    router.handle(req.into()).map(Ok::<_, Infallible>).await
+                                }),
                             )
                             .await
                             .expect("Should handle request successfully")
