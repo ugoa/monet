@@ -1,4 +1,5 @@
 use std::{
+    convert::Infallible,
     future::Future,
     net::SocketAddr,
     ops::DerefMut,
@@ -13,6 +14,7 @@ use compio::{
 };
 use futures::{FutureExt, stream::StreamExt};
 use futures_concurrency::future::FutureGroup;
+use futures_util::FutureExt;
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
@@ -32,7 +34,7 @@ pub fn run(addr: SocketAddr, router: Router) {
                         http1::Builder::new()
                             .serve_connection(
                                 HyperStream::new(stream.0),
-                                service_fn(async |req| router.handle(req.into()).await),
+                                service_fn(async |req| router.handle(req.into()).await ),
                             )
                             .await
                             .expect("Should handle request successfully")

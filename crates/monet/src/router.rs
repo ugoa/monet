@@ -14,7 +14,7 @@ use tracing::trace;
 
 use crate::{
     ServeDir,
-    handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{self, Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
@@ -35,6 +35,7 @@ pub struct Router {
     pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Router {
@@ -42,13 +43,14 @@ impl Router {
         Default::default()
     }
 
-    pub fn handle(&self, mut req: Request) -> impl Future<Output = Result<Response, Infallible>> {
+    pub fn handle(&self, mut req: Request) -> impl Future<Output = Response> {
         let request_path = req.uri().path().to_string();
 
         let Ok(matched) = self.inner.at(request_path.as_str()) else {
-            // TODO:
-            //      Return 404 not found if no matching routes, given default-fallback is enabled
-            panic!("Path {} not found", request_path);
+            match &self.fallback {
+                Some(handler) => return handler.call(req),
+                None => panic!("Path {} not found", request_path),
+            }
         };
 
         let id = *matched.value;
@@ -73,7 +75,7 @@ impl Router {
             }
         };
 
-        resp_fut.map(Ok::<_, Infallible>)
+        Box::pin(resp_fut)
     }
 
     pub fn at(mut self, path: &str, route: Route) -> Self {
@@ -132,6 +134,11 @@ impl Router {
             .iter_mut()
             .for_each(|route| route.wrap_by(shared.clone()));
 
+        self
+    }
+
+    pub fn fallback(mut self, h: impl Endpoint) -> Self {
+        self.fallback = Some(Rc::new(h));
         self
     }
 
