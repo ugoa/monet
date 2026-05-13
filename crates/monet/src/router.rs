@@ -67,7 +67,7 @@ impl Router {
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodGraph(map) => {
-                let chain = map.0.get(method).expect(GUARANTEE).clone();
+                let chain = map.inner.get(method).expect(GUARANTEE).clone();
                 chain.next(req)
             }
         };
@@ -145,7 +145,10 @@ impl Router {
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct MethodGraph(pub HashMap<Method, Chain>);
+pub struct MethodGraph {
+    pub inner: HashMap<Method, Chain>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
+}
 
 #[derive(Debug, Clone)]
 pub enum Route {
@@ -157,7 +160,7 @@ impl Route {
     pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
         match self {
             Route::MethodGraph(map) => {
-                map.0
+                map.inner
                     .iter_mut()
                     .for_each(|(_, chain)| chain.append(middleware.clone()));
             }
@@ -184,7 +187,7 @@ impl MethodGraph {
             endpoint: Rc::new(h),
             middlewares: Default::default(),
         };
-        match self.0.entry(m.clone()) {
+        match self.inner.entry(m.clone()) {
             Entry::Vacant(e) => e.insert(chain),
             Entry::Occupied(_) => {
                 panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
