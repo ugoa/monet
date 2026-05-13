@@ -18,7 +18,7 @@ use futures_util::FutureExt;
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::Router;
+use crate::{LIBRARY_GUARANTEE, Router};
 
 pub fn run(addr: SocketAddr, router: Router) {
     // dbg!(&router);
@@ -39,7 +39,7 @@ pub fn run(addr: SocketAddr, router: Router) {
                                 }),
                             )
                             .await
-                            .expect("Should handle request successfully")
+                            .expect(LIBRARY_GUARANTEE)
                     }).catch_unwind());
                 },
                 _ =  group.next(), if !group.is_empty()  => (),

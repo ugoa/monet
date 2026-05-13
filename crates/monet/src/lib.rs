@@ -20,3 +20,5 @@ pub use crate::{
     serve::run,
     types::{Form, Json, Path},
 };
+
+pub(crate) const LIBRARY_GUARANTEE: &str = "Shall nevel fail, please report a bug if it does";
