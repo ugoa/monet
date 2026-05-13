@@ -65,7 +65,7 @@ pub(super) fn has_content_type(headers: &HeaderMap, expected_content_type: &mime
         return false;
     };
 
-    content_type.starts_with(expected_content_type.as_ref())
+    content_type == expected_content_type.as_ref()
 }
 
 impl<T> std::ops::Deref for Html<T> {
