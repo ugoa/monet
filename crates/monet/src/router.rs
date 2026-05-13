@@ -64,18 +64,18 @@ impl Router {
             }
         };
 
-        let id = *matched.value;
+        let index = *matched.value;
 
         let ext_mut = req.extensions_mut();
 
         // #[cfg(not(feature = "no-matched-path"))]
-        insert_matched_path(ext_mut, self.index_to_path.get(&id).unwrap());
+        insert_matched_path(ext_mut, self.index_to_path.get(&index).unwrap());
 
         insert_matched_params(ext_mut, &matched.params);
 
         // dbg!(&matched.params);
 
-        let route = self.routes.get(id).expect(GUARANTEE);
+        let route = self.routes.get(index).expect(GUARANTEE);
 
         let method = req.method();
         let resp_fut = match route {
