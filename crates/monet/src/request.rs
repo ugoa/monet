@@ -82,9 +82,7 @@ impl Request {
         /*
          * Given route `/user/{id}/{*name}` and request `/user/23/david`:
          * The transformation would be:
-         *  Vec[("id", "23"), ("name", "david")]
-         *      -> id=23&name=david
-         *      -> Path(T {id: 23, name: David})
+         * Vec[("id", "23"), ("name", "david")] -> id=23&name=david -> Path(T {id: 23, name: david})
          */
         match self.extensions().get::<UrlParams>() {
             Some(UrlParams::Params(params)) => {
