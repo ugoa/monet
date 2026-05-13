@@ -29,7 +29,6 @@ pub fn run(addr: SocketAddr, router: Router) {
             tokio::select! {
                 biased;
                 stream = listener.accepts() => {
-                    println!("Received at {}", jiff::Timestamp::now());
                     group.insert(AssertUnwindSafe(async {
                         http1::Builder::new()
                             .serve_connection(
