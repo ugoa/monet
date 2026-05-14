@@ -9,8 +9,6 @@ pub(crate) const NEST_TAIL_PARAM_WILDCARD: &str = "/{*__private__monet_nest_tail
 
 pub(crate) const FALLBACK_PARAM: &str = "__private__monet_fallback";
 
-pub(crate) const FALLBACK_PARAM_WILDCARD: &str = "/{*__private__monet_fallback}";
-
 #[derive(Clone)]
 pub(crate) enum UrlParams {
     Params(Vec<(Arc<str>, Arc<str>)>),

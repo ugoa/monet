@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use futures_util::FutureExt;
 use http::StatusCode;
 
-use crate::{Chain, IntoResponse, Middleware, Request, Response};
+use crate::{IntoResponse, Layer, Middleware, Request, Response};
 
 #[derive(Default, Debug)]
 pub struct CatchPanic;
 
 #[async_trait(?Send)]
 impl Middleware for CatchPanic {
-    async fn transform(&self, req: Request, chain: Chain) -> Response {
-        AssertUnwindSafe(chain.next(req))
+    async fn transform(&self, req: Request, layer: Layer) -> Response {
+        AssertUnwindSafe(layer.next(req))
             .catch_unwind()
             .await
             .unwrap_or_else(|err| {

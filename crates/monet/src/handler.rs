@@ -12,7 +12,7 @@ use crate::{
 
 #[async_trait(?Send)]
 pub trait Middleware: 'static {
-    async fn transform(&self, request: Request, chain: Chain) -> Response;
+    async fn transform(&self, request: Request, layer: Layer) -> Response;
 
     /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
@@ -29,12 +29,12 @@ impl std::fmt::Debug for dyn Middleware {
 #[async_trait(?Send)]
 impl<F, Fut, Resp> Middleware for F
 where
-    F: 'static + Fn(Request, Chain) -> Fut,
+    F: 'static + Fn(Request, Layer) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    async fn transform(&self, req: Request, chain: Chain) -> Response {
-        (self)(req, chain).await.into_response()
+    async fn transform(&self, req: Request, layer: Layer) -> Response {
+        (self)(req, layer).await.into_response()
     }
 }
 
@@ -67,14 +67,14 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct Chain {
+pub struct Layer {
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
     pub(crate) endpoint: Rc<dyn Endpoint>,
 }
 
-impl Chain {
+impl Layer {
     pub fn new(endpoint: impl Endpoint) -> Self {
-        Chain {
+        Layer {
             middlewares: Default::default(),
             endpoint: Rc::new(endpoint),
         }

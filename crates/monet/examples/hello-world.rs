@@ -6,7 +6,7 @@ use std::{
 
 use http::header::HeaderValue;
 use monet::{
-    Chain, Form, Json, Middleware, Response, Router, async_trait, error::Error, get,
+    Form, Json, Layer, Middleware, Response, Router, async_trait, error::Error, get,
     handler::endpoint::serve_dir::ServeDir, post, request::Request, types::Html,
 };
 use serde::{Deserialize, Serialize};
@@ -17,8 +17,8 @@ pub struct UserPayload {
     pub password: String,
 }
 
-async fn simple_middleware(req: Request, chain: Chain) -> Response {
-    let mut resp = chain.next(req).await;
+async fn simple_middleware(req: Request, layer: Layer) -> Response {
+    let mut resp = layer.next(req).await;
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
     resp
@@ -30,12 +30,12 @@ pub struct SyncedState(i32);
 static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
     LazyLock::new(|| Arc::new(Mutex::new(SyncedState(42))));
 
-async fn set_state(mut req: Request, chain: Chain) -> Response {
+async fn set_state(mut req: Request, layer: Layer) -> Response {
     let s = &*NUM;
     req.state.insert(s.clone());
     req.state.insert::<SyncedState>(SyncedState(99));
 
-    chain.next(req).await
+    layer.next(req).await
 }
 
 #[derive(Deserialize)]
@@ -96,10 +96,10 @@ struct RequestCounter;
 
 #[async_trait(?Send)]
 impl Middleware for RequestCounter {
-    async fn transform(&self, req: Request, chain: Chain) -> Response {
+    async fn transform(&self, req: Request, layer: Layer) -> Response {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
-        let mut resp = chain.next(req).await;
+        let mut resp = layer.next(req).await;
         resp.headers_mut()
             .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
         resp

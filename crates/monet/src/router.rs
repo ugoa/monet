@@ -15,7 +15,7 @@ use http::Method;
 
 use crate::{
     GUARANTEE, ServeDir,
-    handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
@@ -84,7 +84,14 @@ impl Router {
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodDispatch(dispatch) => match dispatch.inner.get(method) {
-                Some(chain) => chain.clone().next(req),
+                /*
+                 * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total of
+                 * M(middleware Rc) + 3(The Vec itself) + 1(endpoint Rc) words(8 bytes of each)
+                 * are being allocated by the .clone() per request. We could've use slice of Vec
+                 * as the tide framework does, but this would pollute the Middleware interface with
+                 * lifetime annotation. This is a performance tradeoff in faver of the DX simplicity.
+                 */
+                Some(layer) => layer.clone().next(req),
                 None => match &dispatch.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
@@ -147,10 +154,10 @@ impl Router {
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
         let wildcard_path = format!("{}/{{*{}}}", path.trim_end_matches('/'), NEST_TAIL_PARAM);
 
-        let mut chain = Chain::new(ServeDir::new(dir));
+        let mut layer = Layer::new(ServeDir::new(dir));
         let stripe_prefix_middleware = Rc::new(StripPrefix(Arc::new(path.to_string())));
-        chain.append(stripe_prefix_middleware);
-        self.at(&wildcard_path, Route::Service(chain))
+        layer.append(stripe_prefix_middleware);
+        self.at(&wildcard_path, Route::Service(layer))
     }
 
     pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
@@ -177,16 +184,16 @@ impl Router {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct MethodDispatch {
-    pub inner: HashMap<Method, Chain>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
-}
-
 #[derive(Debug, Clone)]
 pub enum Route {
     MethodDispatch(MethodDispatch),
-    Service(Chain),
+    Service(Layer),
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct MethodDispatch {
+    pub inner: HashMap<Method, Layer>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Route {
@@ -209,9 +216,9 @@ impl Route {
                     panic!("Cannot merge two `Route`s of same path that both have a fallback")
                 }
             }
-            other.inner.iter().for_each(|(method, chain)| {
+            other.inner.iter().for_each(|(method, layer)| {
                 match this.inner.entry(method.clone()) {
-                    Entry::Vacant(e) => e.insert(chain.clone()),
+                    Entry::Vacant(e) => e.insert(layer.clone()),
                     Entry::Occupied(_) => {
                         panic!("Overlapping route. Cannot add two endpoints that both handle `{method}`")
                     }
@@ -226,9 +233,9 @@ impl Route {
                 dispatch
                     .inner
                     .iter_mut()
-                    .for_each(|(_, chain)| chain.append(middleware.clone()));
+                    .for_each(|(_, layer)| layer.append(middleware.clone()));
             }
-            Route::Service(chain) => chain.append(middleware.clone()),
+            Route::Service(layer) => layer.append(middleware.clone()),
         }
     }
 
@@ -257,12 +264,12 @@ impl MethodDispatch {
     }
 
     fn register(&mut self, h: impl Endpoint, m: Method) {
-        let chain = Chain {
+        let layer = Layer {
             endpoint: Rc::new(h),
             middlewares: Default::default(),
         };
         match self.inner.entry(m.clone()) {
-            Entry::Vacant(e) => e.insert(chain),
+            Entry::Vacant(e) => e.insert(layer),
             Entry::Occupied(_) => {
                 panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
             }
