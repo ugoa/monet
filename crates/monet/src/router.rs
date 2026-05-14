@@ -102,10 +102,10 @@ impl Router {
         Box::pin(resp_fut)
     }
 
-    pub fn at(mut self, path: &str, other_route: Route) -> Self {
+    pub fn at(mut self, path: &str, other: Route) -> Self {
         match self.path_to_index.get(path) {
-            Some(index) => self.routes.get_mut(*index).unwrap().merge(other_route),
-            None => self.new_route(path, other_route),
+            Some(index) => self.routes.get_mut(*index).unwrap().merge(other),
+            None => self.new_route(path, other),
         }
         self
     }
