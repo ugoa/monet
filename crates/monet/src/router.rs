@@ -103,13 +103,10 @@ impl Router {
     }
 
     pub fn at(mut self, path: &str, other_route: Route) -> Self {
-        if let Some(index) = self.path_to_index.get(path) {
-            let existing_route = self.routes.get_mut(*index).unwrap();
-            existing_route.merge(other_route);
-        } else {
-            self.new_route(path, other_route);
+        match self.path_to_index.get(path) {
+            Some(index) => self.routes.get_mut(*index).unwrap().merge(other_route),
+            None => self.new_route(path, other_route),
         }
-
         self
     }
 
