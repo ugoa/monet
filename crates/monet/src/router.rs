@@ -21,23 +21,51 @@ use crate::{
     router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
 };
 
-pub fn get(endpoint: impl Endpoint) -> Route {
-    let mut md = MethodDispatch::new();
-    md.register(endpoint, Method::GET);
-
-    Route::MethodDispatch(md)
-}
-
-pub fn post(endpoint: impl Endpoint) -> Route {
-    let mut md = MethodDispatch::new();
-    md.register(endpoint, Method::POST);
-
-    Route::MethodDispatch(md)
-}
-
 pub fn catch(endpoint: impl Endpoint) -> Route {
     let mut md = MethodDispatch::new();
     md.fallback(endpoint);
+    Route::MethodDispatch(md)
+}
+
+pub fn get(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::GET)
+}
+
+pub fn post(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::POST)
+}
+
+pub fn connect(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::CONNECT)
+}
+
+pub fn head(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::HEAD)
+}
+
+pub fn put(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::PUT)
+}
+
+pub fn patch(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::PATCH)
+}
+
+pub fn delete(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::DELETE)
+}
+
+pub fn trace(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::TRACE)
+}
+
+pub fn options(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::OPTIONS)
+}
+
+fn on(endpoint: impl Endpoint, method: Method) -> Route {
+    let mut md = MethodDispatch::new();
+    md.register(endpoint, method);
 
     Route::MethodDispatch(md)
 }
