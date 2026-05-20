@@ -236,10 +236,10 @@ impl Route {
         {
             match (&this.fallback, &other.fallback) {
                 (Some(f), None) | (None, Some(f)) => this.fallback = Some(f.clone()),
-                (None, None) => (),
                 (Some(_), Some(_)) => {
                     panic!("Cannot merge two `Route`s of same path that both have a fallback")
                 }
+                (None, None) => (),
             }
             other.inner.iter().for_each(|(method, layer)| {
                 match this.inner.entry(method.clone()) {
