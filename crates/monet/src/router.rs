@@ -141,7 +141,7 @@ impl Router {
     pub fn merge(mut self, other: Self) -> Self {
         // Merge fallback
         match (&self.fallback, &other.fallback) {
-            (Some(f), None) | (None, Some(f)) => self.fallback = Some(f.clone()),
+            (Some(f), None) | (None, Some(f)) => self.fallback = Some(Rc::clone(f)),
             (None, None) => (),
             (Some(_), Some(_)) => {
                 panic!("Cannot merge two `Router`s that both have a fallback")
@@ -189,7 +189,7 @@ impl Router {
         let shared = Rc::new(middleware);
         self.routes
             .iter_mut()
-            .for_each(|route| route.wrap_by(shared.clone()));
+            .for_each(|route| route.wrap_by(Rc::clone(&shared)));
 
         self
     }
@@ -235,7 +235,7 @@ impl Route {
             && let Route::MethodDispatch(ref other) = other
         {
             match (&this.fallback, &other.fallback) {
-                (Some(f), None) | (None, Some(f)) => this.fallback = Some(f.clone()),
+                (Some(f), None) | (None, Some(f)) => this.fallback = Some(Rc::clone(f)),
                 (Some(_), Some(_)) => {
                     panic!("Cannot merge two `Route`s of same path that both have a fallback")
                 }
@@ -257,8 +257,8 @@ impl Route {
             Route::MethodDispatch(dispatch) => dispatch
                 .inner
                 .iter_mut()
-                .for_each(|(_, layer)| layer.append(middleware.clone())),
-            Route::Service(layer) => layer.append(middleware.clone()),
+                .for_each(|(_, layer)| layer.append(Rc::clone(&middleware))),
+            Route::Service(layer) => layer.append(Rc::clone(&middleware)),
         }
     }
 
