@@ -1,20 +1,24 @@
 pub mod endpoint;
 pub mod middleware;
 
-use std::rc::Rc;
-
-use async_trait::async_trait;
+use std::{pin::Pin, rc::Rc};
 
 use crate::{
     request::Request,
     response::{IntoResponse, Response},
 };
 
-#[async_trait(?Send)]
 pub trait Middleware: 'static {
-    async fn transform(&self, request: Request, layer: Layer) -> Response;
+    #[must_use]
+    fn transform<'m, 'fut>(
+        &'m self,
+        request: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
+    where
+        'm: 'fut,
+        Self: 'fut;
 
-    /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -26,23 +30,32 @@ impl std::fmt::Debug for dyn Middleware {
     }
 }
 
-#[async_trait(?Send)]
 impl<F, Fut, Resp> Middleware for F
 where
     F: 'static + Fn(Request, Layer) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    async fn transform(&self, req: Request, layer: Layer) -> Response {
-        (self)(req, layer).await.into_response()
+    fn transform<'m, 'fut>(
+        &'m self,
+        req: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
+    where
+        'm: 'fut,
+        Self: 'fut,
+    {
+        Box::pin(async move { (self)(req, layer).await.into_response() })
     }
 }
 
-#[async_trait(?Send)]
 pub trait Endpoint: 'static {
-    async fn call(&self, req: Request) -> Response;
+    #[must_use]
+    fn call<'e, 'fut>(&'e self, req: Request) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
+    where
+        'e: 'fut,
+        Self: 'fut;
 
-    /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -54,15 +67,30 @@ impl std::fmt::Debug for dyn Endpoint {
     }
 }
 
-#[async_trait(?Send)]
+// #[async_trait(?Send)]
+// impl<F, Fut, Resp> Endpoint for F
+// where
+//     F: 'static + Fn(Request) -> Fut,
+//     Fut: Future<Output = Resp>,
+//     Resp: IntoResponse,
+// {
+//     async fn call(&self, req: Request) -> Response {
+//         (self)(req).await.into_response()
+//     }
+// }
+
 impl<F, Fut, Resp> Endpoint for F
 where
     F: 'static + Fn(Request) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    async fn call(&self, req: Request) -> Response {
-        (self)(req).await.into_response()
+    fn call<'e, 'fut>(&'e self, req: Request) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
+    where
+        'e: 'fut,
+        Self: 'fut,
+    {
+        Box::pin(async move { (self)(req).await.into_response() })
     }
 }
 
