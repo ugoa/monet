@@ -1,13 +1,13 @@
 use std::{
     cell::{LazyCell, RefCell},
     net::SocketAddr,
+    pin::Pin,
     sync::{Arc, LazyLock, Mutex},
 };
 
 use http::header::HeaderValue;
 use monet::{
-    Layer, Middleware, Response, Router, async_trait, error::Error, get, request::Request,
-    types::Html,
+    Layer, Middleware, Response, Router, error::Error, get, request::Request, types::Html,
 };
 use serde::{Deserialize, Serialize};
 
@@ -81,15 +81,21 @@ thread_local! {
 
 struct RequestCounter;
 
-#[async_trait(?Send)]
 impl Middleware for RequestCounter {
-    async fn transform(&self, req: Request, layer: Layer) -> Response {
+    fn transform(
+        &self,
+        req: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
-        let mut resp = layer.next(req).await;
-        resp.headers_mut()
-            .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
-        resp
+
+        Box::pin(async move {
+            let mut resp = layer.next(req).await;
+            resp.headers_mut()
+                .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
+            resp
+        })
     }
 }
 

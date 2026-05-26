@@ -10,14 +10,11 @@ use crate::{
 
 pub trait Middleware: 'static {
     #[must_use]
-    fn transform<'m, 'fut>(
-        &'m self,
+    fn transform(
+        &self,
         request: Request,
         layer: Layer,
-    ) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
-    where
-        'm: 'fut,
-        Self: 'fut;
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -36,25 +33,18 @@ where
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    fn transform<'m, 'fut>(
-        &'m self,
+    fn transform(
+        &self,
         req: Request,
         layer: Layer,
-    ) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
-    where
-        'm: 'fut,
-        Self: 'fut,
-    {
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         Box::pin(async move { (self)(req, layer).await.into_response() })
     }
 }
 
 pub trait Endpoint: 'static {
     #[must_use]
-    fn call<'e, 'fut>(&'e self, req: Request) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
-    where
-        'e: 'fut,
-        Self: 'fut;
+    fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -85,11 +75,7 @@ where
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    fn call<'e, 'fut>(&'e self, req: Request) -> Pin<Box<dyn Future<Output = Response> + 'fut>>
-    where
-        'e: 'fut,
-        Self: 'fut,
-    {
+    fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         Box::pin(async move { (self)(req).await.into_response() })
     }
 }

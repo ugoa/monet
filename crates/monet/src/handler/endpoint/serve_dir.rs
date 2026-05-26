@@ -1,9 +1,9 @@
 use std::{
     path::{Component, Path, PathBuf},
+    pin::Pin,
     time::SystemTime,
 };
 
-use async_trait::async_trait;
 use bytes::Bytes;
 use compio::{fs::File, io::AsyncReadAtExt};
 use http::{
@@ -44,25 +44,26 @@ impl ServeDir {
     }
 }
 
-#[async_trait(?Send)]
 impl Endpoint for ServeDir {
-    async fn call(&self, req: Request) -> Response {
-        if req.method() != Method::GET && req.method() != Method::HEAD {
-            return StatusCode::METHOD_NOT_ALLOWED.into_response();
-        }
+    fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>> {
+        Box::pin(async move {
+            if req.method() != Method::GET && req.method() != Method::HEAD {
+                return StatusCode::METHOD_NOT_ALLOWED.into_response();
+            }
 
-        let Some(path) = build_and_validate_path(&self.base, req.uri().path()) else {
-            return StatusCode::NOT_FOUND.into_response();
-        };
+            let Some(path) = build_and_validate_path(&self.base, req.uri().path()) else {
+                return StatusCode::NOT_FOUND.into_response();
+            };
 
-        let buf_size = self.buf_chunk_size;
-        let append = self.append_index_html_on_directory;
+            let buf_size = self.buf_chunk_size;
+            let append = self.append_index_html_on_directory;
 
-        match open_file(req, path, buf_size, append).await {
-            Ok(OpenFileOutput::FileOpened(file_output)) => build_response(*file_output).await,
-            Err(e) => panic!("normal error {e}"),
-            _ => panic!("fetal error"),
-        }
+            match open_file(req, path, buf_size, append).await {
+                Ok(OpenFileOutput::FileOpened(file_output)) => build_response(*file_output).await,
+                Err(e) => panic!("normal error {e}"),
+                _ => panic!("fetal error"),
+            }
+        })
     }
 }
 
