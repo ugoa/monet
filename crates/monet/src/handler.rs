@@ -43,7 +43,6 @@ where
 }
 
 pub trait Endpoint: 'static {
-    #[must_use]
     fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
     fn name(&self) -> &str {

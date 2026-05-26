@@ -266,6 +266,7 @@ fn build_and_validate_path(base_path: &Path, requested_path: &str) -> Option<Pat
 
 pub(crate) enum OpenFileOutput {
     FileOpened(Box<FileOpened>),
+    #[allow(dead_code)]
     Redirect(String),
     FileNotFound,
     PreconditionFailed,
@@ -282,6 +283,7 @@ pub(crate) struct FileOpened {
     pub(super) last_modified: Option<HttpDate>,
 }
 
+#[allow(dead_code)]
 pub(crate) enum FileRequestExtent {
     Full(File, u64),
     Head(u64),
