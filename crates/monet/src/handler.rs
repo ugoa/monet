@@ -56,18 +56,6 @@ impl std::fmt::Debug for dyn Endpoint {
     }
 }
 
-// #[async_trait(?Send)]
-// impl<F, Fut, Resp> Endpoint for F
-// where
-//     F: 'static + Fn(Request) -> Fut,
-//     Fut: Future<Output = Resp>,
-//     Resp: IntoResponse,
-// {
-//     async fn call(&self, req: Request) -> Response {
-//         (self)(req).await.into_response()
-//     }
-// }
-
 impl<F, Fut, Resp> Endpoint for F
 where
     F: 'static + Fn(Request) -> Fut,
