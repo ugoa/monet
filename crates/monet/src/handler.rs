@@ -81,7 +81,7 @@ impl Layer {
         }
     }
 
-    pub fn append(&mut self, m: Rc<impl Middleware>) {
+    pub(crate) fn append(&mut self, m: Rc<impl Middleware>) {
         self.middlewares.push(m.clone());
     }
 
