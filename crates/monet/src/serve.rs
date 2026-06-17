@@ -45,7 +45,7 @@ pub fn run(addr: SocketAddr, router: Router) {
             }
         }
     };
-    let rt = compio::runtime::Runtime::new().expect("cannot create runtime");
+    let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
     rt.block_on(app);
 }
 
