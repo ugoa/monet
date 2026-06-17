@@ -34,7 +34,7 @@ pub fn run(addr: SocketAddr, router: Router) {
                             .serve_connection(
                                 HyperStream::new(stream.0),
                                 service_fn(async |req| {
-                                    router.handle(req.into()).map(Ok::<_, Infallible>).await
+                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
                                 }),
                             )
                             .await

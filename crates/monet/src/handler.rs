@@ -74,7 +74,7 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn new(endpoint: impl Endpoint) -> Self {
+    pub(crate) fn new(endpoint: impl Endpoint) -> Self {
         Layer {
             middlewares: Default::default(),
             endpoint: Rc::new(endpoint),

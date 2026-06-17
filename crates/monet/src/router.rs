@@ -22,9 +22,9 @@ use crate::{
 };
 
 pub fn catch(endpoint: impl Endpoint) -> Route {
-    let mut md = MethodDispatch::new();
-    md.fallback(endpoint);
-    Route::MethodDispatch(md)
+    let mut mr = MethodRouter::new();
+    mr.fallback(endpoint);
+    Route::MethodRouter(mr)
 }
 
 pub fn get(endpoint: impl Endpoint) -> Route {
@@ -64,10 +64,10 @@ pub fn options(endpoint: impl Endpoint) -> Route {
 }
 
 fn on(endpoint: impl Endpoint, method: Method) -> Route {
-    let mut md = MethodDispatch::new();
-    md.register(endpoint, method);
+    let mut mr = MethodRouter::new();
+    mr.register(endpoint, method);
 
-    Route::MethodDispatch(md)
+    Route::MethodRouter(mr)
 }
 
 #[derive(Default, Debug)]
@@ -85,7 +85,7 @@ impl Router {
         Default::default()
     }
 
-    pub fn handle(&self, mut req: Request) -> impl Future<Output = Response> {
+    pub fn dispatch(&self, mut req: Request) -> impl Future<Output = Response> {
         let request_path = req.uri().path().to_string();
 
         let Ok(matched) = self.inner.at(request_path.as_str()) else {
@@ -111,7 +111,7 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodDispatch(dispatch) => match dispatch.inner.get(method) {
+            Route::MethodRouter(method_router) => match method_router.inner.get(method) {
                 /*
                  * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total of
                  * M(middleware Rc) + 3(The Vec itself) + 1(endpoint Rc) words(8 bytes of each)
@@ -120,7 +120,7 @@ impl Router {
                  * lifetime annotation. This is a performance tradeoff in faver of the DX simplicity.
                  */
                 Some(layer) => layer.clone().next(req),
-                None => match &dispatch.fallback {
+                None => match &method_router.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
                 },
@@ -211,12 +211,12 @@ impl Router {
 
 #[derive(Debug, Clone)]
 pub enum Route {
-    MethodDispatch(MethodDispatch),
+    MethodRouter(MethodRouter),
     Service(Layer),
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct MethodDispatch {
+pub struct MethodRouter {
     pub inner: HashMap<Method, Layer>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
@@ -231,8 +231,8 @@ impl Route {
     }
 
     pub fn merge(&mut self, other: Route) {
-        if let &mut Route::MethodDispatch(ref mut this) = self
-            && let Route::MethodDispatch(ref other) = other
+        if let &mut Route::MethodRouter(ref mut this) = self
+            && let Route::MethodRouter(ref other) = other
         {
             match (&this.fallback, &other.fallback) {
                 (Some(f), None) | (None, Some(f)) => this.fallback = Some(Rc::clone(f)),
@@ -254,7 +254,7 @@ impl Route {
 
     pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
         match self {
-            Route::MethodDispatch(dispatch) => dispatch
+            Route::MethodRouter(mr) => mr
                 .inner
                 .iter_mut()
                 .for_each(|(_, layer)| layer.append(Rc::clone(&middleware))),
@@ -263,21 +263,21 @@ impl Route {
     }
 
     pub fn register(mut self, endpoint: impl Endpoint, method: Method) -> Self {
-        if let Route::MethodDispatch(ref mut dispatch) = self {
+        if let Route::MethodRouter(ref mut dispatch) = self {
             dispatch.register(endpoint, method);
         }
         self
     }
 
     pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
-        if let Route::MethodDispatch(ref mut dispatch) = self {
+        if let Route::MethodRouter(ref mut dispatch) = self {
             dispatch.fallback = Some(Rc::new(endpoint));
         }
         self
     }
 }
 
-impl MethodDispatch {
+impl MethodRouter {
     pub fn new() -> Self {
         Default::default()
     }
