@@ -18,7 +18,7 @@ use futures_util::FutureExt;
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::{GUARANTEE, Router};
+use crate::{Router, SHALL_NEVEL_FAIL};
 
 pub fn run(addr: SocketAddr, router: Router) {
     // dbg!(&router);
@@ -38,7 +38,7 @@ pub fn run(addr: SocketAddr, router: Router) {
                                 }),
                             )
                             .await
-                            .expect(GUARANTEE)
+                            .expect(SHALL_NEVEL_FAIL)
                     }).catch_unwind());
                 },
                 _ =  group.next(), if !group.is_empty()  => (),

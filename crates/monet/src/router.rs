@@ -14,7 +14,7 @@ use std::{
 use http::Method;
 
 use crate::{
-    GUARANTEE, ServeDir,
+    SHALL_NEVEL_FAIL, ServeDir,
     handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
@@ -106,7 +106,7 @@ impl Router {
 
         // dbg!(&matched.params);
 
-        let route = self.routes.get(index).expect(GUARANTEE);
+        let route = self.routes.get(index).expect(SHALL_NEVEL_FAIL);
 
         let method = req.method();
         let resp_fut = match route {
@@ -149,7 +149,7 @@ impl Router {
         }
 
         for (index, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&index).expect(GUARANTEE);
+            let path = other.index_to_path.get(&index).expect(SHALL_NEVEL_FAIL);
 
             self = self.at(path, route);
         }
@@ -167,7 +167,7 @@ impl Router {
         }
 
         for (index, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.index_to_path.get(&index).expect(GUARANTEE);
+            let inner_path = other.index_to_path.get(&index).expect(SHALL_NEVEL_FAIL);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -201,7 +201,7 @@ impl Router {
 
     fn new_route(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
-        self.inner.insert(path, new_index).expect(GUARANTEE);
+        self.inner.insert(path, new_index).expect(SHALL_NEVEL_FAIL);
 
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
