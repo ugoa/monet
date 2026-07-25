@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     convert::Infallible,
     future::Future,
     net::SocketAddr,
@@ -12,22 +13,40 @@ use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
 };
-use futures::stream::StreamExt;
+use futures::{future::poll_fn, stream::StreamExt};
 use futures_concurrency::future::FutureGroup;
-use futures_util::FutureExt;
+use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
 use crate::{Router, SHALL_NEVEL_FAIL};
+
+type BgFut = Pin<Box<dyn Future<Output = ()>>>;
+
+thread_local! {
+    static BACKGROUND_JOB_GROUP: RefCell<FutureGroup<BgFut>> = RefCell::new(FutureGroup::new());
+}
+
+pub fn spawn_task<F>(future: F)
+where
+    F: Future<Output = ()> + 'static, // 'static is required because it's stored in thread_local
+{
+    BACKGROUND_JOB_GROUP.with(|group| {
+        group.borrow_mut().insert(Box::pin(future));
+    });
+}
 
 pub fn run(addr: SocketAddr, router: Router) {
     // dbg!(&router);
     let app = async {
         let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
         let mut group = FutureGroup::new();
+
         loop {
             tokio::select! {
+
                 biased;
+
                 stream = listener.accepts() => {
                     group.insert(AssertUnwindSafe(async {
                         http1::Builder::new()
@@ -41,10 +60,19 @@ pub fn run(addr: SocketAddr, router: Router) {
                             .expect(SHALL_NEVEL_FAIL)
                     }).catch_unwind());
                 },
+
                 _ =  group.next(), if !group.is_empty()  => (),
+
+                _ = poll_fn(|cx| {
+                    BACKGROUND_JOB_GROUP.with(|g| {
+                        let mut group_ref = g.borrow_mut();
+                        Pin::new(&mut *group_ref).poll_next(cx)
+                    })
+                }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
             }
         }
     };
+
     let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
     rt.block_on(app);
 }
