@@ -4,12 +4,9 @@ use monet::{Request, Router, get};
 
 async fn spawn_background_task(_req: Request) -> &'static str {
     let bgtask = async {
-        let second = 2;
-        compio::runtime::time::sleep(std::time::Duration::from_millis(second * 1000)).await;
-        println!(
-            "Print to stdout after {} second, this will not block main handler",
-            second
-        );
+        let sec = 2;
+        compio::runtime::time::sleep(std::time::Duration::from_millis(sec * 1000)).await;
+        println!("Print to stdout after {sec} second, this will not block main handler",);
     };
     monet::spawn(bgtask);
     "Immediately returned response"
