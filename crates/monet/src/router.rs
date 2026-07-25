@@ -14,32 +14,60 @@ use std::{
 use http::Method;
 
 use crate::{
-    GUARANTEE, ServeDir,
+    NEVEL_FAIL, ServeDir,
     handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
 };
 
-pub fn get(handler: impl Endpoint) -> Route {
-    let mut md = MethodDispatch::new();
-    md.register(handler, Method::GET);
-
-    Route::MethodDispatch(md)
+pub fn catch(endpoint: impl Endpoint) -> Route {
+    let mut mr = MethodRouter::new();
+    mr.fallback(endpoint);
+    Route::MethodRouter(mr)
 }
 
-pub fn post(handler: impl Endpoint) -> Route {
-    let mut md = MethodDispatch::new();
-    md.register(handler, Method::POST);
-
-    Route::MethodDispatch(md)
+pub fn get(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::GET)
 }
 
-pub fn catch(handler: impl Endpoint) -> Route {
-    let mut md = MethodDispatch::new();
-    md.fallback(handler);
+pub fn post(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::POST)
+}
 
-    Route::MethodDispatch(md)
+pub fn connect(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::CONNECT)
+}
+
+pub fn head(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::HEAD)
+}
+
+pub fn put(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::PUT)
+}
+
+pub fn patch(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::PATCH)
+}
+
+pub fn delete(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::DELETE)
+}
+
+pub fn trace(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::TRACE)
+}
+
+pub fn options(endpoint: impl Endpoint) -> Route {
+    on(endpoint, Method::OPTIONS)
+}
+
+fn on(endpoint: impl Endpoint, method: Method) -> Route {
+    let mut mr = MethodRouter::new();
+    mr.register(endpoint, method);
+
+    Route::MethodRouter(mr)
 }
 
 #[derive(Default, Debug)]
@@ -57,7 +85,7 @@ impl Router {
         Default::default()
     }
 
-    pub fn handle(&self, mut req: Request) -> impl Future<Output = Response> {
+    pub fn dispatch(&self, mut req: Request) -> impl Future<Output = Response> {
         let request_path = req.uri().path().to_string();
 
         let Ok(matched) = self.inner.at(request_path.as_str()) else {
@@ -78,12 +106,12 @@ impl Router {
 
         // dbg!(&matched.params);
 
-        let route = self.routes.get(index).expect(GUARANTEE);
+        let route = self.routes.get(index).expect(NEVEL_FAIL);
 
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodDispatch(dispatch) => match dispatch.inner.get(method) {
+            Route::MethodRouter(method_router) => match method_router.inner.get(method) {
                 /*
                  * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total of
                  * M(middleware Rc) + 3(The Vec itself) + 1(endpoint Rc) words(8 bytes of each)
@@ -92,7 +120,7 @@ impl Router {
                  * lifetime annotation. This is a performance tradeoff in faver of the DX simplicity.
                  */
                 Some(layer) => layer.clone().next(req),
-                None => match &dispatch.fallback {
+                None => match &method_router.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
                 },
@@ -102,21 +130,18 @@ impl Router {
         Box::pin(resp_fut)
     }
 
-    pub fn at(mut self, path: &str, other_route: Route) -> Self {
-        if let Some(index) = self.path_to_index.get(path) {
-            let existing_route = self.routes.get_mut(*index).unwrap();
-            existing_route.merge(other_route);
-        } else {
-            self.new_route(path, other_route);
+    pub fn at(mut self, path: &str, other: Route) -> Self {
+        match self.path_to_index.get(path) {
+            Some(index) => self.routes.get_mut(*index).unwrap().merge(other),
+            None => self.new_route(path, other),
         }
-
         self
     }
 
     pub fn merge(mut self, other: Self) -> Self {
         // Merge fallback
         match (&self.fallback, &other.fallback) {
-            (Some(f), None) | (None, Some(f)) => self.fallback = Some(f.clone()),
+            (Some(f), None) | (None, Some(f)) => self.fallback = Some(Rc::clone(f)),
             (None, None) => (),
             (Some(_), Some(_)) => {
                 panic!("Cannot merge two `Router`s that both have a fallback")
@@ -124,7 +149,7 @@ impl Router {
         }
 
         for (index, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&index).expect(GUARANTEE);
+            let path = other.index_to_path.get(&index).expect(NEVEL_FAIL);
 
             self = self.at(path, route);
         }
@@ -142,7 +167,7 @@ impl Router {
         }
 
         for (index, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.index_to_path.get(&index).expect(GUARANTEE);
+            let inner_path = other.index_to_path.get(&index).expect(NEVEL_FAIL);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -164,19 +189,19 @@ impl Router {
         let shared = Rc::new(middleware);
         self.routes
             .iter_mut()
-            .for_each(|route| route.wrap_by(shared.clone()));
+            .for_each(|route| route.wrap_by(Rc::clone(&shared)));
 
         self
     }
 
-    pub fn catch_all(mut self, h: impl Endpoint) -> Self {
-        self.fallback = Some(Rc::new(h));
+    pub fn catch_all(mut self, endpoint: impl Endpoint) -> Self {
+        self.fallback = Some(Rc::new(endpoint));
         self
     }
 
     fn new_route(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
-        self.inner.insert(path, new_index).expect(GUARANTEE);
+        self.inner.insert(path, new_index).expect(NEVEL_FAIL);
 
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
@@ -186,35 +211,35 @@ impl Router {
 
 #[derive(Debug, Clone)]
 pub enum Route {
-    MethodDispatch(MethodDispatch),
+    MethodRouter(MethodRouter),
     Service(Layer),
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct MethodDispatch {
+pub struct MethodRouter {
     pub inner: HashMap<Method, Layer>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Route {
-    pub fn get(self, h: impl Endpoint) -> Self {
-        self.register(h, Method::POST)
+    pub fn get(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::POST)
     }
 
-    pub fn post(self, h: impl Endpoint) -> Self {
-        self.register(h, Method::POST)
+    pub fn post(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::POST)
     }
 
     pub fn merge(&mut self, other: Route) {
-        if let &mut Route::MethodDispatch(ref mut this) = self
-            && let Route::MethodDispatch(ref other) = other
+        if let &mut Route::MethodRouter(ref mut this) = self
+            && let Route::MethodRouter(ref other) = other
         {
             match (&this.fallback, &other.fallback) {
-                (Some(f), None) | (None, Some(f)) => this.fallback = Some(f.clone()),
-                (None, None) => (),
+                (Some(f), None) | (None, Some(f)) => this.fallback = Some(Rc::clone(f)),
                 (Some(_), Some(_)) => {
                     panic!("Cannot merge two `Route`s of same path that both have a fallback")
                 }
+                (None, None) => (),
             }
             other.inner.iter().for_each(|(method, layer)| {
                 match this.inner.entry(method.clone()) {
@@ -229,49 +254,49 @@ impl Route {
 
     pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
         match self {
-            Route::MethodDispatch(dispatch) => {
-                dispatch
-                    .inner
-                    .iter_mut()
-                    .for_each(|(_, layer)| layer.append(middleware.clone()));
-            }
-            Route::Service(layer) => layer.append(middleware.clone()),
+            Route::MethodRouter(mr) => mr
+                .inner
+                .iter_mut()
+                .for_each(|(_, layer)| layer.append(Rc::clone(&middleware))),
+            Route::Service(layer) => layer.append(Rc::clone(&middleware)),
         }
     }
 
-    pub fn register(mut self, h: impl Endpoint, m: Method) -> Self {
-        if let Route::MethodDispatch(ref mut dispatch) = self {
-            dispatch.register(h, m);
+    pub fn register(mut self, endpoint: impl Endpoint, method: Method) -> Self {
+        if let Route::MethodRouter(ref mut dispatch) = self {
+            dispatch.register(endpoint, method);
         }
         self
     }
 
-    pub fn catch(mut self, h: impl Endpoint) -> Self {
-        if let Route::MethodDispatch(ref mut dispatch) = self {
-            dispatch.fallback = Some(Rc::new(h));
+    pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
+        if let Route::MethodRouter(ref mut dispatch) = self {
+            dispatch.fallback = Some(Rc::new(endpoint));
         }
         self
     }
 }
 
-impl MethodDispatch {
+impl MethodRouter {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn fallback(&mut self, h: impl Endpoint) {
-        self.fallback = Some(Rc::new(h));
+    pub fn fallback(&mut self, endpoint: impl Endpoint) {
+        self.fallback = Some(Rc::new(endpoint));
     }
 
-    fn register(&mut self, h: impl Endpoint, m: Method) {
+    fn register(&mut self, endpoint: impl Endpoint, method: Method) {
         let layer = Layer {
-            endpoint: Rc::new(h),
+            endpoint: Rc::new(endpoint),
             middlewares: Default::default(),
         };
-        match self.inner.entry(m.clone()) {
+        match self.inner.entry(method.clone()) {
             Entry::Vacant(e) => e.insert(layer),
             Entry::Occupied(_) => {
-                panic!("Overlapping method route. Cannot add two methods that both handle `{m}`")
+                panic!(
+                    "Overlapping method route. Cannot add two methods that both handle `{method}`"
+                )
             }
         };
     }

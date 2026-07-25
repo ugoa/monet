@@ -1,20 +1,21 @@
 pub mod endpoint;
 pub mod middleware;
 
-use std::rc::Rc;
-
-use async_trait::async_trait;
+use std::{pin::Pin, rc::Rc};
 
 use crate::{
     request::Request,
     response::{IntoResponse, Response},
 };
 
-#[async_trait(?Send)]
 pub trait Middleware: 'static {
-    async fn transform(&self, request: Request, layer: Layer) -> Response;
+    #[must_use]
+    fn transform(
+        &self,
+        request: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
-    /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -26,23 +27,24 @@ impl std::fmt::Debug for dyn Middleware {
     }
 }
 
-#[async_trait(?Send)]
 impl<F, Fut, Resp> Middleware for F
 where
     F: 'static + Fn(Request, Layer) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    async fn transform(&self, req: Request, layer: Layer) -> Response {
-        (self)(req, layer).await.into_response()
+    fn transform(
+        &self,
+        req: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
+        Box::pin(async move { (self)(req, layer).await.into_response() })
     }
 }
 
-#[async_trait(?Send)]
 pub trait Endpoint: 'static {
-    async fn call(&self, req: Request) -> Response;
+    fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
-    /// Set the middleware's name. By default it uses the type signature.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -54,15 +56,14 @@ impl std::fmt::Debug for dyn Endpoint {
     }
 }
 
-#[async_trait(?Send)]
 impl<F, Fut, Resp> Endpoint for F
 where
     F: 'static + Fn(Request) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
-    async fn call(&self, req: Request) -> Response {
-        (self)(req).await.into_response()
+    fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>> {
+        Box::pin(async move { (self)(req).await.into_response() })
     }
 }
 
@@ -73,14 +74,14 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn new(endpoint: impl Endpoint) -> Self {
+    pub(crate) fn new(endpoint: impl Endpoint) -> Self {
         Layer {
             middlewares: Default::default(),
             endpoint: Rc::new(endpoint),
         }
     }
 
-    pub fn append(&mut self, m: Rc<impl Middleware>) {
+    pub(crate) fn append(&mut self, m: Rc<impl Middleware>) {
         self.middlewares.push(m.clone());
     }
 

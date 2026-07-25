@@ -1,6 +1,5 @@
-use std::panic::AssertUnwindSafe;
+use std::{panic::AssertUnwindSafe, pin::Pin};
 
-use async_trait::async_trait;
 use futures_util::FutureExt;
 use http::StatusCode;
 
@@ -9,18 +8,23 @@ use crate::{IntoResponse, Layer, Middleware, Request, Response};
 #[derive(Default, Debug)]
 pub struct CatchPanic;
 
-#[async_trait(?Send)]
 impl Middleware for CatchPanic {
-    async fn transform(&self, req: Request, layer: Layer) -> Response {
-        AssertUnwindSafe(layer.next(req))
-            .catch_unwind()
-            .await
-            .unwrap_or_else(|err| {
-                tracing::error!(error = ?err, "panic occurred");
+    fn transform(
+        &self,
+        req: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
+        Box::pin(async move {
+            AssertUnwindSafe(layer.next(req))
+                .catch_unwind()
+                .await
+                .unwrap_or_else(|err| {
+                    tracing::error!(error = ?err, "panic occurred");
 
-                let mut resp = "Service panicked".into_response();
-                *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-                resp
-            })
+                    let mut resp = "Service panicked".into_response();
+                    *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                    resp
+                })
+        })
     }
 }

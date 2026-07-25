@@ -7,18 +7,18 @@ pub mod router;
 pub mod serve;
 pub mod types;
 
-pub use async_trait::async_trait;
-
 // pub use monet_macros::handler;
 pub use crate::{
     error::{BodyError, BoxError, Error},
-    handler::middleware::catch_panic::CatchPanic,
-    handler::{Endpoint, Layer, Middleware, endpoint::serve_dir::ServeDir},
+    handler::{
+        Endpoint, Layer, Middleware, endpoint::serve_dir::ServeDir,
+        middleware::catch_panic::CatchPanic,
+    },
     request::Request,
     response::{IntoResponse, Response},
     router::{Router, get, post},
-    serve::run,
+    serve::{run, spawn_task as spawn},
     types::{Form, Json, Path},
 };
 
-pub(crate) const GUARANTEE: &str = "Should never fail. Please file a bug if it does";
+pub(crate) const NEVEL_FAIL: &str = "Should never fail. Please file a bug if it does";

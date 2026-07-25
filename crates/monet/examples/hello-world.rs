@@ -1,13 +1,13 @@
 use std::{
     cell::{LazyCell, RefCell},
     net::SocketAddr,
+    pin::Pin,
     sync::{Arc, LazyLock, Mutex},
 };
 
 use http::header::HeaderValue;
 use monet::{
-    Form, Json, Layer, Middleware, Response, Router, async_trait, error::Error, get,
-    handler::endpoint::serve_dir::ServeDir, post, request::Request, types::Html,
+    Layer, Middleware, Response, Router, error::Error, get, request::Request, types::Html,
 };
 use serde::{Deserialize, Serialize};
 
@@ -59,19 +59,6 @@ async fn query(req: Request) -> Result<String, Error> {
     Ok(q.offset.to_string())
 }
 
-async fn parse_json(req: Request) -> Result<Json<UserPayload>, Error> {
-    req.into_json().await
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct FormPayload {
-    pub name: String,
-    pub email: String,
-}
-async fn parse_form(req: Request) -> Result<Form<FormPayload>, Error> {
-    req.into_form().await
-}
-
 async fn return_html(_req: Request) -> Html<&'static str> {
     Html(
         r#"
@@ -94,15 +81,21 @@ thread_local! {
 
 struct RequestCounter;
 
-#[async_trait(?Send)]
 impl Middleware for RequestCounter {
-    async fn transform(&self, req: Request, layer: Layer) -> Response {
+    fn transform(
+        &self,
+        req: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
-        let mut resp = layer.next(req).await;
-        resp.headers_mut()
-            .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
-        resp
+
+        Box::pin(async move {
+            let mut resp = layer.next(req).await;
+            resp.headers_mut()
+                .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
+            resp
+        })
     }
 }
 
@@ -110,18 +103,13 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    let service = ServeDir::new("static");
-
     let app = Router::new()
         .at("/", get(root))
         .at("/query", get(query))
         .wrap_by(simple_middleware)
-        .at("/json", post(parse_json))
-        .at("/form", post(parse_form))
         .at("/html", get(return_html))
         .wrap_by(RequestCounter)
-        .wrap_by(set_state)
-        .at("/hello.html", get(service));
+        .wrap_by(set_state);
 
     monet::run(addr, app);
 }

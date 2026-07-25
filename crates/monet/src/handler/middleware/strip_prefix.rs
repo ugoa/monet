@@ -1,19 +1,23 @@
-use std::sync::Arc;
+use std::{pin::Pin, sync::Arc};
 
-use async_trait::async_trait;
 use http::Uri;
 
 use crate::{Layer, Middleware, Request, Response};
 
 pub struct StripPrefix(pub Arc<String>);
 
-#[async_trait(?Send)]
 impl Middleware for StripPrefix {
-    async fn transform(&self, mut req: Request, layer: Layer) -> Response {
-        if let Some(new_uri) = strip_prefix(req.uri(), &self.0) {
-            *req.uri_mut() = new_uri;
-        };
-        layer.next(req).await
+    fn transform(
+        &self,
+        mut req: Request,
+        layer: Layer,
+    ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
+        Box::pin(async move {
+            if let Some(new_uri) = strip_prefix(req.uri(), &self.0) {
+                *req.uri_mut() = new_uri;
+            };
+            layer.next(req).await
+        })
     }
 }
 

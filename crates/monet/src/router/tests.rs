@@ -1,6 +1,6 @@
-use http::StatusCode;
+use http::{HeaderValue, StatusCode};
 
-use crate::{Request, Router, get, post};
+use crate::{Layer, Request, Response, Router, get, post};
 
 #[test]
 #[should_panic(expected = "Overlapping route. Cannot add two endpoints that both handle `GET`")]
@@ -40,4 +40,16 @@ async fn notfound(_req: Request) -> (StatusCode, &'static str) {
 
 async fn no_support(_req: Request) -> String {
     format!("No support for {} METHOD at this route", _req.method())
+}
+
+#[test]
+fn wrap_by_middleware_ok() {
+    Router::new().at("/", get(hello)).wrap_by(middleware_api);
+}
+
+async fn middleware_api(req: Request, layer: Layer) -> Response {
+    let mut resp = layer.next(req).await;
+    resp.headers_mut()
+        .insert("mark", HeaderValue::from_static("modified"));
+    resp
 }
