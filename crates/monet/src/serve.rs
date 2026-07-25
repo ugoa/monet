@@ -19,7 +19,7 @@ use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::{Router, SHALL_NEVEL_FAIL};
+use crate::{NEVEL_FAIL, Router};
 
 type BgFut = Pin<Box<dyn Future<Output = ()>>>;
 
@@ -57,7 +57,7 @@ pub fn run(addr: SocketAddr, router: Router) {
                                 }),
                             )
                             .await
-                            .expect(SHALL_NEVEL_FAIL)
+                            .expect(NEVEL_FAIL)
                     }).catch_unwind());
                 },
 
