@@ -5,7 +5,7 @@ use http::StatusCode;
 
 use crate::{IntoResponse, Layer, Middleware, Request, Response};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct CatchPanic;
 
 impl Middleware for CatchPanic {

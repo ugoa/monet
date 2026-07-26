@@ -3,12 +3,14 @@ pub mod middleware;
 
 use std::{pin::Pin, rc::Rc};
 
+use dyn_clone::DynClone;
+
 use crate::{
     request::Request,
     response::{IntoResponse, Response},
 };
 
-pub trait Middleware: 'static {
+pub trait Middleware: DynClone + 'static {
     #[must_use]
     fn transform(
         &self,
@@ -21,6 +23,12 @@ pub trait Middleware: 'static {
     }
 }
 
+impl<'cl> Clone for Box<dyn Middleware + 'cl> {
+    fn clone(&self) -> Self {
+        dyn_clone::clone_box(&**self)
+    }
+}
+
 impl std::fmt::Debug for dyn Middleware {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Endpoint: {{{}}}", self.name())
@@ -29,7 +37,7 @@ impl std::fmt::Debug for dyn Middleware {
 
 impl<F, Fut, Resp> Middleware for F
 where
-    F: 'static + Fn(Request, Layer) -> Fut,
+    F: 'static + Clone + Fn(Request, Layer) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
@@ -42,11 +50,20 @@ where
     }
 }
 
-pub trait Endpoint: 'static {
+pub trait Endpoint: DynClone + 'static {
     fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
+    }
+}
+
+/// Handwriten Version of:
+///     dyn_clone::clone_trait_object!(Endpoint);
+/// without the redundant Send&Sync implemention
+impl<'cl> Clone for Box<dyn Endpoint + 'cl> {
+    fn clone(&self) -> Self {
+        dyn_clone::clone_box(&**self)
     }
 }
 
@@ -58,7 +75,7 @@ impl std::fmt::Debug for dyn Endpoint {
 
 impl<F, Fut, Resp> Endpoint for F
 where
-    F: 'static + Fn(Request) -> Fut,
+    F: 'static + Clone + Fn(Request) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
@@ -67,7 +84,7 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Layer {
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
     pub(crate) endpoint: Rc<dyn Endpoint>,

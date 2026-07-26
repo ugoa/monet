@@ -7,6 +7,7 @@ use std::{
     panic::AssertUnwindSafe,
     pin::Pin,
     task::{Context, Poll, ready},
+    thread,
 };
 
 use compio::{
@@ -76,6 +77,62 @@ pub fn run(addr: SocketAddr, router: Router) {
     let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
     rt.block_on(app);
 }
+
+// pub fn run2(addr: SocketAddr, router: Router) {
+//     let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
+//
+//     let handles = core_ids
+//         .into_iter()
+//         .map(|id| {
+//             thread::spawn(move || {
+//
+//             let app = async {
+//                 let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
+//                 let mut group = FutureGroup::new();
+//
+//                 loop {
+//                     tokio::select! {
+//
+//                         biased;
+//
+//                         stream = listener.accepts() => {
+//                             group.insert(AssertUnwindSafe(async {
+//                                 http1::Builder::new()
+//                                     .serve_connection(
+//                                         HyperStream::new(stream.0),
+//                                         service_fn(async |req| {
+//                                             router.clone().dispatch(req.into()).map(Ok::<_, Infallible>).await
+//                                         }),
+//                                     )
+//                                     .await
+//                                     .expect(NEVEL_FAIL)
+//                             }).catch_unwind());
+//                         },
+//
+//                         _ =  group.next(), if !group.is_empty()  => (),
+//
+//                         _ = poll_fn(|cx| {
+//                             BACKGROUND_JOB_GROUP.with(|g| {
+//                                 let mut group_ref = g.borrow_mut();
+//                                 Pin::new(&mut *group_ref).poll_next(cx)
+//                             })
+//                         }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
+//                     }
+//                 }
+//             };
+//                 if core_affinity::set_for_current(id) {
+//                     compio::runtime::Runtime::new()
+//                         .expect("shall not fail to create runtime")
+//                         .block_on(app);
+//                 }
+//             })
+//         })
+//         .collect::<Vec<_>>();
+//
+//     for handle in handles.into_iter() {
+//         handle.join().unwrap();
+//     }
+// }
 
 /// Types that can listen for connections.
 pub trait Listener: 'static {

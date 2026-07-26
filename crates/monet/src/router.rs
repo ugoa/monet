@@ -76,8 +76,19 @@ pub struct Router {
     pub routes: Vec<Route>,
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
-    pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub fallback: Option<Rc<dyn Endpoint>>,
+}
+
+impl Clone for Router {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            routes: self.routes.clone(),
+            path_to_index: self.path_to_index.clone(),
+            index_to_path: self.index_to_path.clone(),
+            fallback: self.fallback.clone(),
+        }
+    }
 }
 
 impl Router {
@@ -209,13 +220,13 @@ impl Router {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Route {
     MethodRouter(MethodRouter),
     Service(Layer),
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub struct MethodRouter {
     pub inner: HashMap<Method, Layer>,
     pub fallback: Option<Rc<dyn Endpoint>>,
