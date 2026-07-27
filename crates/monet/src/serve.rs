@@ -78,6 +78,27 @@ pub fn run(addr: SocketAddr, router: Router) {
     rt.block_on(app);
 }
 
+pub fn run2(addr: SocketAddr, router: Router) {
+    let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
+
+    // for core_id in core_ids {
+    //     let cl = router.deep_copy();
+    //     thread::spawn(move || println!("{:?}", cl));
+    // }
+
+    let handles = core_ids
+        .into_iter()
+        .map(|id| {
+            let cl = router.deep_copy();
+            thread::spawn(move || println!("{:?}", cl))
+        })
+        .collect::<Vec<_>>();
+
+    for handle in handles.into_iter() {
+        handle.join().unwrap();
+    }
+}
+
 // pub fn run2(addr: SocketAddr, router: Router) {
 //     let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
 //
