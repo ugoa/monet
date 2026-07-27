@@ -84,10 +84,23 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Layer {
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
     pub(crate) endpoint: Rc<dyn Endpoint>,
+}
+
+impl Clone for Layer {
+    fn clone(&self) -> Self {
+        Self {
+            middlewares: self
+                .middlewares
+                .iter()
+                .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn)))
+                .collect(),
+            endpoint: Rc::from(dyn_clone::clone_box(&*self.endpoint)),
+        }
+    }
 }
 
 impl Layer {

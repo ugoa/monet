@@ -226,7 +226,25 @@ pub enum Route {
     Service(Layer),
 }
 
-#[derive(Default, Debug)]
+impl Clone for Route {
+    fn clone(&self) -> Self {
+        match self {
+            Self::MethodRouter(mr) => Self::MethodRouter(MethodRouter {
+                inner: mr.inner.clone(),
+                fallback: mr
+                    .fallback
+                    .as_ref()
+                    .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn))),
+            }),
+            Self::Service(layer) => {
+                let newlayer = todo!();
+                Self::Service(newlayer)
+            }
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct MethodRouter {
     pub inner: HashMap<Method, Layer>,
     pub fallback: Option<Rc<dyn Endpoint>>,
