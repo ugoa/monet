@@ -70,25 +70,13 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
     Route::MethodRouter(mr)
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Router {
     pub inner: matchit::Router<usize>,
     pub routes: Vec<Route>,
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
     pub fallback: Option<Rc<dyn Endpoint>>,
-}
-
-impl Clone for Router {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-            routes: self.routes.clone(),
-            path_to_index: self.path_to_index.clone(),
-            index_to_path: self.index_to_path.clone(),
-            fallback: self.fallback.clone(),
-        }
-    }
 }
 
 impl Router {
@@ -229,22 +217,23 @@ pub enum Route {
 impl Clone for Route {
     fn clone(&self) -> Self {
         match self {
-            Self::MethodRouter(mr) => Self::MethodRouter(MethodRouter {
-                inner: mr.inner.clone(),
-                fallback: mr
+            Self::MethodRouter(item) => Self::MethodRouter(MethodRouter {
+                inner: item
+                    .inner
+                    .iter()
+                    .map(|(method, layer)| (method.clone(), layer.deep_copy()))
+                    .collect(),
+                fallback: item
                     .fallback
                     .as_ref()
                     .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn))),
             }),
-            Self::Service(layer) => {
-                let newlayer = todo!();
-                Self::Service(newlayer)
-            }
+            Self::Service(layer) => Self::Service(layer.deep_copy()),
         }
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub struct MethodRouter {
     pub inner: HashMap<Method, Layer>,
     pub fallback: Option<Rc<dyn Endpoint>>,

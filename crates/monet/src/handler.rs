@@ -84,26 +84,20 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Layer {
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
     pub(crate) endpoint: Rc<dyn Endpoint>,
 }
 
-impl Clone for Layer {
-    fn clone(&self) -> Self {
-        Self {
-            middlewares: self
-                .middlewares
-                .iter()
-                .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn)))
-                .collect(),
-            endpoint: Rc::from(dyn_clone::clone_box(&*self.endpoint)),
+impl Layer {
+    pub async fn next(mut self, req: Request) -> Response {
+        if let Some(current) = self.middlewares.pop() {
+            current.transform(req, self).await
+        } else {
+            self.endpoint.call(req).await
         }
     }
-}
-
-impl Layer {
     pub(crate) fn new(endpoint: impl Endpoint) -> Self {
         Layer {
             middlewares: Default::default(),
@@ -115,11 +109,14 @@ impl Layer {
         self.middlewares.push(m.clone());
     }
 
-    pub async fn next(mut self, req: Request) -> Response {
-        if let Some(current) = self.middlewares.pop() {
-            current.transform(req, self).await
-        } else {
-            self.endpoint.call(req).await
+    pub(crate) fn deep_copy(&self) -> Self {
+        Self {
+            middlewares: self
+                .middlewares
+                .iter()
+                .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn)))
+                .collect(),
+            endpoint: Rc::from(dyn_clone::clone_box(&*self.endpoint)),
         }
     }
 }
