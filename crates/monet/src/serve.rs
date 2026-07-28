@@ -20,7 +20,7 @@ use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::{NEVEL_FAIL, Router};
+use crate::{NEVEL_FAIL, Router, router::DummyRouter};
 
 type BgFut = Pin<Box<dyn Future<Output = ()>>>;
 
@@ -89,14 +89,14 @@ pub fn run2(addr: SocketAddr, router: Router) {
     let handles = core_ids
         .into_iter()
         .map(|id| {
-            let cl = router.deep_copy();
-            thread::spawn(move || println!("{:?}", cl))
+            // let cl = router.deep_copy();
+            // thread::spawn(move || println!("{:?}", cl))
         })
         .collect::<Vec<_>>();
 
-    for handle in handles.into_iter() {
-        handle.join().unwrap();
-    }
+    // for handle in handles.into_iter() {
+    //     handle.join().unwrap();
+    // }
 }
 
 // pub fn run2(addr: SocketAddr, router: Router) {
