@@ -12,7 +12,7 @@ use std::{
 
 use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
-    net::{TcpListener, TcpStream, UnixListener, UnixStream},
+    net::{SocketOpts, TcpListener, TcpStream, UnixListener, UnixStream},
 };
 use futures::{future::poll_fn, stream::StreamExt};
 use futures_concurrency::future::FutureGroup;
@@ -78,82 +78,70 @@ pub fn run(addr: SocketAddr, router: Router) {
     rt.block_on(app);
 }
 
-pub fn run2(addr: SocketAddr, router: Router) {
-    let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
+use crate::{Request, get};
 
-    // for core_id in core_ids {
-    //     let cl = router.deep_copy();
-    //     thread::spawn(move || println!("{:?}", cl));
-    // }
+async fn greeting(_req: Request) -> String {
+    format!("Current thread ID: {:?}", thread::current().id())
+}
+
+pub fn run2(addr: SocketAddr) {
+    // dbg!(&router);
+    let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
 
     let handles = core_ids
         .into_iter()
         .map(|id| {
-            // let cl = router.deep_copy();
-            // thread::spawn(move || println!("{:?}", cl))
+            thread::spawn(move || {
+                core_affinity::set_for_current(id);
+                let router = Router::new().at("/", get(greeting));
+                let app = async {
+                        let soc_opts = SocketOpts::default().reuse_port(true);
+                        let mut listener = compio::net::TcpListener::bind_with_options(addr, &soc_opts)
+                            .await
+                            .unwrap();
+
+                        let mut group = FutureGroup::new();
+                        loop {
+                            tokio::select! {
+
+                                biased;
+
+                                stream = listener.accepts() => {
+                                    group.insert(AssertUnwindSafe(async {
+                                        http1::Builder::new()
+                                            .serve_connection(
+                                                HyperStream::new(stream.0),
+                                                service_fn(async |req| {
+                                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
+                                                }),
+                                            )
+                                            .await
+                                            .expect(NEVEL_FAIL)
+                                    }).catch_unwind());
+                                },
+
+                                _ =  group.next(), if !group.is_empty()  => (),
+
+                                _ = poll_fn(|cx| {
+                                    BACKGROUND_JOB_GROUP.with(|g| {
+                                        let mut group_ref = g.borrow_mut();
+                                        Pin::new(&mut *group_ref).poll_next(cx)
+                                    })
+                                }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
+                            }
+                        }
+                    };
+
+                    let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
+                    rt.block_on(app);
+            })
         })
         .collect::<Vec<_>>();
 
-    // for handle in handles.into_iter() {
-    //     handle.join().unwrap();
-    // }
+    for handle in handles.into_iter() {
+        handle.join().unwrap();
+    }
 }
-
-// pub fn run2(addr: SocketAddr, router: Router) {
-//     let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
-//
-//     let handles = core_ids
-//         .into_iter()
-//         .map(|id| {
-//             thread::spawn(move || {
-//
-//             let app = async {
-//                 let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
-//                 let mut group = FutureGroup::new();
-//
-//                 loop {
-//                     tokio::select! {
-//
-//                         biased;
-//
-//                         stream = listener.accepts() => {
-//                             group.insert(AssertUnwindSafe(async {
-//                                 http1::Builder::new()
-//                                     .serve_connection(
-//                                         HyperStream::new(stream.0),
-//                                         service_fn(async |req| {
-//                                             router.clone().dispatch(req.into()).map(Ok::<_, Infallible>).await
-//                                         }),
-//                                     )
-//                                     .await
-//                                     .expect(NEVEL_FAIL)
-//                             }).catch_unwind());
-//                         },
-//
-//                         _ =  group.next(), if !group.is_empty()  => (),
-//
-//                         _ = poll_fn(|cx| {
-//                             BACKGROUND_JOB_GROUP.with(|g| {
-//                                 let mut group_ref = g.borrow_mut();
-//                                 Pin::new(&mut *group_ref).poll_next(cx)
-//                             })
-//                         }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
-//                     }
-//                 }
-//             };
-//                 if core_affinity::set_for_current(id) {
-//                     compio::runtime::Runtime::new()
-//                         .expect("shall not fail to create runtime")
-//                         .block_on(app);
-//                 }
-//             })
-//         })
-//         .collect::<Vec<_>>();
-//
-//     for handle in handles.into_iter() {
-//         handle.join().unwrap();
-//     }
-// }
 
 /// Types that can listen for connections.
 pub trait Listener: 'static {

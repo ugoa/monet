@@ -1,4 +1,7 @@
-use std::net::SocketAddr;
+use std::{
+    io,
+    net::{self, SocketAddr},
+};
 
 use monet::{Request, Router, get};
 
@@ -12,5 +15,5 @@ fn main() {
 
     let app = Router::new().at("/", get(greeting));
 
-    monet::run(addr, app);
+    monet::run2(addr);
 }
