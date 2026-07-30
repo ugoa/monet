@@ -79,23 +79,6 @@ pub struct Router {
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
-#[derive(Default, Debug)]
-pub struct DummyRouter {
-    // pub routes: Vec<Route>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
-}
-
-impl Clone for DummyRouter {
-    fn clone(&self) -> Self {
-        Self {
-            fallback: self
-                .fallback
-                .as_ref()
-                .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn))),
-        }
-    }
-}
-
 impl Router {
     pub fn new() -> Self {
         Default::default()

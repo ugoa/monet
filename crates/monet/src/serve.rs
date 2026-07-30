@@ -12,7 +12,7 @@ use std::{
 
 use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
-    net::{SocketOpts, TcpListener, TcpStream, UnixListener, UnixStream},
+    net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync, UnixListener, UnixStream},
 };
 use futures::{future::poll_fn, stream::StreamExt};
 use futures_concurrency::future::FutureGroup;
@@ -20,7 +20,7 @@ use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use send_wrapper::SendWrapper;
 
-use crate::{NEVEL_FAIL, Router, router::DummyRouter};
+use crate::{NEVEL_FAIL, Router};
 
 type BgFut = Pin<Box<dyn Future<Output = ()>>>;
 
@@ -84,13 +84,14 @@ async fn greeting(_req: Request) -> String {
     format!("Current thread ID: {:?}", thread::current().id())
 }
 
-pub fn run2(addr: SocketAddr) {
+pub fn run2<A: ToSocketAddrsAsync + Send + 'static + Clone>(addrs: A) {
     // dbg!(&router);
     let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
 
     let handles = core_ids
         .into_iter()
         .map(|id| {
+            let addr = addrs.clone();
             thread::spawn(move || {
                 core_affinity::set_for_current(id);
                 let router = Router::new().at("/", get(greeting));
