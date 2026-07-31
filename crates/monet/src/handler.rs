@@ -67,13 +67,20 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Layer {
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
     pub(crate) endpoint: Rc<dyn Endpoint>,
 }
 
 impl Layer {
+    pub async fn next(mut self, req: Request) -> Response {
+        if let Some(current) = self.middlewares.pop() {
+            current.transform(req, self).await
+        } else {
+            self.endpoint.call(req).await
+        }
+    }
     pub(crate) fn new(endpoint: impl Endpoint) -> Self {
         Layer {
             middlewares: Default::default(),
@@ -83,13 +90,5 @@ impl Layer {
 
     pub(crate) fn append(&mut self, m: Rc<impl Middleware>) {
         self.middlewares.push(m.clone());
-    }
-
-    pub async fn next(mut self, req: Request) -> Response {
-        if let Some(current) = self.middlewares.pop() {
-            current.transform(req, self).await
-        } else {
-            self.endpoint.call(req).await
-        }
     }
 }

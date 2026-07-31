@@ -757,6 +757,7 @@ version = "0.1.3"
 dependencies = [
  "bytes",
  "compio",
+ "core_affinity",
  "form_urlencoded",
  "futures",
  "futures-concurrency",

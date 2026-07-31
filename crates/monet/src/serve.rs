@@ -6,12 +6,14 @@ use std::{
     ops::DerefMut,
     panic::AssertUnwindSafe,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll, ready},
+    thread,
 };
 
 use compio::{
     io::{AsyncRead, AsyncWrite, compat::AsyncStream},
-    net::{TcpListener, TcpStream, UnixListener, UnixStream},
+    net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync, UnixListener, UnixStream},
 };
 use futures::{future::poll_fn, stream::StreamExt};
 use futures_concurrency::future::FutureGroup;
@@ -36,45 +38,70 @@ where
     });
 }
 
-pub fn run(addr: SocketAddr, router: Router) {
-    // dbg!(&router);
-    let app = async {
-        let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
-        let mut group = FutureGroup::new();
+pub fn run<A, F>(addrs: A, threadlocal_router_factory: F)
+where
+    A: ToSocketAddrsAsync + Send + 'static + Clone,
+    F: Send + Sync + 'static + Fn() -> Router,
+{
+    let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
+    let factory = Arc::new(threadlocal_router_factory);
 
-        loop {
-            tokio::select! {
+    let handles = core_ids
+        .into_iter()
+        .map(|id| {
+            let addr = addrs.clone();
+            let factory = Arc::clone(&factory);
 
-                biased;
-
-                stream = listener.accepts() => {
-                    group.insert(AssertUnwindSafe(async {
-                        http1::Builder::new()
-                            .serve_connection(
-                                HyperStream::new(stream.0),
-                                service_fn(async |req| {
-                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
-                                }),
-                            )
+            thread::spawn(move || {
+                core_affinity::set_for_current(id);
+                let router = factory();
+                let app = async {
+                        let soc_opts = SocketOpts::default().reuse_port(true);
+                        let mut listener = TcpListener::bind_with_options(addr, &soc_opts)
                             .await
-                            .expect(NEVEL_FAIL)
-                    }).catch_unwind());
-                },
+                            .unwrap();
 
-                _ =  group.next(), if !group.is_empty()  => (),
+                        let mut group = FutureGroup::new();
+                        loop {
+                            tokio::select! {
 
-                _ = poll_fn(|cx| {
-                    BACKGROUND_JOB_GROUP.with(|g| {
-                        let mut group_ref = g.borrow_mut();
-                        Pin::new(&mut *group_ref).poll_next(cx)
-                    })
-                }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
-            }
-        }
-    };
+                                biased;
 
-    let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
-    rt.block_on(app);
+                                stream = listener.accepts() => {
+                                    group.insert(AssertUnwindSafe(async {
+                                        http1::Builder::new()
+                                            .serve_connection(
+                                                HyperStream::new(stream.0),
+                                                service_fn(async |req| {
+                                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
+                                                }),
+                                            )
+                                            .await
+                                            .expect(NEVEL_FAIL)
+                                    }).catch_unwind());
+                                },
+
+                                _ =  group.next(), if !group.is_empty()  => (),
+
+                                _ = poll_fn(|cx| {
+                                    BACKGROUND_JOB_GROUP.with(|g| {
+                                        let mut group_ref = g.borrow_mut();
+                                        Pin::new(&mut *group_ref).poll_next(cx)
+                                    })
+                                }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
+                            }
+                        }
+                    };
+
+                    let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
+                    rt.block_on(app);
+            })
+        })
+        .collect::<Vec<_>>();
+
+    for handle in handles.into_iter() {
+        handle.join().unwrap();
+    }
 }
 
 /// Types that can listen for connections.

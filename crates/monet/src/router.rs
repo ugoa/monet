@@ -22,7 +22,7 @@ use crate::{
 };
 
 pub fn catch(endpoint: impl Endpoint) -> Route {
-    let mut mr = MethodRouter::new();
+    let mut mr = MethodRoute::new();
     mr.fallback(endpoint);
     Route::MethodRouter(mr)
 }
@@ -64,7 +64,7 @@ pub fn options(endpoint: impl Endpoint) -> Route {
 }
 
 fn on(endpoint: impl Endpoint, method: Method) -> Route {
-    let mut mr = MethodRouter::new();
+    let mut mr = MethodRoute::new();
     mr.register(endpoint, method);
 
     Route::MethodRouter(mr)
@@ -72,11 +72,10 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
 
 #[derive(Default, Debug)]
 pub struct Router {
-    pub inner: matchit::Router<usize>,
+    pub route_matcher: matchit::Router<usize>,
     pub routes: Vec<Route>,
     pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
     pub index_to_path: HashMap<usize, Arc<str>>,
-    pub middlewares: Rc<Vec<Rc<dyn Middleware>>>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
@@ -88,7 +87,7 @@ impl Router {
     pub fn dispatch(&self, mut req: Request) -> impl Future<Output = Response> {
         let request_path = req.uri().path().to_string();
 
-        let Ok(matched) = self.inner.at(request_path.as_str()) else {
+        let Ok(matched) = self.route_matcher.at(request_path.as_str()) else {
             match &self.fallback {
                 Some(handler) => return handler.call(req),
                 None => panic!("Path {} not found", request_path),
@@ -201,7 +200,9 @@ impl Router {
 
     fn new_route(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
-        self.inner.insert(path, new_index).expect(NEVEL_FAIL);
+        self.route_matcher
+            .insert(path, new_index)
+            .expect(NEVEL_FAIL);
 
         self.routes.push(route);
         self.path_to_index.insert(path.into(), new_index);
@@ -209,14 +210,14 @@ impl Router {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Route {
-    MethodRouter(MethodRouter),
+    MethodRouter(MethodRoute),
     Service(Layer),
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct MethodRouter {
+#[derive(Default, Debug)]
+pub struct MethodRoute {
     pub inner: HashMap<Method, Layer>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
@@ -277,7 +278,7 @@ impl Route {
     }
 }
 
-impl MethodRouter {
+impl MethodRoute {
     pub fn new() -> Self {
         Default::default()
     }
