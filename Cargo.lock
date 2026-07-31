@@ -753,7 +753,7 @@ dependencies = [
 
 [[package]]
 name = "monet"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "compio",
@@ -772,7 +772,6 @@ dependencies = [
  "matchit",
  "mime",
  "mime_guess",
- "monet-macros",
  "percent-encoding",
  "send_wrapper",
  "serde",
@@ -786,17 +785,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "monet-macros"
-version = "0.1.3"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "regex",
- "syn",
 ]
 
 [[package]]
@@ -1002,18 +990,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
 dependencies = [
  "getrandom 0.3.4",
-]
-
-[[package]]
-name = "regex"
-version = "1.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e10754a14b9137dd7b1e3e5b0493cc9171fdd105e0ab477f51b72e7f3ac0e276"
-dependencies = [
- "aho-corasick",
- "memchr",
- "regex-automata",
- "regex-syntax",
 ]
 
 [[package]]
