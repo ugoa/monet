@@ -4,7 +4,6 @@ use http::Uri;
 
 use crate::{Layer, Middleware, Request, Response};
 
-#[derive(Clone)]
 pub struct StripPrefix(pub Arc<String>);
 
 impl Middleware for StripPrefix {

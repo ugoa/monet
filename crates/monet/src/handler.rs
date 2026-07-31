@@ -29,7 +29,7 @@ impl std::fmt::Debug for dyn Middleware {
 
 impl<F, Fut, Resp> Middleware for F
 where
-    F: 'static + Clone + Fn(Request, Layer) -> Fut,
+    F: 'static + Fn(Request, Layer) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
@@ -58,7 +58,7 @@ impl std::fmt::Debug for dyn Endpoint {
 
 impl<F, Fut, Resp> Endpoint for F
 where
-    F: 'static + Clone + Fn(Request) -> Fut,
+    F: 'static + Fn(Request) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {

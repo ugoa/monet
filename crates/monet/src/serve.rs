@@ -41,7 +41,7 @@ where
 pub fn run<A, F>(addrs: A, threadlocal_router_factory: F)
 where
     A: ToSocketAddrsAsync + Send + 'static + Clone,
-    F: Fn() -> Router + Send + Sync + 'static,
+    F: Send + Sync + 'static + Fn() -> Router,
 {
     let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
     let factory = Arc::new(threadlocal_router_factory);
