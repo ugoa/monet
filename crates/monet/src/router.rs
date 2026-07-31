@@ -208,36 +208,6 @@ impl Router {
         self.path_to_index.insert(path.into(), new_index);
         self.index_to_path.insert(new_index, path.into());
     }
-
-    pub(crate) fn deep_copy(&self) -> Self {
-        Self {
-            route_matcher: self.route_matcher.clone(),
-            routes: self
-                .routes
-                .iter()
-                .map(|route| match route {
-                    Route::MethodRouter(item) => Route::MethodRouter(MethodRoute {
-                        inner: item
-                            .inner
-                            .iter()
-                            .map(|(method, layer)| (method.clone(), layer.deep_copy()))
-                            .collect(),
-                        fallback: item
-                            .fallback
-                            .as_ref()
-                            .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn))),
-                    }),
-                    Route::Service(layer) => Route::Service(layer.deep_copy()),
-                })
-                .collect(),
-            path_to_index: self.path_to_index.clone(),
-            index_to_path: self.index_to_path.clone(),
-            fallback: self
-                .fallback
-                .as_ref()
-                .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn))),
-        }
-    }
 }
 
 #[derive(Debug)]

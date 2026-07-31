@@ -3,14 +3,12 @@ pub mod middleware;
 
 use std::{pin::Pin, rc::Rc};
 
-use dyn_clone::DynClone;
-
 use crate::{
     request::Request,
     response::{IntoResponse, Response},
 };
 
-pub trait Middleware: DynClone + 'static {
+pub trait Middleware: 'static {
     #[must_use]
     fn transform(
         &self,
@@ -20,12 +18,6 @@ pub trait Middleware: DynClone + 'static {
 
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
-    }
-}
-
-impl<'cl> Clone for Box<dyn Middleware + 'cl> {
-    fn clone(&self) -> Self {
-        dyn_clone::clone_box(&**self)
     }
 }
 
@@ -50,20 +42,11 @@ where
     }
 }
 
-pub trait Endpoint: DynClone + 'static {
+pub trait Endpoint: 'static {
     fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
-    }
-}
-
-/// Handwriten Version of:
-///     dyn_clone::clone_trait_object!(Endpoint);
-/// without the redundant Send&Sync implemention
-impl<'cl> Clone for Box<dyn Endpoint + 'cl> {
-    fn clone(&self) -> Self {
-        dyn_clone::clone_box(&**self)
     }
 }
 
@@ -107,16 +90,5 @@ impl Layer {
 
     pub(crate) fn append(&mut self, m: Rc<impl Middleware>) {
         self.middlewares.push(m.clone());
-    }
-
-    pub(crate) fn deep_copy(&self) -> Self {
-        Self {
-            middlewares: self
-                .middlewares
-                .iter()
-                .map(|rc_dyn| Rc::from(dyn_clone::clone_box(&**rc_dyn)))
-                .collect(),
-            endpoint: Rc::from(dyn_clone::clone_box(&*self.endpoint)),
-        }
     }
 }
