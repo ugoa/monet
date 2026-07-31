@@ -3,6 +3,7 @@ name = "monet"
 version = { workspace = true }
 edition = { workspace = true }
 authers  = { workspace = true }
+description = "`monet` is an io-uring based, share-nothing (aka. thread-per-core) web framework with structured concurrency"
 
 [dependencies]
 # monet-macros = { workspace = true }
