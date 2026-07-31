@@ -18,15 +18,15 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    let app = Router::new()
-        .nest(
-            "/public",
-            Router::new().at("/hello", get(hello)).at("/hi", get(hi)),
-        )
-        .nest(
-            "/private",
-            Router::new().at("/secret/{*rest}", get(secret_reveal)),
-        );
-
-    monet::run(addr, app);
+    monet::run(addr, || {
+        Router::new()
+            .nest(
+                "/public",
+                Router::new().at("/hello", get(hello)).at("/hi", get(hi)),
+            )
+            .nest(
+                "/private",
+                Router::new().at("/secret/{*rest}", get(secret_reveal)),
+            )
+    });
 }

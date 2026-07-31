@@ -6,6 +6,7 @@ use std::{
     ops::DerefMut,
     panic::AssertUnwindSafe,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll, ready},
     thread,
 };
@@ -37,64 +38,23 @@ where
     });
 }
 
-pub fn run(addr: SocketAddr, router: Router) {
-    // dbg!(&router);
-    let app = async {
-        let mut listener = compio::net::TcpListener::bind(addr).await.unwrap();
-        let mut group = FutureGroup::new();
-
-        loop {
-            tokio::select! {
-
-                biased;
-
-                stream = listener.accepts() => {
-                    group.insert(AssertUnwindSafe(async {
-                        http1::Builder::new()
-                            .serve_connection(
-                                HyperStream::new(stream.0),
-                                service_fn(async |req| {
-                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
-                                }),
-                            )
-                            .await
-                            .expect(NEVEL_FAIL)
-                    }).catch_unwind());
-                },
-
-                _ =  group.next(), if !group.is_empty()  => (),
-
-                _ = poll_fn(|cx| {
-                    BACKGROUND_JOB_GROUP.with(|g| {
-                        let mut group_ref = g.borrow_mut();
-                        Pin::new(&mut *group_ref).poll_next(cx)
-                    })
-                }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
-            }
-        }
-    };
-
-    let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
-    rt.block_on(app);
-}
-
-use crate::{Request, get};
-
-async fn greeting(_req: Request) -> String {
-    format!("Current thread ID: {:?}", thread::current().id())
-}
-
-pub fn run2<A: ToSocketAddrsAsync + Send + 'static + Clone>(addrs: A) {
-    // dbg!(&router);
+pub fn run<A, F>(addrs: A, threadlocal_router_factory: F)
+where
+    A: ToSocketAddrsAsync + Send + 'static + Clone,
+    F: Fn() -> Router + Send + Sync + 'static,
+{
     let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
+    let factory = Arc::new(threadlocal_router_factory);
 
     let handles = core_ids
         .into_iter()
         .map(|id| {
             let addr = addrs.clone();
+            let factory = Arc::clone(&factory);
+
             thread::spawn(move || {
                 core_affinity::set_for_current(id);
-                let router = Router::new().at("/", get(greeting));
+                let router = factory();
                 let app = async {
                         let soc_opts = SocketOpts::default().reuse_port(true);
                         let mut listener = compio::net::TcpListener::bind_with_options(addr, &soc_opts)

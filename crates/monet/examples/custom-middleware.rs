@@ -6,10 +6,7 @@ use std::{
 };
 
 use http::header::HeaderValue;
-use monet::{
-    Layer, Middleware, Response, Router, error::Error, get, request::Request, types::Html,
-};
-use serde::Deserialize;
+use monet::{Layer, Middleware, Response, Router, get, request::Request, types::Html};
 
 async fn simple_middleware(req: Request, layer: Layer) -> Response {
     let mut resp = layer.next(req).await;
@@ -87,12 +84,12 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    let app = Router::new()
-        .at("/", get(root))
-        .wrap_by(simple_middleware)
-        .at("/html", get(return_html))
-        .wrap_by(RequestCounter)
-        .wrap_by(set_state);
-
-    monet::run(addr, app);
+    monet::run(addr, || {
+        Router::new()
+            .at("/", get(root))
+            .wrap_by(simple_middleware)
+            .at("/html", get(return_html))
+            .wrap_by(RequestCounter)
+            .wrap_by(set_state)
+    });
 }

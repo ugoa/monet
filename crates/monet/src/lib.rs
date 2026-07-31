@@ -17,7 +17,7 @@ pub use crate::{
     request::Request,
     response::{IntoResponse, Response},
     router::{Router, get, post},
-    serve::{run, run2, spawn_task as spawn},
+    serve::{run, spawn_task as spawn},
     types::{Form, Json, Path},
 };
 
