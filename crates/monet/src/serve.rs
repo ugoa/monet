@@ -57,7 +57,7 @@ where
                 let router = factory();
                 let app = async {
                         let soc_opts = SocketOpts::default().reuse_port(true);
-                        let mut listener = compio::net::TcpListener::bind_with_options(addr, &soc_opts)
+                        let mut listener = TcpListener::bind_with_options(addr, &soc_opts)
                             .await
                             .unwrap();
 
