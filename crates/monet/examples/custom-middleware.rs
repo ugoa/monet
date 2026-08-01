@@ -19,7 +19,7 @@ async fn simple_middleware(req: Request, layer: Layer) -> Response {
 pub struct SyncedState(i32);
 
 static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(SyncedState(42))));
+    LazyLock::new(|| Arc::new(Mutex::new(SyncedState(0))));
 
 async fn set_state(mut req: Request, layer: Layer) -> Response {
     let s = &*NUM;
@@ -30,7 +30,7 @@ async fn set_state(mut req: Request, layer: Layer) -> Response {
 }
 
 async fn root(req: Request) -> String {
-    compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
+    compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
 
     // let guard = _req.state::<Arc<Mutex<SyncedState>>>().unwrap();
     let guard: &Arc<Mutex<SyncedState>> = req.state.get().unwrap();
