@@ -112,8 +112,10 @@ impl Router {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodRouter(method_router) => match method_router.inner.get(method) {
                 /*
-                 * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total of
-                 * M(middleware Rc) + 3(The Vec itself) + 1(endpoint Rc) words(8 bytes of each)
+                 * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total words of
+                 *   M (middleware Rc)
+                 * + 3 (The Vec itself)
+                 * + 1 (endpoint Rc)
                  * are being allocated by the .clone() per request. We could've use slice of Vec
                  * as the tide framework does, but this would pollute the Middleware interface with
                  * lifetime annotation. This is a performance tradeoff in faver of the DX simplicity.
@@ -184,8 +186,8 @@ impl Router {
         self.at(&wildcard_path, Route::Service(layer))
     }
 
-    pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
-        let shared = Rc::new(middleware);
+    pub fn wrap_by(mut self, mw: impl Middleware) -> Self {
+        let shared = Rc::new(mw);
         self.routes
             .iter_mut()
             .for_each(|route| route.wrap_by(Rc::clone(&shared)));
@@ -253,13 +255,13 @@ impl Route {
         }
     }
 
-    pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
+    pub fn wrap_by(&mut self, mw: Rc<impl Middleware>) {
         match self {
             Route::MethodRouter(mr) => mr
                 .inner
                 .iter_mut()
-                .for_each(|(_, layer)| layer.append(Rc::clone(&middleware))),
-            Route::Service(layer) => layer.append(Rc::clone(&middleware)),
+                .for_each(|(_, layer)| layer.append(Rc::clone(&mw))),
+            Route::Service(layer) => layer.append(Rc::clone(&mw)),
         }
     }
 
