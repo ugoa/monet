@@ -54,7 +54,7 @@ where
 
             thread::spawn(move || {
                 core_affinity::set_for_current(id);
-                let router = factory();
+                let router: Router = factory();
                 let app = async {
                     let mut listener = TcpListener::bind_with_options(
                         addrs,
