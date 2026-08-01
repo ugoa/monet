@@ -56,45 +56,48 @@ where
                 core_affinity::set_for_current(id);
                 let router = factory();
                 let app = async {
-                        let soc_opts = SocketOpts::default().reuse_port(true);
-                        let mut listener = TcpListener::bind_with_options(addrs, &soc_opts)
-                            .await
-                            .unwrap();
+                    let mut listener = TcpListener::bind_with_options(
+                        addrs,
+                        &SocketOpts::default().reuse_port(true),
+                    )
+                    .await
+                    .expect("to bind address successfully");
 
-                        let mut group = FutureGroup::new();
-                        loop {
-                            tokio::select! {
+                    let mut group = FutureGroup::new();
 
-                                biased;
+                    loop {
+                        tokio::select! {
 
-                                stream = listener.accepts() => {
-                                    group.insert(AssertUnwindSafe(async {
-                                        http1::Builder::new()
-                                            .serve_connection(
-                                                HyperStream::new(stream.0),
-                                                service_fn(async |req| {
-                                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
-                                                }),
-                                            )
-                                            .await
-                                            .expect(NEVEL_FAIL)
-                                    }).catch_unwind());
-                                },
+                            biased;
 
-                                _ =  group.next(), if !group.is_empty()  => (),
+                            stream = listener.accepts() => {
+                                group.insert(AssertUnwindSafe(async {
+                                    http1::Builder::new()
+                                        .serve_connection(
+                                            HyperStream::new(stream.0),
+                                            service_fn(async |req| {
+                                                router.dispatch(req.into()).map(Ok::<_, Infallible>).await
+                                            }),
+                                        )
+                                        .await
+                                        .expect(NEVEL_FAIL)
+                                }).catch_unwind());
+                            },
 
-                                _ = poll_fn(|cx| {
-                                    BACKGROUND_JOB_GROUP.with(|g| {
-                                        let mut group_ref = g.borrow_mut();
-                                        Pin::new(&mut *group_ref).poll_next(cx)
-                                    })
-                                }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
-                            }
+                            _ =  group.next(), if !group.is_empty()  => (),
+
+                            _ = poll_fn(|cx| {
+                                BACKGROUND_JOB_GROUP.with(|g| {
+                                    let mut group_ref = g.borrow_mut();
+                                    Pin::new(&mut *group_ref).poll_next(cx)
+                                })
+                            }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
                         }
-                    };
+                    }
+                };
 
-                    let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
-                    rt.block_on(app);
+                let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
+                rt.block_on(app);
             })
         })
         .collect::<Vec<_>>();
