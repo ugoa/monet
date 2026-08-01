@@ -4,11 +4,8 @@ use std::{
 };
 
 use compio::net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync};
-use futures::{
-    future::poll_fn,
-    stream::{self, StreamExt},
-};
-use futures_concurrency::{future::FutureGroup, stream::Merge};
+use futures::{future::poll_fn, stream::StreamExt};
+use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 
@@ -18,7 +15,7 @@ use crate::{
 };
 
 thread_local! {
-    static BACKGROUND_JOB_GROUP: RefCell<FutureGroup<Pin<Box<dyn Future<Output = ()>>>>> =
+    static BACKGROUND_TASKSET: RefCell<FutureGroup<Pin<Box<dyn Future<Output = ()>>>>> =
         RefCell::new(FutureGroup::new());
 }
 
@@ -26,12 +23,12 @@ pub fn spawn_task<F>(future: F)
 where
     F: Future<Output = ()> + 'static, // 'static is required because it's stored in thread_local
 {
-    BACKGROUND_JOB_GROUP.with(|group| {
+    BACKGROUND_TASKSET.with(|group| {
         group.borrow_mut().insert(Box::pin(future));
     });
 }
 
-pub fn run<A, F>(addrs: A, threadlocal_router_factory: F)
+pub fn run2<A, F>(addrs: A, threadlocal_router_factory: F)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
@@ -77,11 +74,11 @@ where
                             _ =  group.next(), if !group.is_empty()  => (),
 
                             _ = poll_fn(|cx| {
-                                BACKGROUND_JOB_GROUP.with(|g| {
+                                BACKGROUND_TASKSET.with(|g| {
                                     let mut group_ref = g.borrow_mut();
                                     Pin::new(&mut *group_ref).poll_next(cx)
                                 })
-                            }), if !BACKGROUND_JOB_GROUP.with(|g| g.borrow().is_empty()) => (),
+                            }), if !BACKGROUND_TASKSET.with(|g| g.borrow().is_empty()) => (),
                         }
                     }
                 };
@@ -96,14 +93,13 @@ where
         handle.join().unwrap();
     }
 }
-
 enum Event {
     NewConnection { io: TcpStream },
-    ConnectionDone,
-    BackgroundJobDone,
+    RequestProcessed,
+    BackgroundTaskCompleted,
 }
 
-pub fn run2<A, F>(addrs: A, threadlocal_router_factory: F)
+pub fn run<A, F>(addrs: A, threadlocal_router_factory: F)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
@@ -128,61 +124,52 @@ where
                     .await
                     .expect("to bind address successfully");
 
-                    let group = RefCell::new(FutureGroup::new());
+                    let mut group = FutureGroup::new();
 
-                    let connection_stream = stream::unfold(&mut listener, |listener| async move {
-                        let conn = listener.accept().await;
-                        Some((Event::NewConnection { io: conn.0 }, listener))
-                    });
+                    let accept_fut = <TcpListener as Listener>::accept(&mut listener)
+                        .map(|(io, _)| Event::NewConnection { io });
 
-                    let handler_stream = stream::unfold(&group, |_| async {
-                        println!("waiting for new connection...");
-                        let _res =
-                            poll_fn(|cx| Pin::new(&mut *group.borrow_mut()).poll_next(cx)).await;
-                        Some((Event::ConnectionDone, &group))
-                    });
-
-                    let bg_stream = stream::unfold((), |()| async {
-                        let _res = poll_fn(|cx| {
-                            BACKGROUND_JOB_GROUP
-                                .with(|g| Pin::new(&mut *g.borrow_mut()).poll_next(cx))
-                        })
-                        .await;
-                        Some((Event::BackgroundJobDone, ()))
-                    });
-
-                    let events = (connection_stream, handler_stream, bg_stream).merge();
-                    futures_lite::pin!(events);
-
-                    while let Some(event) = events.next().await {
-                        match event {
-                            Event::NewConnection { io: stream } => {
-                                group.borrow_mut().insert(
-                                    AssertUnwindSafe(async {
-                                        http1::Builder::new()
-                                            .serve_connection(
-                                                HyperStream::new(stream),
-                                                service_fn(async |req| {
-                                                    router
-                                                        .dispatch(req.into())
-                                                        .map(Ok::<_, Infallible>)
-                                                        .await
-                                                }),
-                                            )
-                                            .await
-                                            .expect(NEVEL_FAIL)
-                                    })
-                                    .catch_unwind(),
-                                );
-                            }
-                            Event::ConnectionDone => {
-                                // A connection future finished. The result was consumed by poll_next.
-                                // Handle logging/metrics here if needed.
-                            }
-                            Event::BackgroundJobDone => {
-                                // A background job finished. Handle result if needed.
-                            }
+                    let inflight_request_futures = async {
+                        if !group.is_empty() {
+                            group.next().await;
+                            Event::RequestProcessed
+                        } else {
+                            futures::future::pending().await
                         }
+                    };
+                    let bg_fut = async {
+                        if BACKGROUND_TASKSET.with(|g| !g.borrow().is_empty()) {
+                            poll_fn(|cx| {
+                                BACKGROUND_TASKSET
+                                    .with(|g| Pin::new(&mut *g.borrow_mut()).poll_next(cx))
+                            })
+                            .await;
+                            Event::BackgroundTaskCompleted
+                        } else {
+                            futures::future::pending().await
+                        }
+                    };
+
+                    match (accept_fut, inflight_request_futures, bg_fut).race().await {
+                        Event::NewConnection { io } => {
+                            let service = async {
+                                http1::Builder::new()
+                                    .serve_connection(
+                                        HyperStream::new(io),
+                                        service_fn(async |req| {
+                                            router
+                                                .dispatch(req.into())
+                                                .map(Ok::<_, Infallible>)
+                                                .await
+                                        }),
+                                    )
+                                    .await
+                                    .expect(NEVEL_FAIL)
+                            };
+                            group.insert(AssertUnwindSafe(service).catch_unwind());
+                        }
+                        Event::RequestProcessed => (),
+                        Event::BackgroundTaskCompleted => (),
                     }
                 };
 
