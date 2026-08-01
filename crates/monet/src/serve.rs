@@ -64,7 +64,7 @@ where
                         let accept_fut = <TcpListener as Listener>::accept(&mut listener)
                             .map(|(io, _)| Event::NewConnection { io });
 
-                        let inflight_request_futs = async {
+                        let requests_fut = async {
                             if !inflight_requests.is_empty() {
                                 inflight_requests.next().await;
                                 Event::RequestProcessed
@@ -72,7 +72,7 @@ where
                                 futures::future::pending().await
                             }
                         };
-                        let bg_futs = async {
+                        let bg_taskset_fut = async {
                             if BACKGROUND_TASKSET.with(|g| !g.borrow().is_empty()) {
                                 poll_fn(|cx| {
                                     BACKGROUND_TASKSET
@@ -85,7 +85,7 @@ where
                             }
                         };
 
-                        match (accept_fut, inflight_request_futs, bg_futs).race().await {
+                        match (accept_fut, requests_fut, bg_taskset_fut).race().await {
                             Event::NewConnection { io } => {
                                 let service = async {
                                     http1::Builder::new()
