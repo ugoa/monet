@@ -17,10 +17,9 @@ use crate::{
     listener::{HyperStream, Listener},
 };
 
-type BgFut = Pin<Box<dyn Future<Output = ()>>>;
-
 thread_local! {
-    static BACKGROUND_JOB_GROUP: RefCell<FutureGroup<BgFut>> = RefCell::new(FutureGroup::new());
+    static BACKGROUND_JOB_GROUP: RefCell<FutureGroup<Pin<Box<dyn Future<Output = ()>>>>> =
+        RefCell::new(FutureGroup::new());
 }
 
 pub fn spawn_task<F>(future: F)
