@@ -43,7 +43,7 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
 {
-    let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
+    let core_ids = core_affinity::get_core_ids().expect("to succeed on *nix/win/macos");
     let factory = Arc::new(threadlocal_router_factory);
 
     let handles = core_ids
