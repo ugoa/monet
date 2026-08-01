@@ -113,12 +113,12 @@ impl Router {
             Route::MethodRouter(method_router) => match method_router.inner.get(method) {
                 /*
                  * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total words of
-                 *   M (middleware Rc)
-                 * + 3 (The Vec itself)
-                 * + 1 (endpoint Rc)
+                 *    M (middleware Rc) +
+                 *    3 (The Vec itself) +
+                 *    1 (endpoint Rc)
                  * are being allocated by the .clone() per request. We could've use slice of Vec
                  * as the tide framework does, but this would pollute the Middleware interface with
-                 * lifetime annotation. This is a performance tradeoff in faver of the DX simplicity.
+                 * lifetime annotation. This is a performance tradeoff in favor of the DX simplicity.
                  */
                 Some(layer) => layer.clone().next(req),
                 None => match &method_router.fallback {
