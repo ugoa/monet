@@ -59,20 +59,20 @@ where
                     .await
                     .expect("to bind address successfully");
 
-                    let mut group = FutureGroup::new();
+                    let mut inflight_requests = FutureGroup::new();
                     loop {
                         let accept_fut = <TcpListener as Listener>::accept(&mut listener)
                             .map(|(io, _)| Event::NewConnection { io });
 
-                        let inflight_request_futures = async {
-                            if !group.is_empty() {
-                                group.next().await;
+                        let inflight_request_futs = async {
+                            if !inflight_requests.is_empty() {
+                                inflight_requests.next().await;
                                 Event::RequestProcessed
                             } else {
                                 futures::future::pending().await
                             }
                         };
-                        let bg_fut = async {
+                        let bg_futs = async {
                             if BACKGROUND_TASKSET.with(|g| !g.borrow().is_empty()) {
                                 poll_fn(|cx| {
                                     BACKGROUND_TASKSET
@@ -85,7 +85,7 @@ where
                             }
                         };
 
-                        match (accept_fut, inflight_request_futures, bg_fut).race().await {
+                        match (accept_fut, inflight_request_futs, bg_futs).race().await {
                             Event::NewConnection { io } => {
                                 let service = async {
                                     http1::Builder::new()
@@ -101,7 +101,7 @@ where
                                         .await
                                         .expect(NEVEL_FAIL)
                                 };
-                                group.insert(AssertUnwindSafe(service).catch_unwind());
+                                inflight_requests.insert(AssertUnwindSafe(service).catch_unwind());
                             }
                             Event::RequestProcessed => (),
                             Event::BackgroundTaskCompleted => (),
