@@ -40,7 +40,7 @@ where
 
 pub fn run<A, F>(addrs: A, threadlocal_router_factory: F)
 where
-    A: ToSocketAddrsAsync + Send + 'static + Clone,
+    A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
 {
     let core_ids = core_affinity::get_core_ids().expect("To succeed on *nix/win/macos platform");
@@ -49,7 +49,7 @@ where
     let handles = core_ids
         .into_iter()
         .map(|id| {
-            let addr = addrs.clone();
+            let addrs = addrs.clone();
             let factory = Arc::clone(&factory);
 
             thread::spawn(move || {
@@ -57,7 +57,7 @@ where
                 let router = factory();
                 let app = async {
                         let soc_opts = SocketOpts::default().reuse_port(true);
-                        let mut listener = TcpListener::bind_with_options(addr, &soc_opts)
+                        let mut listener = TcpListener::bind_with_options(addrs, &soc_opts)
                             .await
                             .unwrap();
 
