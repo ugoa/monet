@@ -67,9 +67,6 @@ where
 
                     loop {
                         tokio::select! {
-
-                            biased;
-
                             stream = listener.accepts() => {
                                 group.insert(AssertUnwindSafe(async {
                                     http1::Builder::new()
