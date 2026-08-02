@@ -23,8 +23,8 @@ static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
 
 async fn set_state(mut req: Request, layer: Layer) -> Response {
     let s = &*NUM;
-    req.state.insert(s.clone());
-    req.state.insert::<SyncedState>(SyncedState(99));
+    req.state.set(s.clone());
+    req.state.set::<SyncedState>(SyncedState(99));
 
     layer.next(req).await
 }

@@ -207,14 +207,14 @@ impl State {
             .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
     }
 
-    pub fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+    pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.inner
             .get_or_insert_with(Box::default)
             .insert(TypeId::of::<T>(), Box::new(val))
             .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
     }
 
-    pub fn remove<T: 'static>(&mut self) -> Option<T> {
+    pub fn delete<T: 'static>(&mut self) -> Option<T> {
         self.inner
             .as_mut()
             .and_then(|map| map.remove(&TypeId::of::<T>()))
