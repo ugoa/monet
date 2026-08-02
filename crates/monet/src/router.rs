@@ -24,7 +24,7 @@ use crate::{
 pub fn catch(endpoint: impl Endpoint) -> Route {
     let mut mr = MethodRoute::new();
     mr.fallback(endpoint);
-    Route::MethodRouter(mr)
+    Route::MethodRoute(mr)
 }
 
 pub fn get(endpoint: impl Endpoint) -> Route {
@@ -67,7 +67,7 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
     let mut mr = MethodRoute::new();
     mr.register(endpoint, method);
 
-    Route::MethodRouter(mr)
+    Route::MethodRoute(mr)
 }
 
 #[derive(Default, Debug)]
@@ -94,7 +94,7 @@ impl Router {
             }
         };
 
-        let index = *matched.value;
+        let index: usize = *matched.value;
 
         let ext_mut = req.extensions_mut();
 
@@ -110,7 +110,7 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodRouter(method_router) => match method_router.inner.get(method) {
+            Route::MethodRoute(method_route) => match method_route.inner.get(method) {
                 /*
                  * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total words of
                  *    M (middleware Rc) +
@@ -121,7 +121,7 @@ impl Router {
                  * lifetime annotation. This is a performance tradeoff in favor of the DX simplicity.
                  */
                 Some(layer) => layer.clone().next(req),
-                None => match &method_router.fallback {
+                None => match &method_route.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
                 },
@@ -214,7 +214,7 @@ impl Router {
 
 #[derive(Debug)]
 pub enum Route {
-    MethodRouter(MethodRoute),
+    MethodRoute(MethodRoute),
     Service(Layer),
 }
 
@@ -234,8 +234,8 @@ impl Route {
     }
 
     pub fn merge(&mut self, other: Route) {
-        if let &mut Route::MethodRouter(ref mut this) = self
-            && let Route::MethodRouter(ref other) = other
+        if let &mut Route::MethodRoute(ref mut this) = self
+            && let Route::MethodRoute(ref other) = other
         {
             match (&this.fallback, &other.fallback) {
                 (Some(f), None) | (None, Some(f)) => this.fallback = Some(Rc::clone(f)),
@@ -257,7 +257,7 @@ impl Route {
 
     pub fn wrap_by(&mut self, mw: Rc<impl Middleware>) {
         match self {
-            Route::MethodRouter(mr) => mr
+            Route::MethodRoute(mr) => mr
                 .inner
                 .iter_mut()
                 .for_each(|(_, layer)| layer.append(Rc::clone(&mw))),
@@ -266,14 +266,14 @@ impl Route {
     }
 
     pub fn register(mut self, endpoint: impl Endpoint, method: Method) -> Self {
-        if let Route::MethodRouter(ref mut dispatch) = self {
+        if let Route::MethodRoute(ref mut dispatch) = self {
             dispatch.register(endpoint, method);
         }
         self
     }
 
     pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
-        if let Route::MethodRouter(ref mut dispatch) = self {
+        if let Route::MethodRoute(ref mut dispatch) = self {
             dispatch.fallback = Some(Rc::new(endpoint));
         }
         self

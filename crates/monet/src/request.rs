@@ -6,7 +6,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use http::{Extensions, HeaderMap, Method, Uri, Version, request::Parts};
+use http::{HeaderMap, HeaderValue, Method, Uri, Version};
 use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
@@ -17,6 +17,23 @@ use crate::{
     router::url::UrlParams,
     types::{Form, Json, Path, Query, has_content_type},
 };
+
+// Custom Parts to remove the Extension due to its Send + Sync bound
+// Instead, we use State which can store both Send and non-Send data
+#[derive(Clone)]
+pub struct Parts {
+    /// The request's method
+    pub method: Method,
+
+    /// The request's URI
+    pub uri: Uri,
+
+    /// The request's version
+    pub version: Version,
+
+    /// The request's headers
+    pub headers: HeaderMap<HeaderValue>,
+}
 
 pub struct Request {
     pub body: Body,
@@ -65,16 +82,6 @@ impl Request {
         &mut self.head.headers
     }
 
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        &self.head.extensions
-    }
-
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.head.extensions
-    }
-
     pub fn path<T>(&self) -> Result<Path<T>, Error>
     where
         T: DeserializeOwned,
@@ -83,7 +90,7 @@ impl Request {
          * Given route `/user/{id}/{*name}` and request `/user/23/david`, the data flow would be:
          * Vec[("id", "23"), ("name", "david")] -> id=23&name=david -> Path(T {id: 23, name: david})
          */
-        match self.extensions().get::<UrlParams>() {
+        match self.state.get::<UrlParams>() {
             Some(UrlParams::Params(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
@@ -120,7 +127,7 @@ impl Request {
     pub fn matched_path(&self) -> Option<&Arc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.extensions().get::<MatchedPath>().map(|s| &s.0)
+        self.state.get::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -178,7 +185,12 @@ impl From<http::Request<IncomingBody>> for Request {
         let (parts, body) = http_req.into_parts();
 
         Self {
-            head: parts,
+            head: Parts {
+                method: parts.method,
+                version: parts.version,
+                uri: parts.uri,
+                headers: parts.headers,
+            },
             body: Body::new(body),
             state: State(None),
         }
