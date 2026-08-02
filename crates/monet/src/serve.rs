@@ -4,7 +4,10 @@ use std::{
 };
 
 use compio::net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync};
-use futures::{future::poll_fn, stream::StreamExt};
+use futures::{
+    future::{pending, poll_fn},
+    stream::StreamExt,
+};
 use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
@@ -69,9 +72,10 @@ where
                                 inflight_requests.next().await;
                                 Event::RequestProcessed
                             } else {
-                                futures::future::pending().await
+                                pending().await
                             }
                         };
+
                         let bg_taskset_fut = async {
                             if BACKGROUND_TASKSET.with(|g| !g.borrow().is_empty()) {
                                 poll_fn(|cx| {
@@ -81,7 +85,7 @@ where
                                 .await;
                                 Event::BackgroundTaskCompleted
                             } else {
-                                futures::future::pending().await
+                                pending().await
                             }
                         };
 
