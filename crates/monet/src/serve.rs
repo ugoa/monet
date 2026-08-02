@@ -19,7 +19,7 @@ thread_local! {
         RefCell::new(FutureGroup::new());
 }
 
-pub(crate) fn spawn_background_task<F>(future: F)
+pub fn spawn_background_task<F>(future: F)
 where
     F: Future<Output = ()> + 'static, // 'static is required because it's stored in thread_local
 {
