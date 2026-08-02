@@ -107,7 +107,7 @@ pub(crate) fn concat_path(prefix: &str, path: &str) -> String {
     if prefix.ends_with('/') {
         format!("{prefix}{}", path.trim_start_matches('/'))
     } else if path == "/" {
-        prefix.into()
+        prefix.to_string()
     } else {
         format!("{prefix}{path}")
     }
