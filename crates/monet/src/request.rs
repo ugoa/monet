@@ -180,7 +180,7 @@ impl From<http::Request<IncomingBody>> for Request {
         Self {
             head: parts,
             body: Body::new(body),
-            state: State { inner: None },
+            state: State(None),
         }
     }
 }
@@ -188,34 +188,32 @@ impl From<http::Request<IncomingBody>> for Request {
 type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Default)]
-pub struct State {
-    inner: Option<Box<AnyMap>>,
-}
+pub struct State(Option<Box<AnyMap>>);
 
 impl State {
+    pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+        self.0
+            .get_or_insert_with(Box::default)
+            .insert(TypeId::of::<T>(), Box::new(val))
+            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
+    }
+
     pub fn get<T: 'static>(&self) -> Option<&T> {
-        self.inner
+        self.0
             .as_ref()
             .and_then(|map| map.get(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any().downcast_ref())
     }
 
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        self.inner
+        self.0
             .as_mut()
             .and_then(|map| map.get_mut(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
     }
 
-    pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
-        self.inner
-            .get_or_insert_with(Box::default)
-            .insert(TypeId::of::<T>(), Box::new(val))
-            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
-    }
-
     pub fn delete<T: 'static>(&mut self) -> Option<T> {
-        self.inner
+        self.0
             .as_mut()
             .and_then(|map| map.remove(&TypeId::of::<T>()))
             .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
@@ -223,19 +221,19 @@ impl State {
 
     #[inline]
     pub fn clear(&mut self) {
-        if let Some(ref mut map) = self.inner {
+        if let Some(ref mut map) = self.0 {
             map.clear();
         }
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.inner.as_ref().is_none_or(|map| map.is_empty())
+        self.0.as_ref().is_none_or(|map| map.is_empty())
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.inner.as_ref().map_or(0, |map| map.len())
+        self.0.as_ref().map_or(0, |map| map.len())
     }
 }
 
