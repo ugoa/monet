@@ -11,13 +11,13 @@ pub(crate) const FALLBACK_PARAM: &str = "__private__monet_fallback";
 
 pub(crate) const NEST_TAIL_PARAM_WILDCARD: &str = "/{*__private__monet_nest_tail_param}";
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum UrlParams {
     PairParams(Vec<(Rc<str>, Rc<str>)>),
     InvalidUtf8Param { key: Rc<str> },
 }
 
-pub(super) fn insert_matched_params2(state: &mut State, params: &Params<'_, '_>) {
+pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) {
     let current_params: Option<&mut UrlParams> = state.get_mut();
 
     if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {

@@ -18,7 +18,7 @@ use crate::{
     handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params2, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
 };
 
 pub fn catch(endpoint: impl Endpoint) -> Route {
@@ -104,9 +104,7 @@ impl Router {
         // #[cfg(not(feature = "no-matched-path"))]
         // insert_matched_path(ext_mut, self.index_to_path.get(&index).unwrap());
 
-        insert_matched_params2(&mut req.state, &matched.params);
-
-        // dbg!(&matched.params);
+        insert_matched_params(&mut req.state, &matched.params);
 
         let route = self.routes.get(index.0).expect(NEVEL_FAIL);
 
