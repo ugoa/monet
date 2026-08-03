@@ -133,8 +133,8 @@ impl Router {
     }
 
     pub fn at(mut self, path: &str, other: Route) -> Self {
-        // O(n) operation, but acceptable because it only runs during server launch period
-        if let Some((route_id, _)) = self.index_to_path.iter().find(|&(_, v)| *v == path.into()) {
+        // find() is O(n) operation, but acceptable because it only runs during launching period
+        if let Some((route_id, _)) = self.index_to_path.iter().find(|&(_, v)| **v == *path) {
             self.routes
                 .get_mut(route_id.0)
                 .expect("Route(s) should have added at this path already")
