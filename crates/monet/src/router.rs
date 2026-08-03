@@ -77,7 +77,7 @@ struct RouteId(usize);
 pub struct Router {
     route_matcher: matchit::Router<RouteId>,
     routes: Vec<Route>,
-    path_to_index: HashMap<Rc<str>, RouteId>, // TODO: change to Rc
+    path_to_index: HashMap<Rc<str>, RouteId>,
     index_to_path: HashMap<RouteId, Rc<str>>,
     fallback: Option<Rc<dyn Endpoint>>,
 }
