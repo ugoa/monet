@@ -2,7 +2,7 @@ use std::{
     any::{Any, TypeId},
     collections::HashMap,
     hash::{BuildHasherDefault, Hasher},
-    sync::Arc,
+    rc::Rc,
 };
 
 use bytes::Bytes;
@@ -129,7 +129,7 @@ impl Request {
     }
 
     // #[cfg(not(feature = "no-matched-path"))]
-    pub fn matched_path(&self) -> Option<&Arc<str>> {
+    pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
         self.state.get::<MatchedPath>().map(|s| &s.0)
@@ -229,7 +229,7 @@ impl State {
             .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
     }
 
-    pub fn delete<T: 'static>(&mut self) -> Option<T> {
+    pub fn remove<T: 'static>(&mut self) -> Option<T> {
         self.0
             .as_mut()
             .and_then(|map| map.remove(&TypeId::of::<T>()))

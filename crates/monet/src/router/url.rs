@@ -1,6 +1,5 @@
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
 
-use http::Extensions;
 use matchit::Params;
 
 use crate::request::State;
@@ -37,13 +36,15 @@ pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) 
         .collect();
 
     match (current_params, pair_params) {
-        // Brand new pair of key/value
+        // Brand new pair of key/value, set it
         (None, Ok(params)) => {
             state.set(UrlParams::PairParams(params));
         }
+        // both params exist and valid, extend it
         (Some(UrlParams::PairParams(current)), Ok(params)) => {
             current.extend(params);
         }
+        // If new params is invalid, set it as invalid
         (_, Err(invalid_key)) => {
             state.set(UrlParams::InvalidUtf8Param { key: invalid_key });
         }
@@ -53,45 +54,10 @@ pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) 
     }
 }
 
-// pub(super) fn insert_matched_params(extensions: &mut Extensions, params: &Params<'_, '_>) {
-//     let current_params = extensions.get_mut();
-//
-//     if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {
-//         // nothing to do here since an error was stored earlier
-//         return;
-//     }
-//
-//     let params = params
-//         .iter()
-//         .filter(|(key, _)| !key.starts_with(NEST_TAIL_PARAM))
-//         .filter(|(key, _)| !key.starts_with(FALLBACK_PARAM))
-//         .map(|(k, v)| {
-//             if let Some(decoded) = percent_decode(v) {
-//                 Ok((Arc::from(k), decoded))
-//             } else {
-//                 Err(Arc::from(k))
-//             }
-//         })
-//         .collect::<Result<Vec<_>, _>>();
-//
-//     match (current_params, params) {
-//         (None, Ok(params)) => {
-//             extensions.insert(UrlParams::PairParams(params));
-//         }
-//         (Some(UrlParams::PairParams(current)), Ok(params)) => {
-//             current.extend(params);
-//         }
-//         (_, Err(invalid_key)) => {
-//             extensions.insert(UrlParams::InvalidUtf8Param { key: invalid_key });
-//         }
-//         (Some(UrlParams::InvalidUtf8Param { .. }), _) => {
-//             unreachable!("we check for this state earlier in this method")
-//         }
-//     }
-// }
-
-// assert_eq!(percent_decode(b"foo%20bar%3f").decode_utf8().unwrap(), "foo bar?");
-pub(crate) fn percent_decode<S>(s: S) -> Option<Rc<str>>
+/*
+ * assert_eq!(percent_decode(b"foo%20bar%3f").decode_utf8().unwrap(), "foo bar?");
+ */
+fn percent_decode<S>(s: S) -> Option<Rc<str>>
 where
     S: AsRef<str>,
 {
@@ -102,53 +68,35 @@ where
 }
 
 #[derive(Clone, Debug)]
-struct MatchedNestedPath(Arc<str>);
+pub struct MatchedNestedPath(pub Rc<str>);
 
 #[derive(Clone, Debug)]
-pub struct MatchedPath(pub(crate) Arc<str>);
+pub struct MatchedPath(pub Rc<str>);
 
-pub(crate) fn insert_matched_path(ext: &mut Extensions, path: &Arc<str>) {
-    let matched_path = append_nested_matched_path(&Arc::new(path), ext);
+// Todo: Add testing
+pub(crate) fn insert_matched_path(state: &mut State, path: &Rc<str>) {
+    let matched_path = {
+        if let Some(previous) = state
+            .get::<MatchedPath>()
+            .map(|matched_path| &matched_path.0)
+            .or_else(|| Some(&state.get::<MatchedNestedPath>()?.0))
+        {
+            let previous = previous
+                .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
+                .unwrap_or(previous);
+
+            let matched_path = format!("{previous}{path}");
+            matched_path.into()
+        } else {
+            Rc::clone(path)
+        }
+    };
 
     if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
-        ext.insert(MatchedNestedPath(matched_path));
-        debug_assert!(ext.remove::<MatchedPath>().is_none());
+        state.set(MatchedNestedPath(matched_path));
+        debug_assert!(state.remove::<MatchedPath>().is_none());
     } else {
-        ext.insert(MatchedPath(matched_path));
-        ext.remove::<MatchedNestedPath>();
-    }
-}
-
-pub(crate) fn append_nested_matched_path(
-    matched_path: &Arc<str>,
-    extensions: &http::Extensions,
-) -> Arc<str> {
-    if let Some(previous) = extensions
-        .get::<MatchedPath>()
-        .map(|matched_path| &matched_path.0)
-        .or_else(|| Some(&extensions.get::<MatchedNestedPath>()?.0))
-    {
-        let previous = previous
-            .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
-            .unwrap_or(previous);
-
-        let matched_path = format!("{previous}{matched_path}");
-        matched_path.into()
-    } else {
-        Arc::clone(matched_path)
-    }
-}
-
-pub(crate) fn concat_path(prefix: &str, rest: &str) -> String {
-    debug_assert!(prefix.starts_with('/'));
-    debug_assert!(rest.starts_with('/'));
-
-    if prefix.ends_with('/') {
-        // If prefix ends with /, Remove all leading '/'s in the rest path
-        format!("{prefix}{}", rest.trim_start_matches('/'))
-    } else if rest == "/" {
-        prefix.to_string()
-    } else {
-        format!("{prefix}{rest}")
+        state.set(MatchedPath(matched_path));
+        state.remove::<MatchedNestedPath>();
     }
 }

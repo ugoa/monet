@@ -18,7 +18,7 @@ use crate::{
     handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
 };
 
 pub fn catch(endpoint: impl Endpoint) -> Route {
@@ -77,8 +77,8 @@ struct RouteId(usize);
 pub struct Router {
     route_matcher: matchit::Router<RouteId>,
     routes: Vec<Route>,
-    path_to_index: HashMap<Arc<str>, RouteId>, // TODO: change to Rc
-    index_to_path: HashMap<RouteId, Arc<str>>,
+    path_to_index: HashMap<Rc<str>, RouteId>, // TODO: change to Rc
+    index_to_path: HashMap<RouteId, Rc<str>>,
     fallback: Option<Rc<dyn Endpoint>>,
 }
 
@@ -99,10 +99,11 @@ impl Router {
 
         let index: RouteId = *matched.value;
 
-        // let ext_mut = req.extensions_mut();
-
-        // #[cfg(not(feature = "no-matched-path"))]
-        // insert_matched_path(ext_mut, self.index_to_path.get(&index).unwrap());
+        #[cfg(not(feature = "no-matched-path"))]
+        insert_matched_path(
+            &mut req.state,
+            self.index_to_path.get(&index).expect("path shall exist"),
+        );
 
         insert_matched_params(&mut req.state, &matched.params);
 
@@ -304,5 +305,19 @@ impl MethodRoute {
                 )
             }
         };
+    }
+}
+
+fn concat_path(prefix: &str, rest: &str) -> String {
+    debug_assert!(prefix.starts_with('/'));
+    debug_assert!(rest.starts_with('/'));
+
+    if prefix.ends_with('/') {
+        // If prefix ends with /, Remove all leading '/'s in the rest path
+        format!("{prefix}{}", rest.trim_start_matches('/'))
+    } else if rest == "/" {
+        prefix.to_string()
+    } else {
+        format!("{prefix}{rest}")
     }
 }
