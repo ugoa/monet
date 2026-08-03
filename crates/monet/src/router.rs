@@ -77,7 +77,6 @@ struct RouteId(usize);
 pub struct Router {
     route_matcher: matchit::Router<RouteId>,
     routes: Vec<Route>,
-    path_to_index: HashMap<Rc<str>, RouteId>,
     index_to_path: HashMap<RouteId, Rc<str>>,
     fallback: Option<Rc<dyn Endpoint>>,
 }
@@ -134,9 +133,14 @@ impl Router {
     }
 
     pub fn at(mut self, path: &str, other: Route) -> Self {
-        match self.path_to_index.get(path) {
-            Some(route_id) => self.routes.get_mut(route_id.0).unwrap().merge(other),
-            None => self.new_route(path, other),
+        // O(n) operation, but acceptable because it only runs during server launch period
+        if let Some((route_id, _)) = self.index_to_path.iter().find(|&(_, v)| *v == path.into()) {
+            self.routes
+                .get_mut(route_id.0)
+                .expect("Route(s) should have added at this path already")
+                .merge(other)
+        } else {
+            self.add_route(path, other)
         }
         self
     }
@@ -203,14 +207,13 @@ impl Router {
         self
     }
 
-    fn new_route(&mut self, path: &str, route: Route) {
+    fn add_route(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
         self.route_matcher
             .insert(path, RouteId(new_index))
             .expect(NEVEL_FAIL);
 
         self.routes.push(route);
-        self.path_to_index.insert(path.into(), RouteId(new_index));
         self.index_to_path.insert(RouteId(new_index), path.into());
     }
 }

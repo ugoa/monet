@@ -11,7 +11,7 @@ async fn hi(_req: Request) -> String {
 }
 
 async fn secret_reveal(_req: Request) -> String {
-    "Hello from /private/secrets/12".to_string()
+    "Hello from /private/secret/12".to_string()
 }
 
 fn main() {
