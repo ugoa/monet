@@ -71,15 +71,15 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct RouteId(usize);
+struct RouteId(usize);
 
 #[derive(Default, Debug)]
 pub struct Router {
-    pub route_matcher: matchit::Router<RouteId>,
-    pub routes: Vec<Route>,
-    pub path_to_index: HashMap<Arc<str>, RouteId>, // TODO: change to Rc
-    pub index_to_path: HashMap<RouteId, Arc<str>>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
+    route_matcher: matchit::Router<RouteId>,
+    routes: Vec<Route>,
+    path_to_index: HashMap<Arc<str>, RouteId>, // TODO: change to Rc
+    index_to_path: HashMap<RouteId, Arc<str>>,
+    fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Router {
