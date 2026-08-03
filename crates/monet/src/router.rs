@@ -18,7 +18,7 @@ use crate::{
     handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params2, insert_matched_path},
 };
 
 pub fn catch(endpoint: impl Endpoint) -> Route {
@@ -70,12 +70,15 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
     Route::MethodRoute(mr)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct RouteId(usize);
+
 #[derive(Default, Debug)]
 pub struct Router {
-    pub route_matcher: matchit::Router<usize>,
+    pub route_matcher: matchit::Router<RouteId>,
     pub routes: Vec<Route>,
-    pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
-    pub index_to_path: HashMap<usize, Arc<str>>,
+    pub path_to_index: HashMap<Arc<str>, RouteId>, // TODO: change to Rc
+    pub index_to_path: HashMap<RouteId, Arc<str>>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
@@ -94,18 +97,18 @@ impl Router {
             }
         };
 
-        let index: usize = *matched.value;
+        let index: RouteId = *matched.value;
 
-        let ext_mut = req.extensions_mut();
+        // let ext_mut = req.extensions_mut();
 
         // #[cfg(not(feature = "no-matched-path"))]
-        insert_matched_path(ext_mut, self.index_to_path.get(&index).unwrap());
+        // insert_matched_path(ext_mut, self.index_to_path.get(&index).unwrap());
 
-        insert_matched_params(ext_mut, &matched.params);
+        insert_matched_params2(&mut req.state, &matched.params);
 
         // dbg!(&matched.params);
 
-        let route = self.routes.get(index).expect(NEVEL_FAIL);
+        let route = self.routes.get(index.0).expect(NEVEL_FAIL);
 
         let method = req.method();
         let resp_fut = match route {
@@ -133,7 +136,7 @@ impl Router {
 
     pub fn at(mut self, path: &str, other: Route) -> Self {
         match self.path_to_index.get(path) {
-            Some(index) => self.routes.get_mut(*index).unwrap().merge(other),
+            Some(route_id) => self.routes.get_mut(route_id.0).unwrap().merge(other),
             None => self.new_route(path, other),
         }
         self
@@ -150,7 +153,7 @@ impl Router {
         }
 
         for (index, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&index).expect(NEVEL_FAIL);
+            let path = other.index_to_path.get(&RouteId(index)).expect(NEVEL_FAIL);
 
             self = self.at(path, route);
         }
@@ -161,14 +164,15 @@ impl Router {
         assert!(prefix.starts_with('/'));
         assert!(prefix.len() > 1);
 
-        if prefix.split('/').any(|segment| {
-            segment.starts_with("{*") && segment.ends_with('}') && !segment.ends_with("}}")
-        }) {
+        if prefix
+            .split('/')
+            .any(|seg| seg.starts_with("{*") && seg.ends_with('}') && !seg.ends_with("}}"))
+        {
             panic!("Invalid route: nested routes cannot contain wildcards (*)");
         }
 
         for (index, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.index_to_path.get(&index).expect(NEVEL_FAIL);
+            let inner_path = other.index_to_path.get(&RouteId(index)).expect(NEVEL_FAIL);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -203,12 +207,12 @@ impl Router {
     fn new_route(&mut self, path: &str, route: Route) {
         let new_index = self.routes.len();
         self.route_matcher
-            .insert(path, new_index)
+            .insert(path, RouteId(new_index))
             .expect(NEVEL_FAIL);
 
         self.routes.push(route);
-        self.path_to_index.insert(path.into(), new_index);
-        self.index_to_path.insert(new_index, path.into());
+        self.path_to_index.insert(path.into(), RouteId(new_index));
+        self.index_to_path.insert(RouteId(new_index), path.into());
     }
 }
 

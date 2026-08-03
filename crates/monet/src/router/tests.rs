@@ -53,3 +53,9 @@ async fn middleware_api(req: Request, layer: Layer) -> Response {
         .insert("mark", HeaderValue::from_static("modified"));
     resp
 }
+
+#[test]
+fn nest_route_ok() {
+    let app1 = Router::new().at("/world", get(hello)).catch_all(notfound);
+    Router::new().nest("/hello", app1);
+}

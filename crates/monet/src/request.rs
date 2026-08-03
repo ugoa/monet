@@ -87,11 +87,16 @@ impl Request {
         T: DeserializeOwned,
     {
         /*
-         * Given route `/user/{id}/{*name}` and request `/user/23/david`, the data flow would be:
-         * Vec[("id", "23"), ("name", "david")] -> id=23&name=david -> Path(T {id: 23, name: david})
+         * Given route: `/user/{id}/{*name}`
+         * and request: `/user/23/david`
+         * The data transformation would be:
+         *
+         *    Vec[("id", "23"), ("name", "mike")]
+         *      -> id=23&name=mike
+         *      -> Path(T {id: 23, name: mike})
          */
         match self.state.get::<UrlParams>() {
-            Some(UrlParams::Params(params)) => {
+            Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
                     serializer.append_pair(k, v);
@@ -104,7 +109,7 @@ impl Request {
                     .map(Path)
                     .map_err(Error::FailedToDeserializePathParams)
             }
-            Some(UrlParams::InvalidUtf8InPathParam { key }) => Err(Error::InvalidUtf8InPathParam {
+            Some(UrlParams::InvalidUtf8Param { key }) => Err(Error::InvalidUtf8InPathParam {
                 key: key.to_string(),
             }),
             None => Err(Error::MissingPathParams),

@@ -1,58 +1,97 @@
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 
 use http::Extensions;
 use matchit::Params;
 
-pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
+use crate::request::State;
 
-pub(crate) const NEST_TAIL_PARAM_WILDCARD: &str = "/{*__private__monet_nest_tail_param}";
+pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
 
 pub(crate) const FALLBACK_PARAM: &str = "__private__monet_fallback";
 
+pub(crate) const NEST_TAIL_PARAM_WILDCARD: &str = "/{*__private__monet_nest_tail_param}";
+
 #[derive(Clone)]
 pub(crate) enum UrlParams {
-    Params(Vec<(Arc<str>, Arc<str>)>),
-    InvalidUtf8InPathParam { key: Arc<str> },
+    PairParams(Vec<(Rc<str>, Rc<str>)>),
+    InvalidUtf8Param { key: Rc<str> },
 }
 
-pub(super) fn insert_matched_params(extensions: &mut Extensions, params: &Params<'_, '_>) {
-    let current_params = extensions.get_mut();
+pub(super) fn insert_matched_params2(state: &mut State, params: &Params<'_, '_>) {
+    let current_params: Option<&mut UrlParams> = state.get_mut();
 
-    if let Some(UrlParams::InvalidUtf8InPathParam { .. }) = current_params {
+    if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {
         // nothing to do here since an error was stored earlier
         return;
     }
 
-    let params = params
+    let pair_params: Result<Vec<(Rc<str>, Rc<str>)>, Rc<str>> = params
         .iter()
         .filter(|(key, _)| !key.starts_with(NEST_TAIL_PARAM))
         .filter(|(key, _)| !key.starts_with(FALLBACK_PARAM))
         .map(|(k, v)| {
-            if let Some(decoded) = pct_decode(v) {
-                Ok((Arc::from(k), decoded))
-            } else {
-                Err(Arc::from(k))
-            }
+            percent_decode(v)
+                .map(|decoded| (Rc::from(k), decoded))
+                .ok_or(Rc::from(k))
         })
-        .collect::<Result<Vec<_>, _>>();
+        .collect();
 
-    match (current_params, params) {
+    match (current_params, pair_params) {
+        // Brand new pair of key/value
         (None, Ok(params)) => {
-            extensions.insert(UrlParams::Params(params));
+            state.set(UrlParams::PairParams(params));
         }
-        (Some(UrlParams::Params(current)), Ok(params)) => {
+        (Some(UrlParams::PairParams(current)), Ok(params)) => {
             current.extend(params);
         }
         (_, Err(invalid_key)) => {
-            extensions.insert(UrlParams::InvalidUtf8InPathParam { key: invalid_key });
+            state.set(UrlParams::InvalidUtf8Param { key: invalid_key });
         }
-        (Some(UrlParams::InvalidUtf8InPathParam { .. }), _) => {
+        (Some(UrlParams::InvalidUtf8Param { .. }), _) => {
             unreachable!("we check for this state earlier in this method")
         }
     }
 }
 
-pub(crate) fn pct_decode<S>(s: S) -> Option<Arc<str>>
+// pub(super) fn insert_matched_params(extensions: &mut Extensions, params: &Params<'_, '_>) {
+//     let current_params = extensions.get_mut();
+//
+//     if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {
+//         // nothing to do here since an error was stored earlier
+//         return;
+//     }
+//
+//     let params = params
+//         .iter()
+//         .filter(|(key, _)| !key.starts_with(NEST_TAIL_PARAM))
+//         .filter(|(key, _)| !key.starts_with(FALLBACK_PARAM))
+//         .map(|(k, v)| {
+//             if let Some(decoded) = percent_decode(v) {
+//                 Ok((Arc::from(k), decoded))
+//             } else {
+//                 Err(Arc::from(k))
+//             }
+//         })
+//         .collect::<Result<Vec<_>, _>>();
+//
+//     match (current_params, params) {
+//         (None, Ok(params)) => {
+//             extensions.insert(UrlParams::PairParams(params));
+//         }
+//         (Some(UrlParams::PairParams(current)), Ok(params)) => {
+//             current.extend(params);
+//         }
+//         (_, Err(invalid_key)) => {
+//             extensions.insert(UrlParams::InvalidUtf8Param { key: invalid_key });
+//         }
+//         (Some(UrlParams::InvalidUtf8Param { .. }), _) => {
+//             unreachable!("we check for this state earlier in this method")
+//         }
+//     }
+// }
+
+// assert_eq!(percent_decode(b"foo%20bar%3f").decode_utf8().unwrap(), "foo bar?");
+pub(crate) fn percent_decode<S>(s: S) -> Option<Rc<str>>
 where
     S: AsRef<str>,
 {
@@ -100,15 +139,16 @@ pub(crate) fn append_nested_matched_path(
     }
 }
 
-pub(crate) fn concat_path(prefix: &str, path: &str) -> String {
+pub(crate) fn concat_path(prefix: &str, rest: &str) -> String {
     debug_assert!(prefix.starts_with('/'));
-    debug_assert!(path.starts_with('/'));
+    debug_assert!(rest.starts_with('/'));
 
     if prefix.ends_with('/') {
-        format!("{prefix}{}", path.trim_start_matches('/'))
-    } else if path == "/" {
+        // If prefix ends with /, Remove all leading '/'s in the rest path
+        format!("{prefix}{}", rest.trim_start_matches('/'))
+    } else if rest == "/" {
         prefix.to_string()
     } else {
-        format!("{prefix}{path}")
+        format!("{prefix}{rest}")
     }
 }
