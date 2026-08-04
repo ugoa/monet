@@ -117,7 +117,7 @@ impl Router {
                  *    3 (The Vec itself) +
                  *    1 (endpoint Rc)
                  * are being allocated by the .clone() per request. We could've use slice of Vec
-                 * as the tide framework does, but this would pollute the Middleware interface with
+                 * same as the tide framework, but this would pollute the Middleware API with
                  * lifetime annotation. This is a performance tradeoff in favor of the DX simplicity.
                  */
                 Some(layer) => layer.clone().next(req),
