@@ -75,9 +75,9 @@ struct RouteId(usize);
 
 #[derive(Default, Debug)]
 pub struct Router {
-    route_matcher: matchit::Router<RouteId>,
+    matcher: matchit::Router<RouteId>,
     routes: Vec<Route>,
-    index_to_path: HashMap<RouteId, Rc<str>>,
+    id_to_path: HashMap<RouteId, Rc<str>>,
     fallback: Option<Rc<dyn Endpoint>>,
 }
 
@@ -89,24 +89,24 @@ impl Router {
     pub fn dispatch(&self, mut req: Request) -> impl Future<Output = Response> {
         let request_path = req.uri().path().to_string();
 
-        let Ok(matched) = self.route_matcher.at(request_path.as_str()) else {
+        let Ok(matched) = self.matcher.at(request_path.as_str()) else {
             match &self.fallback {
                 Some(handler) => return handler.call(req),
                 None => panic!("Path {} not found", request_path),
             }
         };
 
-        let index: RouteId = *matched.value;
+        let route_id: RouteId = *matched.value;
 
         #[cfg(not(feature = "no-matched-path"))]
         insert_matched_path(
             &mut req.state,
-            self.index_to_path.get(&index).expect("path shall exist"),
+            self.id_to_path.get(&route_id).expect("path shall exist"),
         );
 
         insert_matched_params(&mut req.state, &matched.params);
 
-        let route = self.routes.get(index.0).expect(NEVEL_FAIL);
+        let route = self.routes.get(route_id.0).expect(NEVEL_FAIL);
 
         let method = req.method();
         let resp_fut = match route {
@@ -134,10 +134,10 @@ impl Router {
 
     pub fn at(mut self, path: &str, other: Route) -> Self {
         // find() is O(n) operation, but acceptable because it only runs during launching period
-        if let Some((route_id, _)) = self.index_to_path.iter().find(|&(_, v)| **v == *path) {
+        if let Some((route_id, _)) = self.id_to_path.iter().find(|&(_, v)| **v == *path) {
             self.routes
                 .get_mut(route_id.0)
-                .expect("Route(s) should have added at this path already")
+                .expect("To never fail, as route must be present at this path")
                 .merge(other)
         } else {
             self.add_route(path, other)
@@ -155,8 +155,8 @@ impl Router {
             }
         }
 
-        for (index, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&RouteId(index)).expect(NEVEL_FAIL);
+        for (id, route) in other.routes.into_iter().enumerate() {
+            let path = other.id_to_path.get(&RouteId(id)).expect(NEVEL_FAIL);
 
             self = self.at(path, route);
         }
@@ -174,8 +174,8 @@ impl Router {
             panic!("Invalid route: nested routes cannot contain wildcards (*)");
         }
 
-        for (index, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.index_to_path.get(&RouteId(index)).expect(NEVEL_FAIL);
+        for (id, route) in other.routes.into_iter().enumerate() {
+            let inner_path = other.id_to_path.get(&RouteId(id)).expect(NEVEL_FAIL);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -208,13 +208,13 @@ impl Router {
     }
 
     fn add_route(&mut self, path: &str, route: Route) {
-        let new_index = self.routes.len();
-        self.route_matcher
-            .insert(path, RouteId(new_index))
+        let new_route_id = self.routes.len();
+        self.matcher
+            .insert(path, RouteId(new_route_id))
             .expect(NEVEL_FAIL);
 
         self.routes.push(route);
-        self.index_to_path.insert(RouteId(new_index), path.into());
+        self.id_to_path.insert(RouteId(new_route_id), path.into());
     }
 }
 
