@@ -70,14 +70,13 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
     Route::MethodRoute(mr)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct RouteId(usize);
+type RouteId = usize;
 
 #[derive(Default, Debug)]
 pub struct Router {
     matcher: matchit::Router<RouteId>,
-    routes: Vec<Route>,
     id_to_path: HashMap<RouteId, Rc<str>>,
+    routes: Vec<Route>,
     fallback: Option<Rc<dyn Endpoint>>,
 }
 
@@ -106,7 +105,7 @@ impl Router {
 
         insert_matched_params(&mut req.state, &matched.params);
 
-        let route = self.routes.get(route_id.0).expect(NEVEL_FAIL);
+        let route = self.routes.get(route_id).expect(NEVEL_FAIL);
 
         let method = req.method();
         let resp_fut = match route {
@@ -136,7 +135,7 @@ impl Router {
         // find() is O(n) operation, but acceptable because it only runs during launching period
         if let Some((route_id, _)) = self.id_to_path.iter().find(|&(_, v)| **v == *path) {
             self.routes
-                .get_mut(route_id.0)
+                .get_mut(*route_id)
                 .expect("To never fail, as route must be present at this path")
                 .merge(other)
         } else {
@@ -156,7 +155,7 @@ impl Router {
         }
 
         for (id, route) in other.routes.into_iter().enumerate() {
-            let path = other.id_to_path.get(&RouteId(id)).expect(NEVEL_FAIL);
+            let path = other.id_to_path.get(&id).expect(NEVEL_FAIL);
 
             self = self.at(path, route);
         }
@@ -175,7 +174,7 @@ impl Router {
         }
 
         for (id, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.id_to_path.get(&RouteId(id)).expect(NEVEL_FAIL);
+            let inner_path = other.id_to_path.get(&id).expect(NEVEL_FAIL);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -209,12 +208,10 @@ impl Router {
 
     fn add_route(&mut self, path: &str, route: Route) {
         let new_route_id = self.routes.len();
-        self.matcher
-            .insert(path, RouteId(new_route_id))
-            .expect(NEVEL_FAIL);
+        self.matcher.insert(path, new_route_id).expect(NEVEL_FAIL);
 
         self.routes.push(route);
-        self.id_to_path.insert(RouteId(new_route_id), path.into());
+        self.id_to_path.insert(new_route_id, path.into());
     }
 }
 
