@@ -127,6 +127,7 @@ impl Router {
                     {
                         chain.clone().next(req)
                     } else {
+                        // TODO: Add allowed method in 405 response
                         match &mr.fallback {
                             Some(handler) => return handler.call(req),
                             None => panic!("No handler for `{}` at Path `{}`", method, path),
