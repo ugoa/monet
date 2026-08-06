@@ -86,12 +86,12 @@ impl Router {
     }
 
     pub fn dispatch(&self, mut req: Request) -> impl Future<Output = Response> {
-        let request_path = req.uri().path().to_string();
+        let path = req.uri().path().to_string();
 
-        let Ok(matched) = self.matcher.at(request_path.as_str()) else {
+        let Ok(matched) = self.matcher.at(path.as_str()) else {
             match &self.fallback {
                 Some(handler) => return handler.call(req),
-                None => panic!("Path {} not found", request_path),
+                None => panic!("Path {} not found", path),
             }
         };
 
@@ -110,7 +110,7 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(svc) => svc.clone().next(req),
-            Route::MethodRoute(method_route) => match method_route.inner.get(method) {
+            Route::MethodRoute(mr) => match mr.inner.get(method) {
                 /*
                  * Tradeoff: Given a chain with M middlewares and 1 endpoint, A total words of
                  *    M (middleware Rc) +
@@ -121,10 +121,18 @@ impl Router {
                  * lifetime annotation. This is a performance tradeoff in favor of the DX simplicity.
                  */
                 Some(chain) => chain.clone().next(req),
-                None => match &method_route.fallback {
-                    Some(handler) => return handler.call(req),
-                    None => panic!("No handler for {} Method at Route {}", method, request_path),
-                },
+                None => {
+                    if method == Method::HEAD
+                        && let Some(chain) = mr.inner.get(&Method::GET)
+                    {
+                        chain.clone().next(req)
+                    } else {
+                        match &mr.fallback {
+                            Some(handler) => return handler.call(req),
+                            None => panic!("No handler for `{}` at Path `{}`", method, path),
+                        }
+                    }
+                }
             },
         };
 
