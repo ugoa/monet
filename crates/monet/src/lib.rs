@@ -5,7 +5,7 @@ pub mod listener;
 pub mod request;
 pub mod response;
 pub mod router;
-pub mod server;
+pub mod serve;
 pub mod types;
 
 // pub use monet_macros::handler;
@@ -18,7 +18,7 @@ pub use crate::{
     request::Request,
     response::{IntoResponse, Response},
     router::{Router, get, post},
-    server::{run, spawn},
+    serve::{run, spawn},
     types::{Form, Json, Path},
 };
 

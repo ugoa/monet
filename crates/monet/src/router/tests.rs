@@ -13,16 +13,16 @@ fn merge_test1() {
 #[test]
 #[should_panic(expected = "Cannot merge two `Route`s of same path that both have a fallback")]
 fn merge_test2() {
-    let app3 = Router::new().at("/hello", get(hello).catch(no_support));
-    let app4 = Router::new().at("/hello", post(hi).catch(no_support));
+    let app3 = Router::new().at("/hello", get(hello).any(no_support));
+    let app4 = Router::new().at("/hello", post(hi).any(no_support));
     app3.merge(app4);
 }
 
 #[test]
 #[should_panic(expected = "Cannot merge two `Router`s that both have a fallback")]
 fn merge_test3() {
-    let app1 = Router::new().at("/hello", get(hello)).catch_all(notfound);
-    let app2 = Router::new().at("/hi", get(hi)).catch_all(notfound);
+    let app1 = Router::new().at("/hello", get(hello)).catch(notfound);
+    let app2 = Router::new().at("/hi", get(hi)).catch(notfound);
     app1.merge(app2);
 }
 
@@ -56,6 +56,6 @@ async fn middleware_api(req: Request, chain: Chain) -> Response {
 
 #[test]
 fn nest_route_ok() {
-    let app1 = Router::new().at("/world", get(hello)).catch_all(notfound);
+    let app1 = Router::new().at("/world", get(hello)).catch(notfound);
     Router::new().nest("/hello", app1);
 }

@@ -21,7 +21,7 @@ use crate::{
     router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
 };
 
-pub fn catch(endpoint: impl Endpoint) -> Route {
+pub fn any(endpoint: impl Endpoint) -> Route {
     let mut mr = MethodRoute::new();
     mr.fallback(endpoint);
     Route::MethodRoute(mr)
@@ -201,7 +201,7 @@ impl Router {
         self
     }
 
-    pub fn catch_all(mut self, endpoint: impl Endpoint) -> Self {
+    pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
         self.fallback = Some(Rc::new(endpoint));
         self
     }
@@ -297,17 +297,15 @@ impl Route {
     }
 
     pub fn register(mut self, endpoint: impl Endpoint, method: Method) -> Self {
-        match self {
-            Route::MethodRoute(ref mut mr) => mr.register(endpoint, method),
-            _ => (),
+        if let Route::MethodRoute(ref mut mr) = self {
+            mr.register(endpoint, method);
         }
         self
     }
 
-    pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
-        match self {
-            Route::MethodRoute(ref mut mr) => mr.fallback = Some(Rc::new(endpoint)),
-            _ => (),
+    pub fn any(mut self, endpoint: impl Endpoint) -> Self {
+        if let Route::MethodRoute(ref mut mr) = self {
+            mr.fallback = Some(Rc::new(endpoint));
         }
         self
     }
