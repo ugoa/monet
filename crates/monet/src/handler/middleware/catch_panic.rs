@@ -3,7 +3,7 @@ use std::{panic::AssertUnwindSafe, pin::Pin};
 use futures_util::FutureExt;
 use http::StatusCode;
 
-use crate::{IntoResponse, Layer, Middleware, Request, Response};
+use crate::{Chain, IntoResponse, Middleware, Request, Response};
 
 #[derive(Default, Debug, Clone)]
 pub struct CatchPanic;
@@ -12,10 +12,10 @@ impl Middleware for CatchPanic {
     fn transform(
         &self,
         req: Request,
-        layer: Layer,
+        chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         Box::pin(async move {
-            AssertUnwindSafe(layer.next(req))
+            AssertUnwindSafe(chain.next(req))
                 .catch_unwind()
                 .await
                 .unwrap_or_else(|err| {

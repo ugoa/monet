@@ -13,7 +13,7 @@ pub trait Middleware: 'static {
     fn transform(
         &self,
         request: Request,
-        layer: Layer,
+        chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
     fn name(&self) -> &str {
@@ -29,16 +29,16 @@ impl std::fmt::Debug for dyn Middleware {
 
 impl<F, Fut, Resp> Middleware for F
 where
-    F: 'static + Fn(Request, Layer) -> Fut,
+    F: 'static + Fn(Request, Chain) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
     fn transform(
         &self,
         req: Request,
-        layer: Layer,
+        chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
-        Box::pin(async move { (self)(req, layer).await.into_response() })
+        Box::pin(async move { (self)(req, chain).await.into_response() })
     }
 }
 
@@ -68,21 +68,22 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct Layer {
+pub struct Chain {
     pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
     pub(crate) endpoint: Rc<dyn Endpoint>,
 }
 
-impl Layer {
+impl Chain {
     pub async fn next(mut self, req: Request) -> Response {
-        if let Some(current) = self.middlewares.pop() {
-            current.transform(req, self).await
+        if let Some(mw) = self.middlewares.pop() {
+            mw.transform(req, self).await
         } else {
             self.endpoint.call(req).await
         }
     }
+
     pub(crate) fn new(endpoint: impl Endpoint) -> Self {
-        Layer {
+        Chain {
             middlewares: Default::default(),
             endpoint: Rc::new(endpoint),
         }

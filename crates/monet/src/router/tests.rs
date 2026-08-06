@@ -1,6 +1,6 @@
 use http::{HeaderValue, StatusCode};
 
-use crate::{Layer, Request, Response, Router, get, post};
+use crate::{Chain, Request, Response, Router, get, post};
 
 #[test]
 #[should_panic(expected = "Overlapping route. Cannot add two endpoints that both handle `GET`")]
@@ -47,8 +47,8 @@ fn wrap_by_middleware_ok() {
     Router::new().at("/", get(hello)).wrap_by(middleware_api);
 }
 
-async fn middleware_api(req: Request, layer: Layer) -> Response {
-    let mut resp = layer.next(req).await;
+async fn middleware_api(req: Request, chain: Chain) -> Response {
+    let mut resp = chain.next(req).await;
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
     resp

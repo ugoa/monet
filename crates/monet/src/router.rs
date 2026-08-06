@@ -15,7 +15,7 @@ use http::Method;
 
 use crate::{
     NEVEL_FAIL, ServeDir,
-    handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{Chain, Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
@@ -112,7 +112,7 @@ impl Router {
             Route::Service(svc) => svc.clone().next(req),
             Route::MethodRoute(method_route) => match method_route.inner.get(method) {
                 /*
-                 * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total words of
+                 * Tradeoff: Given a chain with M middlewares and 1 endpoint, A total words of
                  *    M (middleware Rc) +
                  *    3 (The Vec itself) +
                  *    1 (endpoint Rc)
@@ -120,7 +120,7 @@ impl Router {
                  * same as the tide framework, but this would pollute the Middleware API with
                  * lifetime annotation. This is a performance tradeoff in favor of the DX simplicity.
                  */
-                Some(layer) => layer.clone().next(req),
+                Some(chain) => chain.clone().next(req),
                 None => match &method_route.fallback {
                     Some(handler) => return handler.call(req),
                     None => panic!("No handler for {} Method at Route {}", method, request_path),
@@ -186,10 +186,10 @@ impl Router {
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
         let wildcard_path = format!("{}/{{*{}}}", path.trim_end_matches('/'), NEST_TAIL_PARAM);
 
-        let mut layer = Layer::new(ServeDir::new(dir));
+        let mut chain = Chain::new(ServeDir::new(dir));
         let stripe_prefix_middleware = Rc::new(StripPrefix(Arc::new(path.to_string())));
-        layer.append(stripe_prefix_middleware);
-        self.at(&wildcard_path, Route::Service(layer))
+        chain.append(stripe_prefix_middleware);
+        self.at(&wildcard_path, Route::Service(chain))
     }
 
     pub fn wrap_by(mut self, mw: impl Middleware) -> Self {
@@ -218,22 +218,50 @@ impl Router {
 #[derive(Debug)]
 pub enum Route {
     MethodRoute(MethodRoute),
-    Service(Layer),
+    Service(Chain),
 }
 
 #[derive(Default, Debug)]
 pub struct MethodRoute {
-    pub inner: HashMap<Method, Layer>,
+    pub inner: HashMap<Method, Chain>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Route {
+    pub fn head(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::HEAD)
+    }
+
     pub fn get(self, endpoint: impl Endpoint) -> Self {
-        self.register(endpoint, Method::POST)
+        self.register(endpoint, Method::GET)
     }
 
     pub fn post(self, endpoint: impl Endpoint) -> Self {
         self.register(endpoint, Method::POST)
+    }
+
+    pub fn put(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::PUT)
+    }
+
+    pub fn patch(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::PATCH)
+    }
+
+    pub fn delete(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::DELETE)
+    }
+
+    pub fn connect(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::CONNECT)
+    }
+
+    pub fn options(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::OPTIONS)
+    }
+
+    pub fn trace(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::TRACE)
     }
 
     pub fn merge(&mut self, other: Route) {
@@ -247,9 +275,9 @@ impl Route {
                 }
                 (None, None) => (),
             }
-            other.inner.iter().for_each(|(method, layer)| {
+            other.inner.iter().for_each(|(method, chain)| {
                 match this.inner.entry(method.clone()) {
-                    Entry::Vacant(e) => e.insert(layer.clone()),
+                    Entry::Vacant(e) => e.insert(chain.clone()),
                     Entry::Occupied(_) => {
                         panic!("Overlapping route. Cannot add two endpoints that both handle `{method}`")
                     }
@@ -263,14 +291,15 @@ impl Route {
             Route::MethodRoute(mr) => mr
                 .inner
                 .iter_mut()
-                .for_each(|(_, layer)| layer.append(Rc::clone(&mw))),
-            Route::Service(layer) => layer.append(Rc::clone(&mw)),
+                .for_each(|(_, chain)| chain.append(Rc::clone(&mw))),
+            Route::Service(chain) => chain.append(Rc::clone(&mw)),
         }
     }
 
     pub fn register(mut self, endpoint: impl Endpoint, method: Method) -> Self {
-        if let Route::MethodRoute(ref mut dispatch) = self {
-            dispatch.register(endpoint, method);
+        match self {
+            Route::MethodRoute(ref mut mr) => mr.register(endpoint, method),
+            _ => (),
         }
         self
     }
@@ -293,12 +322,11 @@ impl MethodRoute {
     }
 
     fn register(&mut self, endpoint: impl Endpoint, method: Method) {
-        let layer = Layer {
-            endpoint: Rc::new(endpoint),
-            middlewares: Default::default(),
-        };
         match self.inner.entry(method.clone()) {
-            Entry::Vacant(e) => e.insert(layer),
+            Entry::Vacant(e) => e.insert(Chain {
+                endpoint: Rc::new(endpoint),
+                middlewares: Default::default(),
+            }),
             Entry::Occupied(_) => {
                 panic!(
                     "Overlapping method route. Cannot add two methods that both handle `{method}`"
