@@ -94,16 +94,15 @@ impl Router {
                 None => panic!("Path {} not found", path),
             }
         };
-
         let route_id: RouteId = *matched.value;
+
+        insert_matched_params(&mut req.state, &matched.params);
 
         #[cfg(not(feature = "no-matched-path"))]
         insert_matched_path(
             &mut req.state,
             self.id_to_path.get(&route_id).expect("path shall exist"),
         );
-
-        insert_matched_params(&mut req.state, &matched.params);
 
         let route = self.routes.get(route_id).expect(NEVEL_FAIL);
 
