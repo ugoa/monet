@@ -305,8 +305,9 @@ impl Route {
     }
 
     pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
-        if let Route::MethodRoute(ref mut dispatch) = self {
-            dispatch.fallback = Some(Rc::new(endpoint));
+        match self {
+            Route::MethodRoute(ref mut mr) => mr.fallback = Some(Rc::new(endpoint)),
+            _ => (),
         }
         self
     }
