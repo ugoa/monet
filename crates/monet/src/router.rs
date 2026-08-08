@@ -121,6 +121,7 @@ impl Router {
                  */
                 Some(chain) => chain.clone().next(req),
                 None => {
+                    // If no handler for HEAD method, try handler for GET instead
                     if method == Method::HEAD
                         && let Some(chain) = mr.inner.get(&Method::GET)
                     {
