@@ -30,7 +30,7 @@ async fn set_state(mut req: Request, chain: Chain) -> Response {
 }
 
 async fn root(req: Request) -> String {
-    compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
+    compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
 
     // let guard = _req.state::<Arc<Mutex<SyncedState>>>().unwrap();
     let guard: &Arc<Mutex<SyncedState>> = req.state.get().unwrap();

@@ -16,7 +16,7 @@ use http::Method;
 
 use crate::{
     NEVEL_FAIL, ServeDir,
-    handler::{Endpoint, Middleware, endpoint, middleware::strip_prefix::StripPrefix},
+    handler::{Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
@@ -198,10 +198,10 @@ impl Router {
 
         self.routes.iter_mut().for_each(|route| match route {
             Route::MethodRoute(mr) => mr.inner.iter_mut().for_each(|(_, layers)| {
-                layers.0.borrow_mut().middlewares.push(Rc::clone(&shared));
+                layers.append(Rc::clone(&shared));
             }),
             Route::Service(layers) => {
-                layers.0.borrow_mut().middlewares.push(Rc::clone(&shared));
+                layers.append(Rc::clone(&shared));
             }
         });
 
@@ -223,30 +223,30 @@ impl Router {
 }
 
 #[derive(Debug, Clone)]
-pub struct Layers(Rc<RefCell<InnerLayers>>);
+pub struct Layers(Rc<RefCell<SharedLayers>>);
+
+#[derive(Debug, Clone)]
+pub struct SharedLayers {
+    pub middlewares: Vec<Rc<dyn Middleware>>,
+    pub endpoint: Rc<dyn Endpoint>,
+}
 
 impl Layers {
     pub(crate) fn new(endpoint: impl Endpoint) -> Self {
-        Layers(Rc::new(RefCell::new(InnerLayers {
+        Layers(Rc::new(RefCell::new(SharedLayers {
             middlewares: Default::default(),
             endpoint: Rc::new(endpoint),
         })))
     }
 
-    pub(crate) fn append(&mut self, m: Rc<impl Middleware>) {
+    pub(crate) fn append(&mut self, m: Rc<dyn Middleware>) {
         self.0.borrow_mut().middlewares.push(m.clone());
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct InnerLayers {
-    pub middlewares: Vec<Rc<dyn Middleware>>,
-    pub endpoint: Rc<dyn Endpoint>,
-}
-
-#[derive(Debug, Clone)]
 pub struct Chain {
-    handlers: Rc<RefCell<InnerLayers>>,
+    handlers: Rc<RefCell<SharedLayers>>,
     cursor: isize,
 }
 
@@ -374,7 +374,7 @@ impl MethodRoute {
 
     fn register(&mut self, endpoint: impl Endpoint, method: Method) {
         match self.inner.entry(method.clone()) {
-            Entry::Vacant(e) => e.insert(Layers(Rc::new(RefCell::new(InnerLayers {
+            Entry::Vacant(e) => e.insert(Layers(Rc::new(RefCell::new(SharedLayers {
                 endpoint: Rc::new(endpoint),
                 middlewares: Default::default(),
             })))),
