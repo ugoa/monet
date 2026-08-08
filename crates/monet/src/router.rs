@@ -22,12 +22,6 @@ use crate::{
     router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
 };
 
-pub fn any(endpoint: impl Endpoint) -> Route {
-    let mut mr = MethodRoute::new();
-    mr.fallback(endpoint);
-    Route::MethodRoute(mr)
-}
-
 pub fn get(endpoint: impl Endpoint) -> Route {
     on(endpoint, Method::GET)
 }
@@ -62,6 +56,12 @@ pub fn trace(endpoint: impl Endpoint) -> Route {
 
 pub fn options(endpoint: impl Endpoint) -> Route {
     on(endpoint, Method::OPTIONS)
+}
+
+pub fn any(endpoint: impl Endpoint) -> Route {
+    let mut mr = MethodRoute::new();
+    mr.fallback(endpoint);
+    Route::MethodRoute(mr)
 }
 
 fn on(endpoint: impl Endpoint, method: Method) -> Route {
@@ -286,12 +286,6 @@ pub enum Route {
     Service(Layers),
 }
 
-#[derive(Default, Debug)]
-pub struct MethodRoute {
-    pub map: HashMap<Method, Layers>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
-}
-
 impl Route {
     pub fn head(self, endpoint: impl Endpoint) -> Self {
         self.register(endpoint, Method::HEAD)
@@ -364,6 +358,12 @@ impl Route {
         }
         self
     }
+}
+
+#[derive(Default, Debug)]
+pub struct MethodRoute {
+    pub map: HashMap<Method, Layers>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl MethodRoute {
