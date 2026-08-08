@@ -251,6 +251,13 @@ pub struct Chain {
 }
 
 impl Chain {
+    pub fn from(layers: &Layers) -> Self {
+        Self {
+            handlers: Rc::clone(&layers.0),
+            cursor: layers.0.borrow().middlewares.len() as isize,
+        }
+    }
+
     pub async fn next(mut self, req: Request) -> Response {
         self.cursor -= 1;
 
@@ -266,13 +273,6 @@ impl Chain {
         } else {
             let endpoint: Rc<dyn Endpoint> = self.handlers.borrow().endpoint.clone();
             endpoint.call(req).await
-        }
-    }
-
-    pub fn from(layers: &Layers) -> Self {
-        Self {
-            handlers: Rc::clone(&layers.0),
-            cursor: layers.0.borrow().middlewares.len() as isize,
         }
     }
 }
