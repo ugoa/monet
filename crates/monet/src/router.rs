@@ -109,15 +109,15 @@ impl Router {
 
         let method = req.method();
         let resp_fut = match route {
-            Route::Service(layers) => Chain::from_layers(layers).next(req),
+            Route::Service(layers) => Chain::from(layers).next(req),
             Route::MethodRoute(mr) => match mr.inner.get(method) {
-                Some(layers) => Chain::from_layers(layers).next(req),
+                Some(layers) => Chain::from(layers).next(req),
                 None => {
                     // If no handler for HEAD method, try handler for GET instead
                     if method == Method::HEAD
                         && let Some(layers) = mr.inner.get(&Method::GET)
                     {
-                        Chain::from_layers(layers).next(req)
+                        Chain::from(layers).next(req)
                     } else {
                         // TODO: Add allowed method in 405 response
                         match &mr.fallback {
@@ -269,7 +269,7 @@ impl Chain {
         }
     }
 
-    pub fn from_layers(layers: &Layers) -> Self {
+    pub fn from(layers: &Layers) -> Self {
         Self {
             handlers: Rc::clone(&layers.0),
             cursor: layers.0.borrow().middlewares.len() as isize,
