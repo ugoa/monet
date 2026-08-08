@@ -230,15 +230,15 @@ pub struct Layers(Rc<RefCell<SharedLayers>>);
 
 #[derive(Debug, Clone)]
 pub struct SharedLayers {
-    pub middlewares: Vec<Rc<dyn Middleware>>,
     pub endpoint: Rc<dyn Endpoint>,
+    pub middlewares: Vec<Rc<dyn Middleware>>,
 }
 
 impl Layers {
     pub(crate) fn new(endpoint: impl Endpoint) -> Self {
         Layers(Rc::new(RefCell::new(SharedLayers {
-            middlewares: Default::default(),
             endpoint: Rc::new(endpoint),
+            middlewares: Default::default(),
         })))
     }
 
