@@ -189,7 +189,7 @@ impl Router {
 
         let mut layers = Layers::new(ServeDir::new(dir));
         let stripe_prefix_middleware = Rc::new(StripPrefix(Arc::new(path.to_string())));
-        layers.append(stripe_prefix_middleware);
+        layers.push(stripe_prefix_middleware);
         self.at(&wildcard_path, Route::Service(layers))
     }
 
@@ -198,10 +198,10 @@ impl Router {
 
         self.routes.iter_mut().for_each(|route| match route {
             Route::MethodRoute(mr) => mr.inner.iter_mut().for_each(|(_, layers)| {
-                layers.append(Rc::clone(&shared));
+                layers.push(Rc::clone(&shared));
             }),
             Route::Service(layers) => {
-                layers.append(Rc::clone(&shared));
+                layers.push(Rc::clone(&shared));
             }
         });
 
@@ -239,7 +239,7 @@ impl Layers {
         })))
     }
 
-    pub(crate) fn append(&mut self, m: Rc<dyn Middleware>) {
+    pub(crate) fn push(&mut self, m: Rc<dyn Middleware>) {
         self.0.borrow_mut().middlewares.push(m.clone());
     }
 }
