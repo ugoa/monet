@@ -108,12 +108,15 @@ impl Router {
         let route = self.routes.get(route_id).expect(NEVEL_FAIL);
 
         let method = req.method();
+
         let resp_fut = match route {
             Route::Service(layers) => Chain::from(layers).next(req),
+
             Route::MethodRoute(mr) => match mr.map.get(method) {
                 Some(layers) => Chain::from(layers).next(req),
+
                 None => {
-                    // If no handler for HEAD method, try handler for GET instead
+                    // If no handler for HEAD, try handler for GET instead
                     if method == Method::HEAD
                         && let Some(layers) = mr.map.get(&Method::GET)
                     {
