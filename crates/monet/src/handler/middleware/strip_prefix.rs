@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc};
 
 use http::Uri;
 
-use crate::{Layer, Middleware, Request, Response};
+use crate::{Chain, Middleware, Request, Response};
 
 pub struct StripPrefix(pub Arc<String>);
 
@@ -10,13 +10,13 @@ impl Middleware for StripPrefix {
     fn transform(
         &self,
         mut req: Request,
-        layer: Layer,
+        chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         Box::pin(async move {
             if let Some(new_uri) = strip_prefix(req.uri(), &self.0) {
                 *req.uri_mut() = new_uri;
             };
-            layer.next(req).await
+            chain.next(req).await
         })
     }
 }

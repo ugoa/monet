@@ -5,6 +5,7 @@ pub(crate) mod url;
 
 use core::panic;
 use std::{
+    cell::RefCell,
     collections::{HashMap, hash_map::Entry},
     path::Path,
     rc::Rc,
@@ -15,16 +16,16 @@ use http::Method;
 
 use crate::{
     NEVEL_FAIL, ServeDir,
-    handler::{Endpoint, Layer, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, concat_path, insert_matched_params, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
 };
 
-pub fn catch(endpoint: impl Endpoint) -> Route {
+pub fn any(endpoint: impl Endpoint) -> Route {
     let mut mr = MethodRoute::new();
     mr.fallback(endpoint);
-    Route::MethodRouter(mr)
+    Route::MethodRoute(mr)
 }
 
 pub fn get(endpoint: impl Endpoint) -> Route {
@@ -67,16 +68,17 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
     let mut mr = MethodRoute::new();
     mr.register(endpoint, method);
 
-    Route::MethodRouter(mr)
+    Route::MethodRoute(mr)
 }
+
+type RouteId = usize;
 
 #[derive(Default, Debug)]
 pub struct Router {
-    pub route_matcher: matchit::Router<usize>,
-    pub routes: Vec<Route>,
-    pub path_to_index: HashMap<Arc<str>, usize>, // TODO: change to Rc
-    pub index_to_path: HashMap<usize, Arc<str>>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
+    matcher: matchit::Router<RouteId>,
+    id_to_path: HashMap<RouteId, Rc<str>>,
+    routes: Vec<Route>,
+    fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Router {
@@ -85,44 +87,45 @@ impl Router {
     }
 
     pub fn dispatch(&self, mut req: Request) -> impl Future<Output = Response> {
-        let request_path = req.uri().path().to_string();
+        let path = req.uri().path().to_string();
 
-        let Ok(matched) = self.route_matcher.at(request_path.as_str()) else {
+        let Ok(matched) = self.matcher.at(path.as_str()) else {
             match &self.fallback {
                 Some(handler) => return handler.call(req),
-                None => panic!("Path {} not found", request_path),
+                None => panic!("Path {} not found", path),
             }
         };
+        let route_id: RouteId = *matched.value;
 
-        let index = *matched.value;
+        insert_matched_params(&mut req.state, &matched.params);
 
-        let ext_mut = req.extensions_mut();
+        #[cfg(not(feature = "no-matched-path"))]
+        insert_matched_path(
+            &mut req.state,
+            self.id_to_path.get(&route_id).expect("path shall exist"),
+        );
 
-        // #[cfg(not(feature = "no-matched-path"))]
-        insert_matched_path(ext_mut, self.index_to_path.get(&index).unwrap());
-
-        insert_matched_params(ext_mut, &matched.params);
-
-        // dbg!(&matched.params);
-
-        let route = self.routes.get(index).expect(NEVEL_FAIL);
+        let route = self.routes.get(route_id).expect(NEVEL_FAIL);
 
         let method = req.method();
         let resp_fut = match route {
-            Route::Service(svc) => svc.clone().next(req),
-            Route::MethodRouter(method_router) => match method_router.inner.get(method) {
-                /*
-                 * Tradeoff: Given a layer with M middlewares and 1 endpoint, A total of
-                 * M(middleware Rc) + 3(The Vec itself) + 1(endpoint Rc) words(8 bytes of each)
-                 * are being allocated by the .clone() per request. We could've use slice of Vec
-                 * as the tide framework does, but this would pollute the Middleware interface with
-                 * lifetime annotation. This is a performance tradeoff in faver of the DX simplicity.
-                 */
-                Some(layer) => layer.clone().next(req),
-                None => match &method_router.fallback {
-                    Some(handler) => return handler.call(req),
-                    None => panic!("No handler for {} Method at Route {}", method, request_path),
-                },
+            Route::Service(layers) => Chain::from(layers).next(req),
+            Route::MethodRoute(mr) => match mr.map.get(method) {
+                Some(layers) => Chain::from(layers).next(req),
+                None => {
+                    // If no handler for HEAD method, try handler for GET instead
+                    if method == Method::HEAD
+                        && let Some(layers) = mr.map.get(&Method::GET)
+                    {
+                        Chain::from(layers).next(req)
+                    } else {
+                        // TODO: Add allowed method in 405 response
+                        match &mr.fallback {
+                            Some(handler) => return handler.call(req),
+                            None => panic!("No handler for `{}` at Path `{}`", method, path),
+                        }
+                    }
+                }
             },
         };
 
@@ -130,9 +133,14 @@ impl Router {
     }
 
     pub fn at(mut self, path: &str, other: Route) -> Self {
-        match self.path_to_index.get(path) {
-            Some(index) => self.routes.get_mut(*index).unwrap().merge(other),
-            None => self.new_route(path, other),
+        // find() is O(n) operation, but acceptable because it only runs during launching period
+        if let Some((route_id, _)) = self.id_to_path.iter().find(|&(_, v)| **v == *path) {
+            self.routes
+                .get_mut(*route_id)
+                .expect("To never fail, as route must be present at this path")
+                .merge(other)
+        } else {
+            self.add_route(path, other)
         }
         self
     }
@@ -147,8 +155,8 @@ impl Router {
             }
         }
 
-        for (index, route) in other.routes.into_iter().enumerate() {
-            let path = other.index_to_path.get(&index).expect(NEVEL_FAIL);
+        for (id, route) in other.routes.into_iter().enumerate() {
+            let path = other.id_to_path.get(&id).expect(NEVEL_FAIL);
 
             self = self.at(path, route);
         }
@@ -159,14 +167,15 @@ impl Router {
         assert!(prefix.starts_with('/'));
         assert!(prefix.len() > 1);
 
-        if prefix.split('/').any(|segment| {
-            segment.starts_with("{*") && segment.ends_with('}') && !segment.ends_with("}}")
-        }) {
+        if prefix
+            .split('/')
+            .any(|seg| seg.starts_with("{*") && seg.ends_with('}') && !seg.ends_with("}}"))
+        {
             panic!("Invalid route: nested routes cannot contain wildcards (*)");
         }
 
-        for (index, route) in other.routes.into_iter().enumerate() {
-            let inner_path = other.index_to_path.get(&index).expect(NEVEL_FAIL);
+        for (id, route) in other.routes.into_iter().enumerate() {
+            let inner_path = other.id_to_path.get(&id).expect(NEVEL_FAIL);
 
             let new_path = concat_path(prefix, inner_path);
             self = self.at(&new_path, route);
@@ -178,62 +187,148 @@ impl Router {
     pub fn serve_dir(self, path: &str, dir: impl AsRef<Path>) -> Self {
         let wildcard_path = format!("{}/{{*{}}}", path.trim_end_matches('/'), NEST_TAIL_PARAM);
 
-        let mut layer = Layer::new(ServeDir::new(dir));
+        let mut layers = Layers::new(ServeDir::new(dir));
         let stripe_prefix_middleware = Rc::new(StripPrefix(Arc::new(path.to_string())));
-        layer.append(stripe_prefix_middleware);
-        self.at(&wildcard_path, Route::Service(layer))
+        layers.push(stripe_prefix_middleware);
+        self.at(&wildcard_path, Route::Service(layers))
     }
 
-    pub fn wrap_by(mut self, middleware: impl Middleware) -> Self {
-        let shared = Rc::new(middleware);
-        self.routes
-            .iter_mut()
-            .for_each(|route| route.wrap_by(Rc::clone(&shared)));
+    pub fn wrap_by(mut self, mw: impl Middleware) -> Self {
+        let shared: Rc<dyn Middleware> = Rc::new(mw);
+
+        self.routes.iter_mut().for_each(|route| match route {
+            Route::MethodRoute(mr) => mr.map.iter_mut().for_each(|(_, layers)| {
+                layers.push(Rc::clone(&shared));
+            }),
+            Route::Service(layers) => {
+                layers.push(Rc::clone(&shared));
+            }
+        });
 
         self
     }
 
-    pub fn catch_all(mut self, endpoint: impl Endpoint) -> Self {
+    pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
         self.fallback = Some(Rc::new(endpoint));
         self
     }
 
-    fn new_route(&mut self, path: &str, route: Route) {
-        let new_index = self.routes.len();
-        self.route_matcher
-            .insert(path, new_index)
-            .expect(NEVEL_FAIL);
+    fn add_route(&mut self, path: &str, route: Route) {
+        let new_route_id = self.routes.len();
+        self.matcher.insert(path, new_route_id).expect(NEVEL_FAIL);
 
         self.routes.push(route);
-        self.path_to_index.insert(path.into(), new_index);
-        self.index_to_path.insert(new_index, path.into());
+        self.id_to_path.insert(new_route_id, path.into());
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Layers(Rc<RefCell<SharedLayers>>);
+
+#[derive(Debug, Clone)]
+pub struct SharedLayers {
+    pub middlewares: Vec<Rc<dyn Middleware>>,
+    pub endpoint: Rc<dyn Endpoint>,
+}
+
+impl Layers {
+    pub(crate) fn new(endpoint: impl Endpoint) -> Self {
+        Layers(Rc::new(RefCell::new(SharedLayers {
+            middlewares: Default::default(),
+            endpoint: Rc::new(endpoint),
+        })))
+    }
+
+    pub(crate) fn push(&mut self, m: Rc<dyn Middleware>) {
+        self.0.borrow_mut().middlewares.push(m.clone());
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Chain {
+    handlers: Rc<RefCell<SharedLayers>>,
+    cursor: isize,
+}
+
+impl Chain {
+    pub fn from(layers: &Layers) -> Self {
+        Self {
+            handlers: Rc::clone(&layers.0),
+            cursor: layers.0.borrow().middlewares.len() as isize,
+        }
+    }
+
+    pub async fn next(mut self, req: Request) -> Response {
+        self.cursor -= 1;
+
+        if self.cursor >= 0 {
+            let mw: Rc<dyn Middleware> = self
+                .handlers
+                .borrow()
+                .middlewares
+                .get(self.cursor as usize)
+                .expect("shall have no out-of-bound error")
+                .clone();
+            mw.transform(req, self).await
+        } else {
+            let endpoint: Rc<dyn Endpoint> = self.handlers.borrow().endpoint.clone();
+            endpoint.call(req).await
+        }
     }
 }
 
 #[derive(Debug)]
 pub enum Route {
-    MethodRouter(MethodRoute),
-    Service(Layer),
+    MethodRoute(MethodRoute),
+    Service(Layers),
 }
 
 #[derive(Default, Debug)]
 pub struct MethodRoute {
-    pub inner: HashMap<Method, Layer>,
+    pub map: HashMap<Method, Layers>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Route {
+    pub fn head(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::HEAD)
+    }
+
     pub fn get(self, endpoint: impl Endpoint) -> Self {
-        self.register(endpoint, Method::POST)
+        self.register(endpoint, Method::GET)
     }
 
     pub fn post(self, endpoint: impl Endpoint) -> Self {
         self.register(endpoint, Method::POST)
     }
 
+    pub fn put(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::PUT)
+    }
+
+    pub fn patch(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::PATCH)
+    }
+
+    pub fn delete(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::DELETE)
+    }
+
+    pub fn connect(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::CONNECT)
+    }
+
+    pub fn options(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::OPTIONS)
+    }
+
+    pub fn trace(self, endpoint: impl Endpoint) -> Self {
+        self.register(endpoint, Method::TRACE)
+    }
+
     pub fn merge(&mut self, other: Route) {
-        if let &mut Route::MethodRouter(ref mut this) = self
-            && let Route::MethodRouter(ref other) = other
+        if let &mut Route::MethodRoute(ref mut this) = self
+            && let Route::MethodRoute(ref other) = other
         {
             match (&this.fallback, &other.fallback) {
                 (Some(f), None) | (None, Some(f)) => this.fallback = Some(Rc::clone(f)),
@@ -242,9 +337,9 @@ impl Route {
                 }
                 (None, None) => (),
             }
-            other.inner.iter().for_each(|(method, layer)| {
-                match this.inner.entry(method.clone()) {
-                    Entry::Vacant(e) => e.insert(layer.clone()),
+            other.map.iter().for_each(|(method, chain)| {
+                match this.map.entry(method.clone()) {
+                    Entry::Vacant(e) => e.insert(chain.clone()),
                     Entry::Occupied(_) => {
                         panic!("Overlapping route. Cannot add two endpoints that both handle `{method}`")
                     }
@@ -253,26 +348,16 @@ impl Route {
         }
     }
 
-    pub fn wrap_by(&mut self, middleware: Rc<impl Middleware>) {
-        match self {
-            Route::MethodRouter(mr) => mr
-                .inner
-                .iter_mut()
-                .for_each(|(_, layer)| layer.append(Rc::clone(&middleware))),
-            Route::Service(layer) => layer.append(Rc::clone(&middleware)),
-        }
-    }
-
     pub fn register(mut self, endpoint: impl Endpoint, method: Method) -> Self {
-        if let Route::MethodRouter(ref mut dispatch) = self {
-            dispatch.register(endpoint, method);
+        if let Route::MethodRoute(ref mut mr) = self {
+            mr.register(endpoint, method);
         }
         self
     }
 
-    pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
-        if let Route::MethodRouter(ref mut dispatch) = self {
-            dispatch.fallback = Some(Rc::new(endpoint));
+    pub fn any(mut self, endpoint: impl Endpoint) -> Self {
+        if let Route::MethodRoute(ref mut mr) = self {
+            mr.fallback = Some(Rc::new(endpoint));
         }
         self
     }
@@ -288,17 +373,30 @@ impl MethodRoute {
     }
 
     fn register(&mut self, endpoint: impl Endpoint, method: Method) {
-        let layer = Layer {
-            endpoint: Rc::new(endpoint),
-            middlewares: Default::default(),
-        };
-        match self.inner.entry(method.clone()) {
-            Entry::Vacant(e) => e.insert(layer),
+        match self.map.entry(method.clone()) {
+            Entry::Vacant(e) => e.insert(Layers(Rc::new(RefCell::new(SharedLayers {
+                endpoint: Rc::new(endpoint),
+                middlewares: Default::default(),
+            })))),
             Entry::Occupied(_) => {
                 panic!(
                     "Overlapping method route. Cannot add two methods that both handle `{method}`"
                 )
             }
         };
+    }
+}
+
+fn concat_path(prefix: &str, rest: &str) -> String {
+    debug_assert!(prefix.starts_with('/'));
+    debug_assert!(rest.starts_with('/'));
+
+    if prefix.ends_with('/') {
+        // If prefix ends with /, Remove all leading '/'s in the rest path
+        format!("{prefix}{}", rest.trim_start_matches('/'))
+    } else if rest == "/" {
+        prefix.to_string()
+    } else {
+        format!("{prefix}{rest}")
     }
 }

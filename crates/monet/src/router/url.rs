@@ -1,58 +1,63 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
-use http::Extensions;
 use matchit::Params;
+
+use crate::request::State;
 
 pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
 
-pub(crate) const NEST_TAIL_PARAM_WILDCARD: &str = "/{*__private__monet_nest_tail_param}";
-
 pub(crate) const FALLBACK_PARAM: &str = "__private__monet_fallback";
 
-#[derive(Clone)]
+pub(crate) const NEST_TAIL_PARAM_WILDCARD: &str = "/{*__private__monet_nest_tail_param}";
+
+#[derive(Clone, Debug)]
 pub(crate) enum UrlParams {
-    Params(Vec<(Arc<str>, Arc<str>)>),
-    InvalidUtf8InPathParam { key: Arc<str> },
+    PairParams(Vec<(Rc<str>, Rc<str>)>),
+    InvalidUtf8Param { key: Rc<str> },
 }
 
-pub(super) fn insert_matched_params(extensions: &mut Extensions, params: &Params<'_, '_>) {
-    let current_params = extensions.get_mut();
+pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) {
+    let current_params: Option<&mut UrlParams> = state.get_mut();
 
-    if let Some(UrlParams::InvalidUtf8InPathParam { .. }) = current_params {
+    if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {
         // nothing to do here since an error was stored earlier
         return;
     }
 
-    let params = params
+    let pair_params: Result<Vec<(Rc<str>, Rc<str>)>, Rc<str>> = params
         .iter()
         .filter(|(key, _)| !key.starts_with(NEST_TAIL_PARAM))
         .filter(|(key, _)| !key.starts_with(FALLBACK_PARAM))
         .map(|(k, v)| {
-            if let Some(decoded) = pct_decode(v) {
-                Ok((Arc::from(k), decoded))
-            } else {
-                Err(Arc::from(k))
-            }
+            percent_decode(v)
+                .map(|decoded| (Rc::from(k), decoded))
+                .ok_or(Rc::from(k))
         })
-        .collect::<Result<Vec<_>, _>>();
+        .collect();
 
-    match (current_params, params) {
+    match (current_params, pair_params) {
+        // Brand new pair of key/value, set it
         (None, Ok(params)) => {
-            extensions.insert(UrlParams::Params(params));
+            state.set(UrlParams::PairParams(params));
         }
-        (Some(UrlParams::Params(current)), Ok(params)) => {
+        // both params exist and valid, extend it
+        (Some(UrlParams::PairParams(current)), Ok(params)) => {
             current.extend(params);
         }
+        // If new params is invalid, set it as invalid
         (_, Err(invalid_key)) => {
-            extensions.insert(UrlParams::InvalidUtf8InPathParam { key: invalid_key });
+            state.set(UrlParams::InvalidUtf8Param { key: invalid_key });
         }
-        (Some(UrlParams::InvalidUtf8InPathParam { .. }), _) => {
+        (Some(UrlParams::InvalidUtf8Param { .. }), _) => {
             unreachable!("we check for this state earlier in this method")
         }
     }
 }
 
-pub(crate) fn pct_decode<S>(s: S) -> Option<Arc<str>>
+/*
+ * assert_eq!(percent_decode(b"foo%20bar%3f").decode_utf8().unwrap(), "foo bar?");
+ */
+fn percent_decode<S>(s: S) -> Option<Rc<str>>
 where
     S: AsRef<str>,
 {
@@ -63,52 +68,35 @@ where
 }
 
 #[derive(Clone, Debug)]
-struct MatchedNestedPath(Arc<str>);
+pub struct MatchedNestedPath(pub Rc<str>);
 
 #[derive(Clone, Debug)]
-pub struct MatchedPath(pub(crate) Arc<str>);
+pub struct MatchedPath(pub Rc<str>);
 
-pub(crate) fn insert_matched_path(ext: &mut Extensions, path: &Arc<str>) {
-    let matched_path = append_nested_matched_path(&Arc::new(path), ext);
+// Todo: Add testing
+pub(crate) fn insert_matched_path(state: &mut State, path: &Rc<str>) {
+    let matched_path = {
+        if let Some(previous) = state
+            .get::<MatchedPath>()
+            .map(|matched_path| &matched_path.0)
+            .or_else(|| Some(&state.get::<MatchedNestedPath>()?.0))
+        {
+            let previous = previous
+                .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
+                .unwrap_or(previous);
+
+            let matched_path = format!("{previous}{path}");
+            matched_path.into()
+        } else {
+            Rc::clone(path)
+        }
+    };
 
     if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
-        ext.insert(MatchedNestedPath(matched_path));
-        debug_assert!(ext.remove::<MatchedPath>().is_none());
+        state.set(MatchedNestedPath(matched_path));
+        debug_assert!(state.remove::<MatchedPath>().is_none());
     } else {
-        ext.insert(MatchedPath(matched_path));
-        ext.remove::<MatchedNestedPath>();
-    }
-}
-
-pub(crate) fn append_nested_matched_path(
-    matched_path: &Arc<str>,
-    extensions: &http::Extensions,
-) -> Arc<str> {
-    if let Some(previous) = extensions
-        .get::<MatchedPath>()
-        .map(|matched_path| &matched_path.0)
-        .or_else(|| Some(&extensions.get::<MatchedNestedPath>()?.0))
-    {
-        let previous = previous
-            .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
-            .unwrap_or(previous);
-
-        let matched_path = format!("{previous}{matched_path}");
-        matched_path.into()
-    } else {
-        Arc::clone(matched_path)
-    }
-}
-
-pub(crate) fn concat_path(prefix: &str, path: &str) -> String {
-    debug_assert!(prefix.starts_with('/'));
-    debug_assert!(path.starts_with('/'));
-
-    if prefix.ends_with('/') {
-        format!("{prefix}{}", path.trim_start_matches('/'))
-    } else if path == "/" {
-        prefix.into()
-    } else {
-        format!("{prefix}{path}")
+        state.set(MatchedPath(matched_path));
+        state.remove::<MatchedNestedPath>();
     }
 }

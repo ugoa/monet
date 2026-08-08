@@ -2,11 +2,11 @@ use std::{
     any::{Any, TypeId},
     collections::HashMap,
     hash::{BuildHasherDefault, Hasher},
-    sync::Arc,
+    rc::Rc,
 };
 
 use bytes::Bytes;
-use http::{Extensions, HeaderMap, Method, Uri, Version, request::Parts};
+use http::{HeaderMap, HeaderValue, Method, Uri, Version};
 use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
@@ -17,6 +17,23 @@ use crate::{
     router::url::UrlParams,
     types::{Form, Json, Path, Query, has_content_type},
 };
+
+// Custom Parts to remove the Extension due to its Send + Sync bound
+// Instead, we use State which can store both Send and non-Send data
+#[derive(Clone)]
+pub struct Parts {
+    /// The request's method
+    pub method: Method,
+
+    /// The request's URI
+    pub uri: Uri,
+
+    /// The request's version
+    pub version: Version,
+
+    /// The request's headers
+    pub headers: HeaderMap<HeaderValue>,
+}
 
 pub struct Request {
     pub body: Body,
@@ -65,26 +82,21 @@ impl Request {
         &mut self.head.headers
     }
 
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        &self.head.extensions
-    }
-
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.head.extensions
-    }
-
     pub fn path<T>(&self) -> Result<Path<T>, Error>
     where
         T: DeserializeOwned,
     {
         /*
-         * Given route `/user/{id}/{*name}` and request `/user/23/david`, the data flow would be:
-         * Vec[("id", "23"), ("name", "david")] -> id=23&name=david -> Path(T {id: 23, name: david})
+         * Given route: `/user/{id}/{*name}`
+         * and request: `/user/23/david`
+         * The data transformation would be:
+         *
+         *    Vec[("id", "23"), ("name", "mike")]
+         *      -> id=23&name=mike
+         *      -> Path(T {id: 23, name: mike})
          */
-        match self.extensions().get::<UrlParams>() {
-            Some(UrlParams::Params(params)) => {
+        match self.state.get::<UrlParams>() {
+            Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
                     serializer.append_pair(k, v);
@@ -97,7 +109,7 @@ impl Request {
                     .map(Path)
                     .map_err(Error::FailedToDeserializePathParams)
             }
-            Some(UrlParams::InvalidUtf8InPathParam { key }) => Err(Error::InvalidUtf8InPathParam {
+            Some(UrlParams::InvalidUtf8Param { key }) => Err(Error::InvalidUtf8InPathParam {
                 key: key.to_string(),
             }),
             None => Err(Error::MissingPathParams),
@@ -117,10 +129,10 @@ impl Request {
     }
 
     // #[cfg(not(feature = "no-matched-path"))]
-    pub fn matched_path(&self) -> Option<&Arc<str>> {
+    pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.extensions().get::<MatchedPath>().map(|s| &s.0)
+        self.state.get::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -178,9 +190,14 @@ impl From<http::Request<IncomingBody>> for Request {
         let (parts, body) = http_req.into_parts();
 
         Self {
-            head: parts,
+            head: Parts {
+                method: parts.method,
+                version: parts.version,
+                uri: parts.uri,
+                headers: parts.headers,
+            },
             body: Body::new(body),
-            state: State { inner: None },
+            state: State(None),
         }
     }
 }
@@ -188,34 +205,32 @@ impl From<http::Request<IncomingBody>> for Request {
 type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Default)]
-pub struct State {
-    inner: Option<Box<AnyMap>>,
-}
+pub struct State(Option<Box<AnyMap>>);
 
 impl State {
+    pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+        self.0
+            .get_or_insert_with(Box::default)
+            .insert(TypeId::of::<T>(), Box::new(val))
+            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
+    }
+
     pub fn get<T: 'static>(&self) -> Option<&T> {
-        self.inner
+        self.0
             .as_ref()
             .and_then(|map| map.get(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any().downcast_ref())
     }
 
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        self.inner
+        self.0
             .as_mut()
             .and_then(|map| map.get_mut(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
     }
 
-    pub fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
-        self.inner
-            .get_or_insert_with(Box::default)
-            .insert(TypeId::of::<T>(), Box::new(val))
-            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
-    }
-
     pub fn remove<T: 'static>(&mut self) -> Option<T> {
-        self.inner
+        self.0
             .as_mut()
             .and_then(|map| map.remove(&TypeId::of::<T>()))
             .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
@@ -223,19 +238,19 @@ impl State {
 
     #[inline]
     pub fn clear(&mut self) {
-        if let Some(ref mut map) = self.inner {
+        if let Some(ref mut map) = self.0 {
             map.clear();
         }
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.inner.as_ref().is_none_or(|map| map.is_empty())
+        self.0.as_ref().is_none_or(|map| map.is_empty())
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.inner.as_ref().map_or(0, |map| map.len())
+        self.0.as_ref().map_or(0, |map| map.len())
     }
 }
 

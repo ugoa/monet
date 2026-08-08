@@ -6,10 +6,10 @@ use std::{
 };
 
 use http::header::HeaderValue;
-use monet::{Layer, Middleware, Response, Router, get, request::Request, types::Html};
+use monet::{Chain, Middleware, Response, Router, get, request::Request, types::Html};
 
-async fn simple_middleware(req: Request, layer: Layer) -> Response {
-    let mut resp = layer.next(req).await;
+async fn simple_middleware(req: Request, chain: Chain) -> Response {
+    let mut resp = chain.next(req).await;
     resp.headers_mut()
         .insert("mark", HeaderValue::from_static("modified"));
     resp
@@ -19,14 +19,14 @@ async fn simple_middleware(req: Request, layer: Layer) -> Response {
 pub struct SyncedState(i32);
 
 static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(SyncedState(42))));
+    LazyLock::new(|| Arc::new(Mutex::new(SyncedState(0))));
 
-async fn set_state(mut req: Request, layer: Layer) -> Response {
+async fn set_state(mut req: Request, chain: Chain) -> Response {
     let s = &*NUM;
-    req.state.insert(s.clone());
-    req.state.insert::<SyncedState>(SyncedState(99));
+    req.state.set(s.clone());
+    req.state.set::<SyncedState>(SyncedState(99));
 
-    layer.next(req).await
+    chain.next(req).await
 }
 
 async fn root(req: Request) -> String {
@@ -66,13 +66,13 @@ impl Middleware for RequestCounter {
     fn transform(
         &self,
         req: Request,
-        layer: Layer,
+        chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
         println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
 
         Box::pin(async move {
-            let mut resp = layer.next(req).await;
+            let mut resp = chain.next(req).await;
             resp.headers_mut()
                 .insert("count", COUNTER.with(|inner| *inner.borrow()).into());
             resp

@@ -1,11 +1,12 @@
 pub mod endpoint;
 pub mod middleware;
 
-use std::{pin::Pin, rc::Rc};
+use std::pin::Pin;
 
 use crate::{
     request::Request,
     response::{IntoResponse, Response},
+    router::Chain,
 };
 
 pub trait Middleware: 'static {
@@ -13,7 +14,7 @@ pub trait Middleware: 'static {
     fn transform(
         &self,
         request: Request,
-        layer: Layer,
+        chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>>;
 
     fn name(&self) -> &str {
@@ -29,16 +30,16 @@ impl std::fmt::Debug for dyn Middleware {
 
 impl<F, Fut, Resp> Middleware for F
 where
-    F: 'static + Fn(Request, Layer) -> Fut,
+    F: 'static + Fn(Request, Chain) -> Fut,
     Fut: Future<Output = Resp>,
     Resp: IntoResponse,
 {
     fn transform(
         &self,
         req: Request,
-        layer: Layer,
+        chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
-        Box::pin(async move { (self)(req, layer).await.into_response() })
+        Box::pin(async move { (self)(req, chain).await.into_response() })
     }
 }
 
@@ -64,31 +65,5 @@ where
 {
     fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         Box::pin(async move { (self)(req).await.into_response() })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Layer {
-    pub(crate) middlewares: Vec<Rc<dyn Middleware>>,
-    pub(crate) endpoint: Rc<dyn Endpoint>,
-}
-
-impl Layer {
-    pub async fn next(mut self, req: Request) -> Response {
-        if let Some(current) = self.middlewares.pop() {
-            current.transform(req, self).await
-        } else {
-            self.endpoint.call(req).await
-        }
-    }
-    pub(crate) fn new(endpoint: impl Endpoint) -> Self {
-        Layer {
-            middlewares: Default::default(),
-            endpoint: Rc::new(endpoint),
-        }
-    }
-
-    pub(crate) fn append(&mut self, m: Rc<impl Middleware>) {
-        self.middlewares.push(m.clone());
     }
 }
