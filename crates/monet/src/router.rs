@@ -267,7 +267,7 @@ impl Chain {
                 .borrow()
                 .middlewares
                 .get(self.cursor as usize)
-                .expect("shall be no out-of-bound error")
+                .expect("shall have no out-of-bound error")
                 .clone();
             mw.transform(req, self).await
         } else {
