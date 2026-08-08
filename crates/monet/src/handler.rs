@@ -1,11 +1,12 @@
 pub mod endpoint;
 pub mod middleware;
 
-use std::{cell::RefCell, pin::Pin, rc::Rc};
+use std::pin::Pin;
 
 use crate::{
     request::Request,
     response::{IntoResponse, Response},
+    router::Chain,
 };
 
 pub trait Middleware: 'static {
@@ -64,58 +65,5 @@ where
 {
     fn call(&self, req: Request) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         Box::pin(async move { (self)(req).await.into_response() })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Layers(Rc<RefCell<InnerLayers>>);
-
-impl Layers {
-    pub(crate) fn new(endpoint: impl Endpoint) -> Self {
-        Layers(Rc::new(RefCell::new(InnerLayers {
-            middlewares: Default::default(),
-            endpoint: Rc::new(endpoint),
-        })))
-    }
-
-    pub(crate) fn append(&mut self, m: Rc<impl Middleware>) {
-        self.0.borrow_mut().middlewares.push(m.clone());
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct InnerLayers {
-    pub middlewares: Vec<Rc<dyn Middleware>>,
-    pub endpoint: Rc<dyn Endpoint>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Chain {
-    handlers: Rc<RefCell<InnerLayers>>,
-    cursor: isize,
-}
-
-impl Chain {
-    pub fn from_layers(layers: &Layers) -> Self {
-        Self {
-            handlers: Rc::clone(&layers.0),
-            cursor: layers.0.borrow().middlewares.len() as isize,
-        }
-    }
-
-    pub async fn next(&self, req: Request) -> Response {
-        self.cursor -= 1;
-
-        if self.cursor >= 0 {
-            let mw = self
-                .handlers
-                .borrow()
-                .middlewares
-                .get(self.cursor as usize)
-                .expect("no out-of-bound error");
-            mw.transform(req, self).await
-        } else {
-            self.handlers.borrow().endpoint.call(req).await
-        }
     }
 }

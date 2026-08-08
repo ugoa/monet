@@ -12,12 +12,11 @@ pub mod types;
 pub use crate::{
     error::{BodyError, BoxError, Error},
     handler::{
-        Chain, Endpoint, Middleware, endpoint::serve_dir::ServeDir,
-        middleware::catch_panic::CatchPanic,
+        Endpoint, Middleware, endpoint::serve_dir::ServeDir, middleware::catch_panic::CatchPanic,
     },
     request::Request,
     response::{IntoResponse, Response},
-    router::{Router, get, post},
+    router::{Chain, Router, get, post},
     serve::{run, spawn},
     types::{Form, Json, Path},
 };

@@ -16,7 +16,7 @@ use http::Method;
 
 use crate::{
     NEVEL_FAIL, ServeDir,
-    handler::{Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{Endpoint, Middleware, endpoint, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
@@ -254,16 +254,18 @@ impl Chain {
     pub async fn next(mut self, req: Request) -> Response {
         self.cursor -= 1;
 
-        let handlers = self.handlers.borrow();
         if self.cursor >= 0 {
-            handlers
+            let mw: Rc<dyn Middleware> = self
+                .handlers
+                .borrow()
                 .middlewares
                 .get(self.cursor as usize)
-                .expect("no out-of-bound error")
-                .transform(req, self)
-                .await
+                .expect("shall be no out-of-bound error")
+                .clone();
+            mw.transform(req, self).await
         } else {
-            handlers.endpoint.call(req).await
+            let endpoint: Rc<dyn Endpoint> = self.handlers.borrow().endpoint.clone();
+            endpoint.call(req).await
         }
     }
 
