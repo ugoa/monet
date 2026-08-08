@@ -110,12 +110,12 @@ impl Router {
         let method = req.method();
         let resp_fut = match route {
             Route::Service(layers) => Chain::from(layers).next(req),
-            Route::MethodRoute(mr) => match mr.inner.get(method) {
+            Route::MethodRoute(mr) => match mr.map.get(method) {
                 Some(layers) => Chain::from(layers).next(req),
                 None => {
                     // If no handler for HEAD method, try handler for GET instead
                     if method == Method::HEAD
-                        && let Some(layers) = mr.inner.get(&Method::GET)
+                        && let Some(layers) = mr.map.get(&Method::GET)
                     {
                         Chain::from(layers).next(req)
                     } else {
@@ -197,7 +197,7 @@ impl Router {
         let shared: Rc<dyn Middleware> = Rc::new(mw);
 
         self.routes.iter_mut().for_each(|route| match route {
-            Route::MethodRoute(mr) => mr.inner.iter_mut().for_each(|(_, layers)| {
+            Route::MethodRoute(mr) => mr.map.iter_mut().for_each(|(_, layers)| {
                 layers.push(Rc::clone(&shared));
             }),
             Route::Service(layers) => {
@@ -285,7 +285,7 @@ pub enum Route {
 
 #[derive(Default, Debug)]
 pub struct MethodRoute {
-    pub inner: HashMap<Method, Layers>,
+    pub map: HashMap<Method, Layers>,
     pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
@@ -337,8 +337,8 @@ impl Route {
                 }
                 (None, None) => (),
             }
-            other.inner.iter().for_each(|(method, chain)| {
-                match this.inner.entry(method.clone()) {
+            other.map.iter().for_each(|(method, chain)| {
+                match this.map.entry(method.clone()) {
                     Entry::Vacant(e) => e.insert(chain.clone()),
                     Entry::Occupied(_) => {
                         panic!("Overlapping route. Cannot add two endpoints that both handle `{method}`")
@@ -373,7 +373,7 @@ impl MethodRoute {
     }
 
     fn register(&mut self, endpoint: impl Endpoint, method: Method) {
-        match self.inner.entry(method.clone()) {
+        match self.map.entry(method.clone()) {
             Entry::Vacant(e) => e.insert(Layers(Rc::new(RefCell::new(SharedLayers {
                 endpoint: Rc::new(endpoint),
                 middlewares: Default::default(),
