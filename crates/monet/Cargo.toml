@@ -42,7 +42,7 @@ core_affinity = "0.8.3"
 [features]
 default = []
 no-tracing = []
-no-matched-path = []
+matched-path = []
 
 [lints]
 workspace = true

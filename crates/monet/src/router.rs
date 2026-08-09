@@ -126,7 +126,7 @@ impl Router {
 
         insert_matched_params(&mut req.state, &matched.params);
 
-        // #[cfg(not(feature = "no-matched-path"))]
+        #[cfg(feature = "matched-path")]
         insert_matched_path(
             &mut req.state,
             self.id_to_path.get(&route_id).expect("path shall exist"),
