@@ -45,7 +45,7 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
 {
-    let core_ids = core_affinity::get_core_ids().expect("to succeed on *nix/win/macos");
+    let core_ids = core_affinity::get_core_ids().expect("shall succeed on supported platforms");
     let factory = Arc::new(router_threadlocal_factory);
 
     let handles = core_ids
@@ -64,7 +64,7 @@ where
         .collect::<Vec<_>>();
 
     for handle in handles.into_iter() {
-        handle.join().unwrap();
+        handle.join().expect("threads shall join just fine");
     }
 }
 
