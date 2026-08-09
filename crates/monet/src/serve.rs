@@ -68,7 +68,7 @@ where
     }
 }
 
-pub fn run_with_single_thread<A, F>(addrs: A, router: Router)
+pub fn run_with_single_thread<A>(addrs: A, router: Router)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
