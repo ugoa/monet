@@ -3,10 +3,7 @@ use std::{
     sync::Arc, thread,
 };
 
-use compio::{
-    net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync},
-    runtime::JoinHandle,
-};
+use compio::net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync};
 use futures::{
     future::{pending, poll_fn},
     stream::StreamExt,
@@ -17,7 +14,7 @@ use hyper::{server::conn::http1, service::service_fn};
 
 use crate::{
     Router,
-    listener::{self, HyperStream, Listener},
+    listener::{HyperStream, Listener},
 };
 
 thread_local! {
@@ -139,4 +136,3 @@ where
     let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
     rt.block_on(app);
 }
-
