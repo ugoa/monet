@@ -1,9 +1,9 @@
 use std::{
-    cell::RefCell, convert::Infallible, future::Future, panic::AssertUnwindSafe, pin::Pin,
-    sync::Arc, thread,
+    cell::RefCell, convert::Infallible, future::Future, io, net::SocketAddr,
+    panic::AssertUnwindSafe, pin::Pin, sync::Arc, thread,
 };
 
-use compio::net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync};
+use compio::net::{TcpListener, TcpSocket, TcpStream, ToSocketAddrsAsync};
 use futures::{
     future::{pending, poll_fn},
     stream::StreamExt,
@@ -14,7 +14,7 @@ use hyper::{server::conn::http1, service::service_fn};
 
 use crate::{
     Router,
-    listener::{HyperStream, Listener},
+    listener::{HyperStream, Listener, any_addrs},
 };
 
 thread_local! {
@@ -77,14 +77,17 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
     let app = async {
-        let mut socket_opts = SocketOpts::default().reuse_address(true);
-        if reuse_port {
-            socket_opts = socket_opts.reuse_port(true);
-        };
-
-        let mut listener = TcpListener::bind_with_options(addrs, &socket_opts)
-            .await
-            .expect("to bind address successfully");
+        let mut listener: TcpListener = any_addrs(addrs, |addr| async move {
+            let socket = TcpSocket::new_v4().await.expect("succeed");
+            socket.set_reuseport(reuse_port).unwrap();
+            socket.bind(addr).await.unwrap();
+            Ok(socket)
+        })
+        .await
+        .unwrap()
+        .listen(1024)
+        .await
+        .unwrap();
 
         let mut inflight_requests = FutureGroup::new();
 
@@ -118,7 +121,7 @@ where
                     let service = async {
                         http1::Builder::new()
                             .serve_connection(
-                                HyperStream::new(io),
+                                HyperStream::new_plain(io),
                                 service_fn(async |req| {
                                     router.dispatch(req.into()).map(Ok::<_, Infallible>).await
                                 }),

@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 # monet-macros = { workspace = true }
-compio = { version = "0.18.0", features = ["io-compat", "net", "macros", "time", "fs"] }
+compio = { version = "0.19.1", features = ["io-compat", "net", "macros", "time", "fs", "io", "tls"] }
 spin = { version = "0.9.9"}
 bytes = "1.11.1"
 futures = "0.3.32"
@@ -38,6 +38,8 @@ percent-encoding = "2.3.2"
 mime_guess = "2.0.5"
 httpdate = "1.0.3"
 core_affinity = "0.8.3"
+compio-net = "0.12.3"
+compio-driver = "0.12.4"
 
 [features]
 default = []
