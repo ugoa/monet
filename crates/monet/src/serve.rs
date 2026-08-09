@@ -22,6 +22,8 @@ thread_local! {
         RefCell::new(FutureGroup::new());
 }
 
+const BACKLOG: i32 = 1024;
+
 pub fn spawn<F>(future: F)
 where
     F: Future<Output = ()> + 'static, // 'static is required because it's stored in thread_local
@@ -86,7 +88,7 @@ where
         .await
         .unwrap();
 
-        let mut listener: TcpListener = socket.listen(1024).await.unwrap();
+        let mut listener: TcpListener = socket.listen(BACKLOG).await.unwrap();
 
         let mut inflight_requests = FutureGroup::new();
 
