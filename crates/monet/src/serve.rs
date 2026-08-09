@@ -103,7 +103,6 @@ where
                                             }),
                                         )
                                         .await
-                                        .expect(NEVEL_FAIL)
                                 };
                                 inflight_requests.insert(AssertUnwindSafe(service).catch_unwind());
                             }

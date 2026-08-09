@@ -11,6 +11,7 @@ use compio::{
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
 };
 use send_wrapper::SendWrapper;
+use tracing::error;
 
 /// Types that can listen for connections.
 pub trait Listener: 'static {
@@ -38,7 +39,7 @@ impl Listener for TcpListener {
         loop {
             match Self::accept(self).await {
                 Ok(tup) => return tup,
-                Err(_e) => todo!(), // handle error
+                Err(e) => error!("accept error: {e}"),
             }
         }
     }
@@ -48,6 +49,7 @@ impl Listener for TcpListener {
     }
 }
 
+#[cfg(unix)]
 impl Listener for UnixListener {
     type Addr = socket2::SockAddr;
     type Io = UnixStream;
@@ -56,7 +58,7 @@ impl Listener for UnixListener {
         loop {
             match Self::accept(self).await {
                 Ok(tup) => return tup,
-                Err(_e) => todo!(), // handle error
+                Err(e) => error!("accept error: {e}"),
             }
         }
     }
