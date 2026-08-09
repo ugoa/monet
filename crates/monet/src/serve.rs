@@ -72,7 +72,7 @@ pub fn run_with_single_thread<A>(addrs: A, router: Router)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
-    build_service(addrs, router, false);
+    build_service2(addrs, router, false);
 }
 
 fn build_service<A>(addrs: A, router: Router, reuse_port: bool)
@@ -132,6 +132,57 @@ where
                 }
                 Event::RequestProcessed => (),
                 Event::BackgroundTaskCompleted => (),
+            }
+        }
+    };
+
+    let rt = compio::runtime::Runtime::new().expect("shall not fail to create runtime");
+    rt.block_on(app);
+}
+
+fn build_service2<A>(addrs: A, router: Router, reuse_port: bool)
+where
+    A: Send + Clone + 'static + ToSocketAddrsAsync,
+{
+    // dbg!(&router);
+    let app = async {
+
+        let mut socket_opts = SocketOpts::default().reuse_address(true);
+        if reuse_port {
+            socket_opts = socket_opts.reuse_port(true);
+        };
+
+        let mut listener = TcpListener::bind_with_options(addrs, &socket_opts)
+            .await
+            .expect("to bind address successfully");
+        let mut group = FutureGroup::new();
+
+        loop {
+            tokio::select! {
+
+                biased;
+
+                stream = <TcpListener as Listener>::accept(&mut listener) => {
+                    group.insert(AssertUnwindSafe(async {
+                        http1::Builder::new()
+                            .serve_connection(
+                                HyperStream::new(stream.0),
+                                service_fn(async |req| {
+                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
+                                }),
+                            )
+                            .await
+                    }).catch_unwind());
+                },
+
+                _ =  group.next(), if !group.is_empty()  => (),
+
+                _ = poll_fn(|cx| {
+                    BACKGROUND_TASKSET.with(|g| {
+                        let mut group_ref = g.borrow_mut();
+                        Pin::new(&mut *group_ref).poll_next(cx)
+                    })
+                }), if !BACKGROUND_TASKSET.with(|g| g.borrow().is_empty()) => (),
             }
         }
     };
