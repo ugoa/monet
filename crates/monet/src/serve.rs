@@ -3,7 +3,7 @@ use std::{
     sync::Arc, thread,
 };
 
-use compio::net::{SocketOpts, TcpListener, TcpStream, ToSocketAddrsAsync};
+use compio::net::{TcpListener, TcpSocket, TcpStream, ToSocketAddrsAsync};
 use futures::{
     future::{pending, poll_fn},
     stream::StreamExt,
@@ -11,16 +11,19 @@ use futures::{
 use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
+use socket2::{Domain, SockAddr};
 
 use crate::{
     Router,
-    listener::{HyperStream, Listener},
+    listener::{HyperStream, Listener, any_addrs},
 };
 
 thread_local! {
     static BACKGROUND_TASKSET: RefCell<FutureGroup<Pin<Box<dyn Future<Output = ()>>>>> =
         RefCell::new(FutureGroup::new());
 }
+
+const BACKLOG: i32 = 1024;
 
 pub fn spawn<F>(future: F)
 where
@@ -42,7 +45,7 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
 {
-    let core_ids = core_affinity::get_core_ids().expect("to succeed on *nix/win/macos");
+    let core_ids = core_affinity::get_core_ids().expect("shall succeed on supported platforms");
     let factory = Arc::new(router_threadlocal_factory);
 
     let handles = core_ids
@@ -61,7 +64,7 @@ where
         .collect::<Vec<_>>();
 
     for handle in handles.into_iter() {
-        handle.join().unwrap();
+        handle.join().expect("threads shall join just fine");
     }
 }
 
@@ -77,16 +80,23 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
     let app = async {
-        let mut socket_opts = SocketOpts::default().reuse_address(true);
-        if reuse_port {
-            socket_opts = socket_opts.reuse_port(true);
-        };
-
-        let mut listener = TcpListener::bind_with_options(addrs, &socket_opts)
-            .await
-            .expect("to bind address successfully");
-
         let mut inflight_requests = FutureGroup::new();
+
+        let socket: TcpSocket = any_addrs(addrs, |addr| async move {
+            let sa = SockAddr::from(addr);
+            let socket: TcpSocket = match sa.domain() {
+                Domain::IPV4 => TcpSocket::new_v4().await,
+                Domain::IPV6 => TcpSocket::new_v6().await,
+                _ => panic!("Unsupported Domain"),
+            }
+            .expect("shall create TcpSocket successfully");
+            socket.set_reuseport(reuse_port).unwrap();
+            socket.bind(addr).await.unwrap();
+            Ok(socket)
+        })
+        .await
+        .unwrap();
+        let mut listener: TcpListener = socket.listen(BACKLOG).await.unwrap();
 
         loop {
             let accept_fut = <TcpListener as Listener>::accept(&mut listener)
@@ -118,7 +128,7 @@ where
                     let service = async {
                         http1::Builder::new()
                             .serve_connection(
-                                HyperStream::new(io),
+                                HyperStream::new_plain(io),
                                 service_fn(async |req| {
                                     router.dispatch(req.into()).map(Ok::<_, Infallible>).await
                                 }),

@@ -3,7 +3,11 @@ use std::{net::SocketAddr, thread};
 use monet::{Request, Router, get};
 
 async fn greeting(_req: Request) -> String {
-    format!("Current thread ID: {:?}", thread::current().id())
+    format!(
+        "{} Current thread ID: {:?}",
+        jiff::Zoned::now(),
+        thread::current().id()
+    )
 }
 
 fn main() {
