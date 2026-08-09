@@ -79,6 +79,8 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
     let app = async {
+        let mut inflight_requests = FutureGroup::new();
+
         let socket: TcpSocket = any_addrs(addrs, |addr| async move {
             let socket = TcpSocket::new_v4().await.expect("succeed");
             socket.set_reuseport(reuse_port).unwrap();
@@ -87,10 +89,7 @@ where
         })
         .await
         .unwrap();
-
         let mut listener: TcpListener = socket.listen(BACKLOG).await.unwrap();
-
-        let mut inflight_requests = FutureGroup::new();
 
         loop {
             let accept_fut = <TcpListener as Listener>::accept(&mut listener)
