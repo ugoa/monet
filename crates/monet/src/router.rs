@@ -118,7 +118,7 @@ impl Router {
 
         let Ok(matched) = self.matcher.at(path.as_str()) else {
             match &self.fallback {
-                Some(handler) => return handler.call(req),
+                Some(fallback_handler) => return fallback_handler.call(req),
                 None => panic!("Path {} not found", path),
             }
         };
@@ -126,7 +126,7 @@ impl Router {
 
         insert_matched_params(&mut req.state, &matched.params);
 
-        #[cfg(not(feature = "no-matched-path"))]
+        // #[cfg(not(feature = "no-matched-path"))]
         insert_matched_path(
             &mut req.state,
             self.id_to_path.get(&route_id).expect("path shall exist"),
