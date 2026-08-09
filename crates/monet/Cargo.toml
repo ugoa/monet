@@ -9,7 +9,6 @@ license = "MIT"
 [dependencies]
 # monet-macros = { workspace = true }
 compio = { version = "0.18.0", features = ["io-compat", "net", "macros", "time", "fs"] }
-tokio = { version = "1.52.1", default-features = false, features = ["macros"] }
 spin = { version = "0.9.9"}
 bytes = "1.11.1"
 futures = "0.3.32"
