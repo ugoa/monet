@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, thread};
+use std::net::SocketAddr;
 
 use monet::{Request, Router, get};
 
