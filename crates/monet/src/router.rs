@@ -22,6 +22,43 @@ use crate::{
     router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
 };
 
+type RouteId = usize;
+
+#[derive(Default, Debug)]
+pub struct Router {
+    matcher: matchit::Router<RouteId>,
+    id_to_path: HashMap<RouteId, Rc<str>>,
+    routes: Vec<Route>,
+    fallback: Option<Rc<dyn Endpoint>>,
+}
+
+#[derive(Debug)]
+pub enum Route {
+    MethodRoute(MethodRoute),
+    Service(Layers),
+}
+
+#[derive(Default, Debug)]
+pub struct MethodRoute {
+    pub map: HashMap<Method, Layers>,
+    pub fallback: Option<Rc<dyn Endpoint>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Layers(Rc<RefCell<SharedLayers>>);
+
+#[derive(Debug, Clone)]
+pub struct SharedLayers {
+    pub endpoint: Rc<dyn Endpoint>,
+    pub middlewares: Vec<Rc<dyn Middleware>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Chain {
+    handlers: Rc<RefCell<SharedLayers>>,
+    cursor: isize,
+}
+
 pub fn get(endpoint: impl Endpoint) -> Route {
     on(endpoint, Method::GET)
 }
@@ -69,16 +106,6 @@ fn on(endpoint: impl Endpoint, method: Method) -> Route {
     mr.register(endpoint, method);
 
     Route::MethodRoute(mr)
-}
-
-type RouteId = usize;
-
-#[derive(Default, Debug)]
-pub struct Router {
-    matcher: matchit::Router<RouteId>,
-    id_to_path: HashMap<RouteId, Rc<str>>,
-    routes: Vec<Route>,
-    fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl Router {
@@ -140,7 +167,7 @@ impl Router {
         if let Some((route_id, _)) = self.id_to_path.iter().find(|&(_, v)| **v == *path) {
             self.routes
                 .get_mut(*route_id)
-                .expect("To never fail, as route must be present at this path")
+                .expect("To never fail when Router::add_route() done correctly")
                 .merge(other)
         } else {
             self.add_route(path, other)
@@ -218,20 +245,11 @@ impl Router {
 
     fn add_route(&mut self, path: &str, route: Route) {
         let new_route_id = self.routes.len();
-        self.matcher.insert(path, new_route_id).expect(NEVEL_FAIL);
 
+        self.matcher.insert(path, new_route_id).expect(NEVEL_FAIL);
         self.routes.push(route);
         self.id_to_path.insert(new_route_id, path.into());
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Layers(Rc<RefCell<SharedLayers>>);
-
-#[derive(Debug, Clone)]
-pub struct SharedLayers {
-    pub endpoint: Rc<dyn Endpoint>,
-    pub middlewares: Vec<Rc<dyn Middleware>>,
 }
 
 impl Layers {
@@ -245,12 +263,6 @@ impl Layers {
     pub(crate) fn push(&mut self, m: Rc<dyn Middleware>) {
         self.0.borrow_mut().middlewares.push(m.clone());
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Chain {
-    handlers: Rc<RefCell<SharedLayers>>,
-    cursor: isize,
 }
 
 impl Chain {
@@ -278,12 +290,6 @@ impl Chain {
             endpoint.call(req).await
         }
     }
-}
-
-#[derive(Debug)]
-pub enum Route {
-    MethodRoute(MethodRoute),
-    Service(Layers),
 }
 
 impl Route {
@@ -358,12 +364,6 @@ impl Route {
         }
         self
     }
-}
-
-#[derive(Default, Debug)]
-pub struct MethodRoute {
-    pub map: HashMap<Method, Layers>,
-    pub fallback: Option<Rc<dyn Endpoint>>,
 }
 
 impl MethodRoute {
