@@ -13,7 +13,7 @@ use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 
 use crate::{
-    NEVEL_FAIL, Router,
+    Router,
     listener::{HyperStream, Listener},
 };
 
