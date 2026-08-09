@@ -77,17 +77,16 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
     let app = async {
-        let mut listener: TcpListener = any_addrs(addrs, |addr| async move {
+        let socket: TcpSocket = any_addrs(addrs, |addr| async move {
             let socket = TcpSocket::new_v4().await.expect("succeed");
             socket.set_reuseport(reuse_port).unwrap();
             socket.bind(addr).await.unwrap();
             Ok(socket)
         })
         .await
-        .unwrap()
-        .listen(1024)
-        .await
         .unwrap();
+
+        let mut listener: TcpListener = socket.listen(1024).await.unwrap();
 
         let mut inflight_requests = FutureGroup::new();
 
