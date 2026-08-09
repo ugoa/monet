@@ -3,7 +3,11 @@ use std::net::SocketAddr;
 use monet::{Request, Router, get};
 
 async fn greeting(_req: Request) -> String {
-    "Hello from monet with single thread mode".to_string()
+    let received = jiff::Zoned::now();
+    compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
+    let handled = jiff::Zoned::now();
+
+    format!("Request received at {received}, response sent at {handled}",)
 }
 
 fn main() {
