@@ -17,7 +17,7 @@ use hyper::{server::conn::http1, service::service_fn};
 
 use crate::{
     Router,
-    listener::{HyperStream, Listener},
+    listener::{self, HyperStream, Listener},
 };
 
 thread_local! {
@@ -58,7 +58,7 @@ where
                 core_affinity::set_for_current(id);
                 let router: Router = factory();
 
-                build_service(addrs, router);
+                build_service(addrs, router, true);
             })
         })
         .collect::<Vec<_>>();
@@ -68,19 +68,24 @@ where
     }
 }
 
-pub fn run_with_single_thread<A>(addrs: A, router: Router)
+pub fn run_with_single_thread<A, F>(addrs: A, router: Router)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
-    build_service(addrs, router);
+    build_service(addrs, router, false);
 }
 
-fn build_service<A>(addrs: A, router: Router)
+fn build_service<A>(addrs: A, router: Router, reuse_port: bool)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
     let app = async {
-        let mut listener = TcpListener::bind(addrs)
+        let mut socket_opts = SocketOpts::default().reuse_address(true);
+        if reuse_port {
+            socket_opts = socket_opts.reuse_port(true);
+        };
+
+        let mut listener = TcpListener::bind_with_options(addrs, &socket_opts)
             .await
             .expect("to bind address successfully");
 
