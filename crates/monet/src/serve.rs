@@ -50,12 +50,12 @@ where
 
     let handles = core_ids
         .into_iter()
-        .map(|id| {
+        .map(|core_id| {
             let addrs = addrs.clone();
             let factory = Arc::clone(&factory);
 
             thread::spawn(move || {
-                core_affinity::set_for_current(id);
+                core_affinity::set_for_current(core_id);
                 let router: Router = factory();
 
                 build_service(addrs, router, true);
