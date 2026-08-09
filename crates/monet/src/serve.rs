@@ -1,6 +1,6 @@
 use std::{
-    cell::RefCell, convert::Infallible, future::Future, io, net::SocketAddr,
-    panic::AssertUnwindSafe, pin::Pin, sync::Arc, thread,
+    cell::RefCell, convert::Infallible, future::Future, panic::AssertUnwindSafe, pin::Pin,
+    sync::Arc, thread,
 };
 
 use compio::net::{TcpListener, TcpSocket, TcpStream, ToSocketAddrsAsync};
