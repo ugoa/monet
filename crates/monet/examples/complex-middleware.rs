@@ -24,19 +24,23 @@ static NUM: LazyLock<Arc<Mutex<SyncedState>>> =
 async fn set_state(mut req: Request, chain: Chain) -> Response {
     let s = &*NUM;
     req.state.set(s.clone());
-    req.state.set::<SyncedState>(SyncedState(99));
+    req.state.set::<SyncedState>(SyncedState(0));
 
     chain.next(req).await
 }
 
 async fn root(req: Request) -> String {
-    compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
 
-    // let guard = _req.state::<Arc<Mutex<SyncedState>>>().unwrap();
+    let received = jiff::Zoned::now();
+
     let guard: &Arc<Mutex<SyncedState>> = req.state.get().unwrap();
     let mut i = guard.lock().unwrap();
     i.0 += 1;
-    format!("Hi count is {}", i.0)
+
+    compio::runtime::time::sleep(std::time::Duration::from_millis(1000)).await;
+    let handled = jiff::Zoned::now();
+
+    format!("Request {} received at {received}, response sent at {handled}\n", i.0)
 }
 
 async fn return_html(_req: Request) -> Html<&'static str> {
@@ -69,7 +73,7 @@ impl Middleware for RequestCounter {
         chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         COUNTER.with(|inner| *inner.borrow_mut() += 1);
-        println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
+        // println!("Count: {}", COUNTER.with(|inner| *inner.borrow()));
 
         Box::pin(async move {
             let mut resp = chain.next(req).await;
@@ -87,9 +91,18 @@ fn main() {
     monet::run(addr, || {
         Router::new()
             .at("/", get(root))
-            .wrap_by(simple_middleware)
-            .at("/html", get(return_html))
-            .wrap_by(RequestCounter)
+            // .wrap_by(simple_middleware)
+            // .at("/html", get(return_html))
+            // .wrap_by(RequestCounter)
             .wrap_by(set_state)
     });
+
+    monet::run_with_single_thread(addr,
+        Router::new()
+            .at("/", get(root))
+            // .wrap_by(simple_middleware)
+            // .at("/html", get(return_html))
+            // .wrap_by(RequestCounter)
+            .wrap_by(set_state)
+    );
 }

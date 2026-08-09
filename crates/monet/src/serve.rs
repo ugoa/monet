@@ -72,7 +72,7 @@ pub fn run_with_single_thread<A>(addrs: A, router: Router)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
-    build_service2(addrs, router, false);
+    build_service(addrs, router, false);
 }
 
 fn build_service<A>(addrs: A, router: Router, reuse_port: bool)

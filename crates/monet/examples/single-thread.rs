@@ -7,7 +7,7 @@ async fn greeting(_req: Request) -> String {
     // compio::runtime::time::sleep(std::time::Duration::from_millis(2000)).await;
     let handled = jiff::Zoned::now();
 
-    format!("Request received at {received}, response sent at {handled}",)
+    format!("Request received at {received}, response sent at {handled}\n",)
 }
 
 fn main() {
