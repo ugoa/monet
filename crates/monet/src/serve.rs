@@ -55,6 +55,8 @@ where
             let factory = Arc::clone(&factory);
 
             thread::spawn(move || {
+                // Note: won't work on macos:
+                // ref: https://developer.apple.com/forums/thread/44002
                 core_affinity::set_for_current(core_id);
                 let router: Router = factory();
 
