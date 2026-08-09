@@ -11,6 +11,7 @@ use futures::{
 use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
+use socket2::{Domain, SockAddr};
 
 use crate::{
     Router,
@@ -82,7 +83,13 @@ where
         let mut inflight_requests = FutureGroup::new();
 
         let socket: TcpSocket = any_addrs(addrs, |addr| async move {
-            let socket = TcpSocket::new_v4().await.expect("succeed");
+            let sa = SockAddr::from(addr);
+            let socket: TcpSocket = match sa.domain() {
+                Domain::IPV4 => TcpSocket::new_v4().await,
+                Domain::IPV6 => TcpSocket::new_v6().await,
+                _ => panic!("Unsupported Domain"),
+            }
+            .expect("shall create TcpSocket successfully");
             socket.set_reuseport(reuse_port).unwrap();
             socket.bind(addr).await.unwrap();
             Ok(socket)
