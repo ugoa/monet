@@ -19,7 +19,7 @@ use crate::{
     handler::{Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, insert_matched_params},
+    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
 };
 
 type RouteId = usize;
@@ -128,7 +128,7 @@ impl Router {
 
         #[cfg(feature = "matched-path")]
         insert_matched_path(
-            &mut req.state,
+            &mut req.data,
             self.id_to_path.get(&route_id).expect("path shall exist"),
         );
 

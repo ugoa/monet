@@ -74,12 +74,12 @@ pub struct MatchedNestedPath(pub Rc<str>);
 pub struct MatchedPath(pub Rc<str>);
 
 // Todo: Add testing
-pub(crate) fn insert_matched_path(state: &mut Data, path: &Rc<str>) {
+pub(crate) fn insert_matched_path(data: &mut Data, path: &Rc<str>) {
     let matched_path = {
-        if let Some(previous) = state
+        if let Some(previous) = data
             .get::<MatchedPath>()
             .map(|matched_path| &matched_path.0)
-            .or_else(|| Some(&state.get::<MatchedNestedPath>()?.0))
+            .or_else(|| Some(&data.get::<MatchedNestedPath>()?.0))
         {
             let previous = previous
                 .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
@@ -93,10 +93,10 @@ pub(crate) fn insert_matched_path(state: &mut Data, path: &Rc<str>) {
     };
 
     if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
-        state.set(MatchedNestedPath(matched_path));
-        debug_assert!(state.remove::<MatchedPath>().is_none());
+        data.set(MatchedNestedPath(matched_path));
+        debug_assert!(data.remove::<MatchedPath>().is_none());
     } else {
-        state.set(MatchedPath(matched_path));
-        state.remove::<MatchedNestedPath>();
+        data.set(MatchedPath(matched_path));
+        data.remove::<MatchedNestedPath>();
     }
 }
