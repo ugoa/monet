@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use http::HeaderValue;
 use monet::{Chain, Request, Response, Router, get};
 
 async fn endpoint(_req: Request) -> &'static str {
@@ -19,7 +20,11 @@ async fn outer(req: Request, chain: Chain) -> Response {
 
 async fn outmost(req: Request, chain: Chain) -> Response {
     println!("outmost");
-    chain.next(req).await
+
+    let mut resp = chain.next(req).await;
+    resp.headers_mut()
+        .insert("mark", HeaderValue::from_static("modified"));
+    resp
 }
 
 fn main() {
