@@ -1,10 +1,6 @@
-use std::{
-    cell::{LazyCell, RefCell},
-    pin::Pin,
-};
+use std::{cell::RefCell, pin::Pin};
 
-use http::header::HeaderValue;
-use monet::{Chain, Middleware, Response, Router, get, request::Request, types::Html};
+use monet::{Chain, Middleware, Request, Response, Router, get};
 
 #[derive(Clone)]
 struct RequestCount {
