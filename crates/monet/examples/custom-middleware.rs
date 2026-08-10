@@ -36,9 +36,10 @@ fn main() {
     let addr = "0.0.0.0:9527";
     println!("Server running at: {}", addr);
 
-    let mw = RequestCount {
-        local_count: RefCell::new(0),
-    };
-
-    monet::run_with_single_thread(addr, Router::new().at("/", get(metric)).wrap_by(mw));
+    monet::run_with_single_thread(
+        addr,
+        Router::new().at("/", get(metric)).wrap_by(RequestCount {
+            local_count: RefCell::new(0),
+        }),
+    );
 }
