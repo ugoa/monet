@@ -38,7 +38,7 @@ pub struct Parts {
 pub struct Request {
     pub body: Body,
     pub head: Parts,
-    pub state: State,
+    pub data: Data,
 }
 
 impl Request {
@@ -95,7 +95,7 @@ impl Request {
          *      -> id=23&name=mike
          *      -> Path(T {id: 23, name: mike})
          */
-        match self.state.get::<UrlParams>() {
+        match self.data.get::<UrlParams>() {
             Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
@@ -132,7 +132,7 @@ impl Request {
     pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.state.get::<MatchedPath>().map(|s| &s.0)
+        self.data.get::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -197,7 +197,7 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            state: State(None),
+            data: Data(None),
         }
     }
 }
@@ -205,9 +205,9 @@ impl From<http::Request<IncomingBody>> for Request {
 type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Default)]
-pub struct State(Option<Box<AnyMap>>);
+pub struct Data(Option<Box<AnyMap>>);
 
-impl State {
+impl Data {
     pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.0
             .get_or_insert_with(Box::default)
