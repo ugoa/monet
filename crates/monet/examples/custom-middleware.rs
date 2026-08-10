@@ -19,7 +19,7 @@ impl Middleware for RequestCount {
         let mut s = self.local_count.borrow_mut();
         *s += 1;
         drop(s);
-        req.data.set(CurrentCount(*self.local_count.borrow()));
+        req.state.set(CurrentCount(*self.local_count.borrow()));
 
         Box::pin(async move { chain.next(req).await })
     }
@@ -28,7 +28,7 @@ impl Middleware for RequestCount {
 async fn metric(req: Request) -> String {
     format!(
         "current count: {}",
-        req.data.get::<CurrentCount>().expect("success").0
+        req.state.get::<CurrentCount>().expect("success").0
     )
 }
 

@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use matchit::Params;
 
-use crate::request::Data;
+use crate::request::State;
 
 pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
 
@@ -16,7 +16,7 @@ pub(crate) enum UrlParams {
     InvalidUtf8Param { key: Rc<str> },
 }
 
-pub(super) fn insert_matched_params(state: &mut Data, params: &Params<'_, '_>) {
+pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) {
     let current_params: Option<&mut UrlParams> = state.get_mut();
 
     if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {
@@ -74,12 +74,12 @@ pub struct MatchedNestedPath(pub Rc<str>);
 pub struct MatchedPath(pub Rc<str>);
 
 // Todo: Add testing
-pub(crate) fn insert_matched_path(data: &mut Data, path: &Rc<str>) {
+pub(crate) fn insert_matched_path(state: &mut State, path: &Rc<str>) {
     let matched_path = {
-        if let Some(previous) = data
+        if let Some(previous) = state
             .get::<MatchedPath>()
             .map(|matched_path| &matched_path.0)
-            .or_else(|| Some(&data.get::<MatchedNestedPath>()?.0))
+            .or_else(|| Some(&state.get::<MatchedNestedPath>()?.0))
         {
             let previous = previous
                 .strip_suffix(NEST_TAIL_PARAM_WILDCARD)
@@ -93,10 +93,10 @@ pub(crate) fn insert_matched_path(data: &mut Data, path: &Rc<str>) {
     };
 
     if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
-        data.set(MatchedNestedPath(matched_path));
-        debug_assert!(data.remove::<MatchedPath>().is_none());
+        state.set(MatchedNestedPath(matched_path));
+        debug_assert!(state.remove::<MatchedPath>().is_none());
     } else {
-        data.set(MatchedPath(matched_path));
-        data.remove::<MatchedNestedPath>();
+        state.set(MatchedPath(matched_path));
+        state.remove::<MatchedNestedPath>();
     }
 }

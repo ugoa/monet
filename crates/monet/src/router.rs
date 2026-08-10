@@ -124,11 +124,11 @@ impl Router {
         };
         let route_id: RouteId = *matched.value;
 
-        insert_matched_params(&mut req.data, &matched.params);
+        insert_matched_params(&mut req.state, &matched.params);
 
         #[cfg(feature = "matched-path")]
         insert_matched_path(
-            &mut req.data,
+            &mut req.state,
             self.id_to_path.get(&route_id).expect("path shall exist"),
         );
 
