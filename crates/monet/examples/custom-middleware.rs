@@ -1,19 +1,10 @@
 use std::{
     cell::{LazyCell, RefCell},
-    net::SocketAddr,
     pin::Pin,
-    sync::{Arc, LazyLock, Mutex},
 };
 
 use http::header::HeaderValue;
 use monet::{Chain, Middleware, Response, Router, get, request::Request, types::Html};
-
-async fn metric(req: Request) -> String {
-    format!(
-        "current count: {}",
-        req.state.get::<CurrentCount>().expect("success").0
-    )
-}
 
 #[derive(Clone)]
 struct RequestCount {
@@ -38,14 +29,20 @@ impl Middleware for RequestCount {
     }
 }
 
+async fn metric(req: Request) -> String {
+    format!(
+        "current count: {}",
+        req.state.get::<CurrentCount>().expect("success").0
+    )
+}
+
 fn main() {
     let addr = "0.0.0.0:9527";
     println!("Server running at: {}", addr);
 
-    monet::run_with_single_thread(
-        addr,
-        Router::new().at("/", get(metric)).wrap_by(RequestCount {
-            local_count: RefCell::new(0),
-        }),
-    );
+    let mw = RequestCount {
+        local_count: RefCell::new(0),
+    };
+
+    monet::run_with_single_thread(addr, Router::new().at("/", get(metric)).wrap_by(mw));
 }

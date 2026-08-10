@@ -19,7 +19,7 @@ use crate::{
     handler::{Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, insert_matched_params},
 };
 
 type RouteId = usize;
