@@ -12,6 +12,7 @@ use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use socket2::{Domain, SockAddr};
+use tracing::trace;
 
 use crate::{
     Router,
@@ -55,8 +56,12 @@ where
             let factory = Arc::clone(&factory);
 
             thread::spawn(move || {
+                #[cfg(feature = "tracing")]
+                trace!("Starting Worker thread {:?} ", core_id.id);
+
                 //  Won't work on macos. https://developer.apple.com/forums/thread/44002
                 core_affinity::set_for_current(core_id);
+
                 let router: Router = factory();
 
                 build_service(addrs, router, true);
