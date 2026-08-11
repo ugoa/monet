@@ -52,7 +52,7 @@ core_affinity = "0.8.3"
 # Optional requirements toggled by feature set
 # Logging
 tracing = { version =  "0.1.44", optional = true }
-tracing-subscriber = { version =  "0.3", optional = true }
+tracing-subscriber = { version =  "0.3.23", features = [ "env-filter" ], optional = true }
 
 [features]
 default = ["tracing"]

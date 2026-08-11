@@ -12,7 +12,7 @@ async fn greeting(_req: Request) -> String {
 }
 
 fn main() {
-    tracing_subscriber::fmt::init();
+    monet::enable_tracing();
 
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     info!("Server running at: {}", addr);

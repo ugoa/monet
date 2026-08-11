@@ -2,6 +2,10 @@ pub mod body;
 pub mod error;
 pub mod handler;
 pub mod listener;
+
+#[cfg(feature = "tracing")]
+pub mod logging;
+
 pub mod request;
 pub mod response;
 pub mod router;
@@ -14,6 +18,7 @@ pub use crate::{
     handler::{
         Endpoint, Middleware, endpoint::serve_dir::ServeDir, middleware::catch_panic::CatchPanic,
     },
+    logging::enable_tracing,
     request::Request,
     response::{IntoResponse, Response},
     router::{Chain, Router, get, post},
