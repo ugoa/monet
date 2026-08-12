@@ -208,7 +208,7 @@ type AnyMap = HashMap<TypeId, Box<dyn Any>, BuildHasherDefault<IdHasher>>;
 pub struct State(AnyMap);
 
 impl State {
-    pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+    pub fn insert<T: 'static>(&mut self, val: T) -> Option<T> {
         self.0
             .insert(TypeId::of::<T>(), Box::new(val))
             .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))

@@ -38,7 +38,7 @@ pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) 
     match (current_params, pair_params) {
         // Brand new pair of key/value, set it
         (None, Ok(params)) => {
-            state.set(UrlParams::PairParams(params));
+            state.insert(UrlParams::PairParams(params));
         }
         // both params exist and valid, extend it
         (Some(UrlParams::PairParams(current)), Ok(params)) => {
@@ -46,7 +46,7 @@ pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) 
         }
         // If new params is invalid, set it as invalid
         (_, Err(invalid_key)) => {
-            state.set(UrlParams::InvalidUtf8Param { key: invalid_key });
+            state.insert(UrlParams::InvalidUtf8Param { key: invalid_key });
         }
         (Some(UrlParams::InvalidUtf8Param { .. }), _) => {
             unreachable!("we check for this state earlier in this method")
@@ -93,10 +93,10 @@ pub(crate) fn insert_matched_path(state: &mut State, path: &Rc<str>) {
     };
 
     if matched_path.ends_with(NEST_TAIL_PARAM_WILDCARD) {
-        state.set(MatchedNestedPath(matched_path));
+        state.insert(MatchedNestedPath(matched_path));
         debug_assert!(state.remove::<MatchedPath>().is_none());
     } else {
-        state.set(MatchedPath(matched_path));
+        state.insert(MatchedPath(matched_path));
         state.remove::<MatchedNestedPath>();
     }
 }

@@ -19,7 +19,7 @@ impl Middleware for RequestCount {
         let mut s = self.local_count.borrow_mut();
         *s += 1;
         drop(s);
-        req.state.set(CurrentCount(*self.local_count.borrow()));
+        req.state.insert(CurrentCount(*self.local_count.borrow()));
 
         Box::pin(async move { chain.next(req).await })
     }
