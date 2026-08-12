@@ -49,13 +49,12 @@ where
     let core_ids = core_affinity::get_core_ids().expect("shall succeed on supported platforms");
     let factory = Arc::new(router_threadlocal_factory);
 
-    let handles = core_ids
-        .into_iter()
-        .map(|core_id| {
+    thread::scope(|scope| {
+        core_ids.into_iter().map(|core_id| {
             let addrs = addrs.clone();
             let factory = Arc::clone(&factory);
 
-            thread::spawn(move || {
+            scope.spawn(move || {
                 #[cfg(feature = "tracing")]
                 trace!("Starting Worker thread {:?} ", core_id.id);
 
@@ -65,13 +64,9 @@ where
                 let router: Router = factory();
 
                 build_service(addrs, router, true);
-            })
-        })
-        .collect::<Vec<_>>();
-
-    for handle in handles.into_iter() {
-        handle.join().expect("threads shall join just fine");
-    }
+            });
+        });
+    });
 }
 
 pub fn run_with_single_thread<A>(addrs: A, router: Router)
