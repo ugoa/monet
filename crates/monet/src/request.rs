@@ -197,60 +197,66 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            state: State(None),
+            state: State::default(),
         }
     }
 }
 
-type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
+type AnyMap = HashMap<TypeId, Box<dyn Any>, BuildHasherDefault<IdHasher>>;
 
-#[derive(Clone, Default)]
-pub struct State(Option<Box<AnyMap>>);
+#[derive(Default)]
+pub struct State(AnyMap);
 
 impl State {
     pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.0
-            .get_or_insert_with(Box::default)
             .insert(TypeId::of::<T>(), Box::new(val))
-            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
+            .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
     }
 
     pub fn get<T: 'static>(&self) -> Option<&T> {
         self.0
-            .as_ref()
-            .and_then(|map| map.get(&TypeId::of::<T>()))
-            .and_then(|boxed| (**boxed).as_any().downcast_ref())
+            .get(&TypeId::of::<T>())
+            .and_then(|boxed| boxed.downcast_ref())
     }
 
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         self.0
-            .as_mut()
-            .and_then(|map| map.get_mut(&TypeId::of::<T>()))
-            .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
+            .get_mut(&TypeId::of::<T>())
+            .and_then(|boxed| boxed.downcast_mut())
+    }
+
+    pub fn get_or_insert_with<T: 'static, F: FnOnce() -> T>(&mut self, default: F) -> &mut T {
+        self.0
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(default()))
+            .downcast_mut()
+            .expect("state shall now contain a T value")
     }
 
     pub fn remove<T: 'static>(&mut self) -> Option<T> {
         self.0
-            .as_mut()
-            .and_then(|map| map.remove(&TypeId::of::<T>()))
-            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
+            .remove(&TypeId::of::<T>())
+            .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
+    }
+
+    pub fn contains<T: 'static>(&self) -> bool {
+        self.0.contains_key(&TypeId::of::<T>())
     }
 
     #[inline]
     pub fn clear(&mut self) {
-        if let Some(ref mut map) = self.0 {
-            map.clear();
-        }
+        self.0.clear();
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.0.as_ref().is_none_or(|map| map.is_empty())
+        self.0.is_empty()
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.0.as_ref().map_or(0, |map| map.len())
+        self.0.len()
     }
 }
 

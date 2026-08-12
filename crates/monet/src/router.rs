@@ -238,6 +238,10 @@ impl Router {
         self
     }
 
+    pub fn with_state(mut self) -> Self {
+        todo!()
+    }
+
     pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
         self.fallback = Some(Rc::new(endpoint));
         self
