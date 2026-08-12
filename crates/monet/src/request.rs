@@ -214,6 +214,12 @@ impl State {
             .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
     }
 
+    pub fn remove<T: 'static>(&mut self) -> Option<T> {
+        self.0
+            .remove(&TypeId::of::<T>())
+            .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
+    }
+
     pub fn get<T: 'static>(&self) -> Option<&T> {
         self.0
             .get(&TypeId::of::<T>())
@@ -232,12 +238,6 @@ impl State {
             .or_insert_with(|| Box::new(default()))
             .downcast_mut()
             .expect("state shall now contain a T value")
-    }
-
-    pub fn remove<T: 'static>(&mut self) -> Option<T> {
-        self.0
-            .remove(&TypeId::of::<T>())
-            .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
     }
 
     pub fn contains<T: 'static>(&self) -> bool {
