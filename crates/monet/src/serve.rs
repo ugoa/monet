@@ -12,7 +12,6 @@ use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use socket2::{Domain, SockAddr};
-use tracing::trace;
 
 use crate::{
     Router,
@@ -50,7 +49,7 @@ where
     let factory = Arc::new(router_threadlocal_factory);
 
     thread::scope(|scope| {
-        core_ids.into_iter().map(|core_id| {
+        core_ids.into_iter().for_each(|core_id| {
             let addrs = addrs.clone();
             let factory = Arc::clone(&factory);
 
