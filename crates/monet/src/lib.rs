@@ -1,26 +1,19 @@
-#[macro_use]
-pub(crate) mod macros;
-
 pub mod body;
 pub mod error;
 pub mod handler;
 pub mod listener;
+pub mod logging;
 pub mod request;
 pub mod response;
 pub mod router;
 pub mod serve;
 pub mod types;
 
-#[cfg(feature = "tracing")]
-pub mod logging;
-
-// pub use monet_macros::handler;
 pub use crate::{
     error::{BodyError, BoxError, Error},
     handler::{
         Endpoint, Middleware, endpoint::serve_dir::ServeDir, middleware::catch_panic::CatchPanic,
     },
-    logging::enable_tracing,
     request::Request,
     response::{IntoResponse, Response},
     router::{Chain, Router, get, post},

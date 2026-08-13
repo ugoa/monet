@@ -12,10 +12,12 @@ use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use socket2::{Domain, SockAddr};
+use tracing::trace;
 
 use crate::{
     Router,
     listener::{HyperStream, Listener, any_addrs},
+    logging::try_enable_tracing,
 };
 
 thread_local! {
@@ -45,6 +47,8 @@ where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
 {
+    try_enable_tracing();
+
     let core_ids = core_affinity::get_core_ids().expect("shall succeed on supported platforms");
     let factory = Arc::new(router_threadlocal_factory);
 
@@ -54,7 +58,6 @@ where
             let factory = Arc::clone(&factory);
 
             scope.spawn(move || {
-                #[cfg(feature = "tracing")]
                 trace!("Starting Worker thread {:?} ", core_id.id);
 
                 //  Won't work on macos. https://developer.apple.com/forums/thread/44002

@@ -49,17 +49,14 @@ thiserror = "2.0.18"
 # Multithreading
 core_affinity = "0.8.3"
 
-# Optional requirements toggled by feature set
 # Logging
-tracing = { version =  "0.1.44", optional = true }
-tracing-subscriber = { version =  "0.3.23", features = [ "env-filter" ], optional = true }
+tracing = { version =  "0.1.44" }
+tracing-subscriber = { version =  "0.3.23", features = [ "env-filter" ] }
 smallvec = "1.15.2"
 
 [features]
-default = ["tracing"]
-no-tracing = []
+default = []
 matched-path = []
-tracing = ["dep:tracing", "dep:tracing-subscriber"]
 
 [lints]
 workspace = true
