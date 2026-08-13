@@ -29,6 +29,7 @@ fn main() {
     trace!("Server running at: {}", addr);
 
     let app = Router::new()
+        .at("/", get(async |_req: Request| format!("hi")))
         .at("/light", get(light))
         .at("/heavy", get(heavy));
 
