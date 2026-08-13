@@ -222,12 +222,14 @@ where
                 Event::NewConnection { io } => {
                     let service = async {
                         http1::Builder::new()
+                            .keep_alive(true)
                             .serve_connection(
                                 HyperStream::new_plain(io),
                                 service_fn(async |req| {
                                     router.dispatch(req.into()).map(Ok::<_, Infallible>).await
                                 }),
                             )
+                            .with_upgrades()
                             .await
                     };
                     inflight_requests.insert(AssertUnwindSafe(service).catch_unwind());
