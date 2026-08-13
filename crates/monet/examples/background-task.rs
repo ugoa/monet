@@ -16,7 +16,8 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    monet::run(addr, || {
+    monet::Server::new(addr, || {
         Router::new().at("/hello", get(spawn_background_task))
-    });
+    })
+    .run();
 }

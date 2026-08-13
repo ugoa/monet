@@ -21,6 +21,5 @@ fn main() {
             get(async |_req: Request| format!("closure works too")),
         )
     })
-    .workers(3)
     .run();
 }

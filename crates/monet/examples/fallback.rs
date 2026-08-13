@@ -23,10 +23,11 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    monet::run(addr, || {
+    monet::Server::new(addr, || {
         Router::new()
             .at("/hi", any(no_support))
             .at("/hello", get(hello).any(partial_support))
             .catch(global_notfound)
-    });
+    })
+    .run();
 }
