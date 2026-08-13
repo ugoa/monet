@@ -153,7 +153,7 @@ where
                 Domain::IPV6 => TcpSocket::new_v6().await,
                 _ => panic!("Unsupported Domain"),
             }
-            .expect("shall create TcpSocket successfully");
+            .expect("should create TcpSocket successfully");
             socket.set_reuseport(reuse_port).unwrap();
             socket.bind(addr).await.unwrap();
             Ok(socket)
