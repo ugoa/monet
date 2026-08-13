@@ -6,7 +6,7 @@ pub mod logging;
 pub mod request;
 pub mod response;
 pub mod router;
-pub mod serve;
+pub mod server;
 pub mod types;
 
 pub use crate::{
@@ -17,7 +17,7 @@ pub use crate::{
     request::Request,
     response::{IntoResponse, Response},
     router::{Chain, Router, get, post},
-    serve::{run, run_with_single_thread, spawn},
+    server::{Server, run, run_with_single_thread, spawn},
     types::{Form, Json, Path},
 };
 

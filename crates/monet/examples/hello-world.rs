@@ -15,10 +15,12 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     info!("Server running at: {}", addr);
 
-    monet::run(addr, || {
+    monet::Server::new(addr, || {
         Router::new().at("/", get(greeting)).at(
             "/hi",
             get(async |_req: Request| format!("closure works too")),
         )
-    });
+    })
+    .workers(3)
+    .run();
 }

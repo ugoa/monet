@@ -18,6 +18,7 @@ use crate::{
     Router,
     listener::{HyperStream, Listener, any_addrs},
     logging::try_enable_tracing,
+    request::State,
 };
 
 thread_local! {
@@ -40,6 +41,61 @@ enum Event {
     NewConnection { io: TcpStream },
     RequestProcessed,
     BackgroundTaskCompleted,
+}
+
+#[derive(Default)]
+pub struct Server<F, A> {
+    router_factory: Arc<F>,
+    socket_addrs: A,
+    workers: usize,
+    state: RefCell<State>,
+}
+
+impl<F, A> Server<F, A>
+where
+    A: Send + Clone + 'static + ToSocketAddrsAsync,
+    F: Send + Sync + 'static + Fn() -> Router,
+{
+    pub fn new(addrs: A, factory: F) -> Self {
+        Self {
+            router_factory: Arc::new(factory),
+            socket_addrs: addrs,
+            workers: 0,
+            state: Default::default(),
+        }
+    }
+
+    pub fn workers(mut self, num: usize) -> Self {
+        self.workers = num;
+        self
+    }
+
+    pub fn run(&mut self) {
+        try_enable_tracing();
+
+        let mut core_ids = core_affinity::get_core_ids().expect("no reason to fail");
+        if self.workers > 0 && self.workers < core_ids.len() {
+            core_ids.truncate(self.workers);
+        }
+
+        thread::scope(|scope| {
+            core_ids.into_iter().for_each(|core_id| {
+                let addrs = self.socket_addrs.clone();
+                let factory = Arc::clone(&self.router_factory);
+
+                scope.spawn(move || {
+                    trace!("Starting Worker thread {:?} ", core_id.id);
+
+                    // Not supported on macos. See: https://developer.apple.com/forums/thread/44002
+                    core_affinity::set_for_current(core_id);
+
+                    let router: Router = factory();
+
+                    build_service(addrs, router, true);
+                });
+            });
+        });
+    }
 }
 
 pub fn run<A, F>(addrs: A, router_threadlocal_factory: F)
