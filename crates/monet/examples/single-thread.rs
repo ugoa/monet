@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use monet::{Request, Router, get};
+use tracing::trace;
 
 async fn light(_req: Request) -> String {
     let received = jiff::Zoned::now();
@@ -25,11 +26,11 @@ async fn heavy(_req: Request) -> String {
 //  0.0.0.0:9527/heavy
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
-    println!("Server running at: {}", addr);
+    trace!("Server running at: {}", addr);
 
     let app = Router::new()
         .at("/light", get(light))
         .at("/heavy", get(heavy));
 
-    monet::run_with_single_thread(addr, app);
+    monet::SingleThreadServer::new(addr, app).run();
 }

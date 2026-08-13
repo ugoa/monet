@@ -17,7 +17,7 @@ pub use crate::{
     request::Request,
     response::{IntoResponse, Response},
     router::{Chain, Router, get, post},
-    server::{Server, run, run_with_single_thread, spawn},
+    server::{Server, SingleThreadServer, run, run_with_single_thread, spawn},
     types::{Form, Json, Path},
 };
 

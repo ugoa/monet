@@ -103,6 +103,29 @@ where
     }
 }
 
+#[derive(Default)]
+pub struct SingleThreadServer<A> {
+    router: Router,
+    socket_addrs: A,
+}
+
+impl<A> SingleThreadServer<A>
+where
+    A: Send + Clone + 'static + ToSocketAddrsAsync,
+{
+    pub fn new(addrs: A, router: Router) -> Self {
+        Self {
+            router,
+            socket_addrs: addrs,
+        }
+    }
+
+    pub fn run(self) {
+        try_enable_tracing();
+        build_service(self.socket_addrs, self.router, false);
+    }
+}
+
 pub fn run<A, F>(addrs: A, router_threadlocal_factory: F)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
@@ -160,6 +183,14 @@ where
         })
         .await
         .unwrap();
+
+        trace!(
+            "Starting HTTP server at {:?}",
+            &socket
+                .local_addr()
+                .expect("should resolved as valid address")
+        );
+
         let mut listener: TcpListener = socket.listen(BACKLOG).await.unwrap();
 
         loop {
