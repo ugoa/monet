@@ -10,7 +10,6 @@ use http::{HeaderMap, HeaderValue, Method, Uri, Version};
 use http_body_util::BodyExt;
 use hyper::body::Incoming as IncomingBody;
 use serde_core::de::DeserializeOwned;
-use smallvec::SmallVec;
 
 use crate::{
     body::Body,
@@ -19,38 +18,30 @@ use crate::{
     types::{Form, Json, Path, Query, has_content_type},
 };
 
-pub struct Request {
-    head: Parts,
-    body: Body,
-    data: SmallVec<[Rc<State>; 4]>,
-}
-
 // Custom Parts to remove the Extension due to its Send + Sync bound
 // Instead, we use State which can store both Send and non-Send data
 #[derive(Clone)]
 pub struct Parts {
-    method: Method,
-    uri: Uri,
-    version: Version,
-    headers: HeaderMap<HeaderValue>,
+    /// The request's method
+    pub method: Method,
+
+    /// The request's URI
+    pub uri: Uri,
+
+    /// The request's version
+    pub version: Version,
+
+    /// The request's headers
+    pub headers: HeaderMap<HeaderValue>,
 }
 
-#[derive(Default)]
-pub struct State(AnyMap);
-
-type AnyMap = HashMap<TypeId, Box<dyn Any>, BuildHasherDefault<IdHasher>>;
+pub struct Request {
+    pub body: Body,
+    pub head: Parts,
+    pub state: State,
+}
 
 impl Request {
-    pub fn state<T: 'static>(&self) -> Option<&T> {
-        for container in self.data.iter().rev() {
-            if let Some(data) = container.get::<T>() {
-                return Some(data);
-            }
-        }
-
-        None
-    }
-
     #[inline]
     pub fn method(&self) -> &Method {
         &self.head.method
@@ -104,7 +95,7 @@ impl Request {
          *      -> id=23&name=mike
          *      -> Path(T {id: 23, name: mike})
          */
-        match self.state::<UrlParams>() {
+        match self.state.get::<UrlParams>() {
             Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
@@ -141,7 +132,7 @@ impl Request {
     pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.state::<MatchedPath>().map(|s| &s.0)
+        self.state.get::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -206,10 +197,15 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            data: Default::default(),
+            state: State::default(),
         }
     }
 }
+
+type AnyMap = HashMap<TypeId, Box<dyn Any>, BuildHasherDefault<IdHasher>>;
+
+#[derive(Default)]
+pub struct State(AnyMap);
 
 impl State {
     pub fn insert<T: 'static>(&mut self, val: T) -> Option<T> {
@@ -280,36 +276,5 @@ impl Hasher for IdHasher {
     #[inline]
     fn finish(&self) -> u64 {
         self.0
-    }
-}
-
-pub(crate) trait AnyClone: Any {
-    fn clone_box(&self) -> Box<dyn AnyClone>;
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
-}
-
-impl<T: Clone + 'static> AnyClone for T {
-    fn clone_box(&self) -> Box<dyn AnyClone> {
-        Box::new(self.clone())
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-}
-
-impl Clone for Box<dyn AnyClone> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
     }
 }
