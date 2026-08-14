@@ -38,7 +38,7 @@ pub struct Parts {
 pub struct Request {
     pub body: Body,
     pub head: Parts,
-    pub state: Extensions,
+    pub extensions: Extensions,
 }
 
 impl Request {
@@ -95,7 +95,7 @@ impl Request {
          *      -> id=23&name=mike
          *      -> Path(T {id: 23, name: mike})
          */
-        match self.state.get::<UrlParams>() {
+        match self.extensions.get::<UrlParams>() {
             Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
@@ -132,7 +132,7 @@ impl Request {
     pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.state.get::<MatchedPath>().map(|s| &s.0)
+        self.extensions.get::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -197,7 +197,7 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            state: Extensions(None),
+            extensions: Extensions(None),
         }
     }
 }

@@ -121,7 +121,7 @@ impl Router {
         };
         let route_id: RouteId = *matched.value;
 
-        insert_matched_params(&mut req.state, &matched.params);
+        insert_matched_params(&mut req.extensions, &matched.params);
 
         #[cfg(feature = "matched-path")]
         insert_matched_path(
