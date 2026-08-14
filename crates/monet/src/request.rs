@@ -202,10 +202,10 @@ impl From<http::Request<IncomingBody>> for Request {
     }
 }
 
-type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
+type AnyCloneMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Default)]
-pub struct Extensions(Option<Box<AnyMap>>);
+pub struct Extensions(Option<Box<AnyCloneMap>>);
 
 impl Extensions {
     pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
