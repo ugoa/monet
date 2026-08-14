@@ -87,8 +87,7 @@ impl Request {
         T: DeserializeOwned,
     {
         /*
-         * Given route: `/user/{id}/{*name}`
-         * and request: `/user/23/david`
+         * Given route: `/user/{id}/{name}` and request path: `/user/23/david`
          * The data transformation would be:
          *
          *    Vec[("id", "23"), ("name", "mike")]
