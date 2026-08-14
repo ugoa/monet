@@ -10,7 +10,7 @@ pub struct Pagination {
 }
 
 async fn parse_query(req: Request) -> Result<String, Error> {
-    let q = req.query::<Pagination>()?;
+    let q = req.query_params::<Pagination>()?;
     Ok(q.offset.to_string())
 }
 

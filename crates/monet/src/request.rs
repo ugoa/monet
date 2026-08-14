@@ -115,7 +115,7 @@ impl Request {
         }
     }
 
-    pub fn query<T>(&self) -> Result<Query<T>, Error>
+    pub fn query_params<T>(&self) -> Result<Query<T>, Error>
     where
         T: DeserializeOwned,
     {
