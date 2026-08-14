@@ -14,9 +14,10 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    monet::run(addr, || {
+    monet::Server::new(addr, || {
         let app5 = Router::new().at("/hi", get(hi));
         let app6 = Router::new().at("/hello", post(hello));
         app5.merge(app6)
-    });
+    })
+    .run();
 }

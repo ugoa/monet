@@ -1,6 +1,3 @@
-#[cfg(test)]
-pub(crate) mod tests;
-
 pub(crate) mod url;
 
 use core::panic;
@@ -16,10 +13,13 @@ use http::Method;
 
 use crate::{
     NEVEL_FAIL, ServeDir,
-    handler::{Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{
+        Endpoint, Middleware,
+        middleware::{attach_state::AttachState, strip_prefix::StripPrefix},
+    },
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, insert_matched_params},
 };
 
 type RouteId = usize;
@@ -124,13 +124,7 @@ impl Router {
         };
         let route_id: RouteId = *matched.value;
 
-        insert_matched_params(&mut req.state, &matched.params);
-
-        #[cfg(feature = "matched-path")]
-        insert_matched_path(
-            &mut req.state,
-            self.id_to_path.get(&route_id).expect("path shall exist"),
-        );
+        insert_matched_params(&mut req, &matched.params);
 
         let route = self.routes.get(route_id).expect(NEVEL_FAIL);
 
@@ -236,6 +230,10 @@ impl Router {
         });
 
         self
+    }
+
+    pub fn with_state<T: Clone + 'static>(self, value: T) -> Self {
+        self.wrap_by(AttachState { value })
     }
 
     pub fn catch(mut self, endpoint: impl Endpoint) -> Self {

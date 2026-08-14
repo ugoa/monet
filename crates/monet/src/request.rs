@@ -38,7 +38,7 @@ pub struct Parts {
 pub struct Request {
     pub body: Body,
     pub head: Parts,
-    pub state: State,
+    pub extensions: Extensions,
 }
 
 impl Request {
@@ -87,15 +87,14 @@ impl Request {
         T: DeserializeOwned,
     {
         /*
-         * Given route: `/user/{id}/{*name}`
-         * and request: `/user/23/david`
+         * Given route: `/user/{id}/{name}` and request path: `/user/23/david`
          * The data transformation would be:
          *
          *    Vec[("id", "23"), ("name", "mike")]
          *      -> id=23&name=mike
          *      -> Path(T {id: 23, name: mike})
          */
-        match self.state.get::<UrlParams>() {
+        match self.state::<UrlParams>() {
             Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
@@ -116,7 +115,7 @@ impl Request {
         }
     }
 
-    pub fn query<T>(&self) -> Result<Query<T>, Error>
+    pub fn query_params<T>(&self) -> Result<Query<T>, Error>
     where
         T: DeserializeOwned,
     {
@@ -132,7 +131,7 @@ impl Request {
     pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.state.get::<MatchedPath>().map(|s| &s.0)
+        self.state::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -183,6 +182,22 @@ impl Request {
             Err(err) => Err(Error::JsonDataError(err)),
         }
     }
+
+    pub fn state<T: 'static>(&self) -> Option<&T> {
+        self.extensions.get()
+    }
+
+    pub fn state_mut<T: 'static>(&mut self) -> Option<&mut T> {
+        self.extensions.get_mut()
+    }
+
+    pub fn add_state<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+        self.extensions.insert(val)
+    }
+
+    pub fn remove_state<T: 'static>(&mut self) -> Option<T> {
+        self.extensions.remove()
+    }
 }
 
 impl From<http::Request<IncomingBody>> for Request {
@@ -197,39 +212,39 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            state: State(None),
+            extensions: Extensions(None),
         }
     }
 }
 
-type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
+type AnyCloneMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Default)]
-pub struct State(Option<Box<AnyMap>>);
+pub struct Extensions(Option<Box<AnyCloneMap>>);
 
-impl State {
-    pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+impl Extensions {
+    fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.0
             .get_or_insert_with(Box::default)
             .insert(TypeId::of::<T>(), Box::new(val))
             .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
     }
 
-    pub fn get<T: 'static>(&self) -> Option<&T> {
+    fn get<T: 'static>(&self) -> Option<&T> {
         self.0
             .as_ref()
             .and_then(|map| map.get(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any().downcast_ref())
     }
 
-    pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
+    fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         self.0
             .as_mut()
             .and_then(|map| map.get_mut(&TypeId::of::<T>()))
             .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
     }
 
-    pub fn remove<T: 'static>(&mut self) -> Option<T> {
+    fn remove<T: 'static>(&mut self) -> Option<T> {
         self.0
             .as_mut()
             .and_then(|map| map.remove(&TypeId::of::<T>()))

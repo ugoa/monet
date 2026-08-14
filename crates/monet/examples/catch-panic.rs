@@ -14,10 +14,11 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     println!("Server running at: {}", addr);
 
-    monet::run(addr, || {
+    monet::Server::new(addr, || {
         Router::new()
             .at("/", get(would_throw))
             .wrap_by(CatchPanic)
             .at("/normal", get(normal))
-    });
+    })
+    .run();
 }

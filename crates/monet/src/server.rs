@@ -12,10 +12,12 @@ use futures_concurrency::future::{FutureGroup, Race};
 use futures_util::{FutureExt, Stream};
 use hyper::{server::conn::http1, service::service_fn};
 use socket2::{Domain, SockAddr};
+use tracing::trace;
 
 use crate::{
     Router,
     listener::{HyperStream, Listener, any_addrs},
+    logging::try_enable_tracing,
 };
 
 thread_local! {
@@ -40,32 +42,109 @@ enum Event {
     BackgroundTaskCompleted,
 }
 
+#[derive(Default)]
+pub struct Server<F, A> {
+    router_factory: Arc<F>,
+    socket_addrs: A,
+    workers: usize,
+}
+
+impl<F, A> Server<F, A>
+where
+    A: Send + Clone + 'static + ToSocketAddrsAsync,
+    F: Send + Sync + 'static + Fn() -> Router,
+{
+    pub fn new(addrs: A, factory: F) -> Self {
+        Self {
+            router_factory: Arc::new(factory),
+            socket_addrs: addrs,
+            workers: 0,
+        }
+    }
+
+    pub fn workers(mut self, num: usize) -> Self {
+        self.workers = num;
+        self
+    }
+
+    pub fn run(&mut self) {
+        try_enable_tracing();
+
+        let mut core_ids = core_affinity::get_core_ids().expect("no reason to fail");
+        if self.workers > 0 && self.workers < core_ids.len() {
+            core_ids.truncate(self.workers);
+        }
+
+        thread::scope(|scope| {
+            core_ids.into_iter().for_each(|core_id| {
+                let addrs = self.socket_addrs.clone();
+                let factory = Arc::clone(&self.router_factory);
+
+                scope.spawn(move || {
+                    trace!("Starting Worker thread {:?} ", core_id.id);
+
+                    // Not supported on macOS.
+                    core_affinity::set_for_current(core_id);
+
+                    let router: Router = factory();
+
+                    build_service(addrs, router, true);
+                });
+            });
+        });
+    }
+}
+
+#[derive(Default)]
+pub struct SingleThreadServer<A> {
+    router: Router,
+    socket_addrs: A,
+}
+
+impl<A> SingleThreadServer<A>
+where
+    A: Send + Clone + 'static + ToSocketAddrsAsync,
+{
+    pub fn new(socket_addrs: A, router: Router) -> Self {
+        Self {
+            router,
+            socket_addrs,
+        }
+    }
+
+    pub fn run(self) {
+        try_enable_tracing();
+        build_service(self.socket_addrs, self.router, false);
+    }
+}
+
 pub fn run<A, F>(addrs: A, router_threadlocal_factory: F)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
     F: Send + Sync + 'static + Fn() -> Router,
 {
+    try_enable_tracing();
+
     let core_ids = core_affinity::get_core_ids().expect("shall succeed on supported platforms");
     let factory = Arc::new(router_threadlocal_factory);
 
-    let handles = core_ids
-        .into_iter()
-        .map(|id| {
+    thread::scope(|scope| {
+        core_ids.into_iter().for_each(|core_id| {
             let addrs = addrs.clone();
             let factory = Arc::clone(&factory);
 
-            thread::spawn(move || {
-                core_affinity::set_for_current(id);
+            scope.spawn(move || {
+                trace!("Starting Worker thread {:?} ", core_id.id);
+
+                //  Won't work on macos. https://developer.apple.com/forums/thread/44002
+                core_affinity::set_for_current(core_id);
+
                 let router: Router = factory();
 
                 build_service(addrs, router, true);
-            })
-        })
-        .collect::<Vec<_>>();
-
-    for handle in handles.into_iter() {
-        handle.join().expect("threads shall join just fine");
-    }
+            });
+        });
+    });
 }
 
 pub fn run_with_single_thread<A>(addrs: A, router: Router)
@@ -89,13 +168,21 @@ where
                 Domain::IPV6 => TcpSocket::new_v6().await,
                 _ => panic!("Unsupported Domain"),
             }
-            .expect("shall create TcpSocket successfully");
-            socket.set_reuseport(reuse_port).unwrap();
-            socket.bind(addr).await.unwrap();
+            .expect("should create TcpSocket successfully");
+            socket.set_reuseport(reuse_port).expect("should not fail");
+            socket.bind(addr).await.expect("should not fail");
             Ok(socket)
         })
         .await
         .unwrap();
+
+        trace!(
+            "Starting HTTP server at {:?}",
+            &socket
+                .local_addr()
+                .expect("should be resolved as valid address")
+        );
+
         let mut listener: TcpListener = socket.listen(BACKLOG).await.unwrap();
 
         loop {
@@ -127,12 +214,14 @@ where
                 Event::NewConnection { io } => {
                     let service = async {
                         http1::Builder::new()
+                            .keep_alive(true)
                             .serve_connection(
                                 HyperStream::new_plain(io),
                                 service_fn(async |req| {
                                     router.dispatch(req.into()).map(Ok::<_, Infallible>).await
                                 }),
                             )
+                            .with_upgrades()
                             .await
                     };
                     inflight_requests.insert(AssertUnwindSafe(service).catch_unwind());
