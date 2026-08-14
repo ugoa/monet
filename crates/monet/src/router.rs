@@ -19,7 +19,7 @@ use crate::{
     },
     request::Request,
     response::Response,
-    router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
+    router::url::{NEST_TAIL_PARAM, insert_matched_params},
 };
 
 type RouteId = usize;
@@ -124,13 +124,7 @@ impl Router {
         };
         let route_id: RouteId = *matched.value;
 
-        insert_matched_params(&mut req.extensions, &matched.params);
-
-        #[cfg(feature = "matched-path")]
-        insert_matched_path(
-            &mut req.extensions,
-            self.id_to_path.get(&route_id).expect("path shall exist"),
-        );
+        insert_matched_params(&mut req, &matched.params);
 
         let route = self.routes.get(route_id).expect(NEVEL_FAIL);
 

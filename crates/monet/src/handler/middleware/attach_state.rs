@@ -18,7 +18,7 @@ impl<T: Clone + 'static> Middleware for AttachState<T> {
         chain: Chain,
     ) -> Pin<Box<dyn Future<Output = Response> + '_>> {
         Box::pin(async move {
-            req.extensions.insert(self.value.clone());
+            req.add_state(self.value.clone());
             chain.next(req).await
         })
     }

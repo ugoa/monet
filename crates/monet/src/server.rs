@@ -48,7 +48,6 @@ pub struct Server<F, A> {
     router_factory: Arc<F>,
     socket_addrs: A,
     workers: usize,
-    state: RefCell<Extensions>,
 }
 
 impl<F, A> Server<F, A>
@@ -61,7 +60,6 @@ where
             router_factory: Arc::new(factory),
             socket_addrs: addrs,
             workers: 0,
-            state: Default::default(),
         }
     }
 
