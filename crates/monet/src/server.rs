@@ -113,10 +113,10 @@ impl<A> SingleThreadServer<A>
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
 {
-    pub fn new(addrs: A, router: Router) -> Self {
+    pub fn new(socket_addrs: A, router: Router) -> Self {
         Self {
             router,
-            socket_addrs: addrs,
+            socket_addrs,
         }
     }
 
@@ -177,8 +177,8 @@ where
                 _ => panic!("Unsupported Domain"),
             }
             .expect("should create TcpSocket successfully");
-            socket.set_reuseport(reuse_port).unwrap();
-            socket.bind(addr).await.unwrap();
+            socket.set_reuseport(reuse_port).expect("should not fail");
+            socket.bind(addr).await.expect("should not fail");
             Ok(socket)
         })
         .await
@@ -188,7 +188,7 @@ where
             "Starting HTTP server at {:?}",
             &socket
                 .local_addr()
-                .expect("should resolved as valid address")
+                .expect("should be resolved as valid address")
         );
 
         let mut listener: TcpListener = socket.listen(BACKLOG).await.unwrap();
