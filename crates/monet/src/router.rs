@@ -233,7 +233,7 @@ impl Router {
     }
 
     pub fn with_state<T: Clone + 'static>(self, value: T) -> Self {
-        self.wrap_by(AttachState::new(value))
+        self.wrap_by(AttachState { value })
     }
 
     pub fn catch(mut self, endpoint: impl Endpoint) -> Self {

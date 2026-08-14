@@ -3,14 +3,9 @@ use std::pin::Pin;
 use crate::{Chain, Middleware, Request, Response};
 
 pub struct AttachState<T> {
-    value: T,
+    pub value: T,
 }
 
-impl<T: Clone + 'static> AttachState<T> {
-    pub fn new(value: T) -> Self {
-        AttachState { value }
-    }
-}
 impl<T: Clone + 'static> Middleware for AttachState<T> {
     fn transform(
         &self,
