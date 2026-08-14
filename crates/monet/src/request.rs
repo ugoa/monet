@@ -197,51 +197,39 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            state: Extensions::default(),
+            state: Default::default(),
         }
     }
 }
 
-type AnyMap = HashMap<TypeId, Box<dyn Any>, BuildHasherDefault<IdHasher>>;
+type AnyMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Extensions(AnyMap);
 
 impl Extensions {
-    pub fn insert<T: 'static>(&mut self, val: T) -> Option<T> {
+    pub fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.0
             .insert(TypeId::of::<T>(), Box::new(val))
-            .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
-    }
-
-    pub fn remove<T: 'static>(&mut self) -> Option<T> {
-        self.0
-            .remove(&TypeId::of::<T>())
-            .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
+            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
     }
 
     pub fn get<T: 'static>(&self) -> Option<&T> {
         self.0
             .get(&TypeId::of::<T>())
-            .and_then(|boxed| boxed.downcast_ref())
+            .and_then(|boxed| (**boxed).as_any().downcast_ref())
     }
 
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         self.0
             .get_mut(&TypeId::of::<T>())
-            .and_then(|boxed| boxed.downcast_mut())
+            .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
     }
 
-    pub fn get_or_insert_with<T: 'static, F: FnOnce() -> T>(&mut self, default: F) -> &mut T {
+    pub fn remove<T: 'static>(&mut self) -> Option<T> {
         self.0
-            .entry(TypeId::of::<T>())
-            .or_insert_with(|| Box::new(default()))
-            .downcast_mut()
-            .expect("state shall now contain a T value")
-    }
-
-    pub fn contains<T: 'static>(&self) -> bool {
-        self.0.contains_key(&TypeId::of::<T>())
+            .remove(&TypeId::of::<T>())
+            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
     }
 
     #[inline]
@@ -276,5 +264,36 @@ impl Hasher for IdHasher {
     #[inline]
     fn finish(&self) -> u64 {
         self.0
+    }
+}
+
+pub(crate) trait AnyClone: Any {
+    fn clone_box(&self) -> Box<dyn AnyClone>;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
+}
+
+impl<T: Clone + 'static> AnyClone for T {
+    fn clone_box(&self) -> Box<dyn AnyClone> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+}
+
+impl Clone for Box<dyn AnyClone> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
     }
 }

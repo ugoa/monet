@@ -70,11 +70,6 @@ where
         self
     }
 
-    pub fn with_state<T: 'static>(self, data: T) -> Self {
-        self.state.borrow_mut().insert(data);
-        self
-    }
-
     pub fn run(&mut self) {
         try_enable_tracing();
 
