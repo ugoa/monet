@@ -16,8 +16,8 @@ pub(crate) enum UrlParams {
     InvalidUtf8Param { key: Rc<str> },
 }
 
-pub(super) fn insert_matched_params(state: &mut Extensions, params: &Params<'_, '_>) {
-    let current_params: Option<&mut UrlParams> = state.get_mut();
+pub(super) fn insert_matched_params(ext: &mut Extensions, params: &Params<'_, '_>) {
+    let current_params: Option<&mut UrlParams> = ext.get_mut();
 
     if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {
         // nothing to do here since an error was stored earlier
@@ -38,7 +38,7 @@ pub(super) fn insert_matched_params(state: &mut Extensions, params: &Params<'_, 
     match (current_params, pair_params) {
         // Brand new pair of key/value, set it
         (None, Ok(params)) => {
-            state.insert(UrlParams::PairParams(params));
+            ext.insert(UrlParams::PairParams(params));
         }
         // both params exist and valid, extend it
         (Some(UrlParams::PairParams(current)), Ok(params)) => {
@@ -46,7 +46,7 @@ pub(super) fn insert_matched_params(state: &mut Extensions, params: &Params<'_, 
         }
         // If new params is invalid, set it as invalid
         (_, Err(invalid_key)) => {
-            state.insert(UrlParams::InvalidUtf8Param { key: invalid_key });
+            ext.insert(UrlParams::InvalidUtf8Param { key: invalid_key });
         }
         (Some(UrlParams::InvalidUtf8Param { .. }), _) => {
             unreachable!("we check for this state earlier in this method")

@@ -207,7 +207,7 @@ type AnyCloneMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHashe
 pub struct Extensions(Option<Box<AnyCloneMap>>);
 
 impl Extensions {
-    pub fn set<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+    pub fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.0
             .get_or_insert_with(Box::default)
             .insert(TypeId::of::<T>(), Box::new(val))
