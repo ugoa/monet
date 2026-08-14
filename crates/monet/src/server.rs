@@ -91,7 +91,7 @@ where
                 scope.spawn(move || {
                     trace!("Starting Worker thread {:?} ", core_id.id);
 
-                    // Not supported on macos. See: https://developer.apple.com/forums/thread/44002
+                    // Not supported on macOS.
                     core_affinity::set_for_current(core_id);
 
                     let router: Router = factory();
