@@ -13,7 +13,10 @@ use http::Method;
 
 use crate::{
     NEVEL_FAIL, ServeDir,
-    handler::{Endpoint, Middleware, middleware::strip_prefix::StripPrefix},
+    handler::{
+        Endpoint, Middleware,
+        middleware::{attach_state::AttachState, strip_prefix::StripPrefix},
+    },
     request::Request,
     response::Response,
     router::url::{NEST_TAIL_PARAM, insert_matched_params, insert_matched_path},
@@ -235,8 +238,8 @@ impl Router {
         self
     }
 
-    pub fn with_state(mut self) -> Self {
-        todo!()
+    pub fn with_state<T: Clone + 'static>(self, value: T) -> Self {
+        self.wrap_by(AttachState::new(value))
     }
 
     pub fn catch(mut self, endpoint: impl Endpoint) -> Self {
