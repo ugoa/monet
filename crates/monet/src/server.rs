@@ -18,7 +18,6 @@ use crate::{
     Router,
     listener::{HyperStream, Listener, any_addrs},
     logging::try_enable_tracing,
-    request::Extensions,
 };
 
 thread_local! {
