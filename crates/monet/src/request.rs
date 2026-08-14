@@ -38,7 +38,7 @@ pub struct Parts {
 pub struct Request {
     pub body: Body,
     pub head: Parts,
-    pub state: State,
+    pub state: Extensions,
 }
 
 impl Request {
@@ -197,7 +197,7 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            state: State::default(),
+            state: Extensions::default(),
         }
     }
 }
@@ -205,9 +205,9 @@ impl From<http::Request<IncomingBody>> for Request {
 type AnyMap = HashMap<TypeId, Box<dyn Any>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Default)]
-pub struct State(AnyMap);
+pub struct Extensions(AnyMap);
 
-impl State {
+impl Extensions {
     pub fn insert<T: 'static>(&mut self, val: T) -> Option<T> {
         self.0
             .insert(TypeId::of::<T>(), Box::new(val))

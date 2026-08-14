@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use matchit::Params;
 
-use crate::request::State;
+use crate::request::Extensions;
 
 pub(crate) const NEST_TAIL_PARAM: &str = "__private__monet_nest_tail_param";
 
@@ -16,7 +16,7 @@ pub(crate) enum UrlParams {
     InvalidUtf8Param { key: Rc<str> },
 }
 
-pub(super) fn insert_matched_params(state: &mut State, params: &Params<'_, '_>) {
+pub(super) fn insert_matched_params(state: &mut Extensions, params: &Params<'_, '_>) {
     let current_params: Option<&mut UrlParams> = state.get_mut();
 
     if let Some(UrlParams::InvalidUtf8Param { .. }) = current_params {
@@ -74,7 +74,7 @@ pub struct MatchedNestedPath(pub Rc<str>);
 pub struct MatchedPath(pub Rc<str>);
 
 // Todo: Add testing
-pub(crate) fn insert_matched_path(state: &mut State, path: &Rc<str>) {
+pub(crate) fn insert_matched_path(state: &mut Extensions, path: &Rc<str>) {
     let matched_path = {
         if let Some(previous) = state
             .get::<MatchedPath>()

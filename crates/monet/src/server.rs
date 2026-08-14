@@ -18,7 +18,7 @@ use crate::{
     Router,
     listener::{HyperStream, Listener, any_addrs},
     logging::try_enable_tracing,
-    request::State,
+    request::Extensions,
 };
 
 thread_local! {
@@ -48,7 +48,7 @@ pub struct Server<F, A> {
     router_factory: Arc<F>,
     socket_addrs: A,
     workers: usize,
-    state: RefCell<State>,
+    state: RefCell<Extensions>,
 }
 
 impl<F, A> Server<F, A>
