@@ -20,7 +20,7 @@ use crate::{
 
 // Custom Parts to remove the Extension due to its Send + Sync bound
 // Instead, we use State which can store both Send and non-Send data
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Parts {
     /// The request's method
     pub method: Method,
@@ -35,6 +35,7 @@ pub struct Parts {
     pub headers: HeaderMap<HeaderValue>,
 }
 
+#[derive(Default)]
 pub struct Request {
     pub body: Body,
     pub head: Parts,

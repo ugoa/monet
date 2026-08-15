@@ -12,7 +12,7 @@ use crate::error::{BodyError, BoxError};
 type BoxBody = http_body_util::combinators::UnsyncBoxBody<Bytes, BodyError>;
 
 #[must_use]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Body(BoxBody);
 
 impl Body {
