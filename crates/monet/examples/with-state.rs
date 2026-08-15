@@ -6,7 +6,7 @@ use monet::{Request, Router, get};
 type GlobalCounter = Arc<Mutex<usize>>;
 
 async fn greeting(req: Request) -> String {
-    let mut cnt = req.extensions.get::<GlobalCounter>().unwrap().lock().await;
+    let mut cnt = req.state::<GlobalCounter>().unwrap().lock().await;
     *cnt += 1;
     format!("Request count is: {:?}", *cnt)
 }
