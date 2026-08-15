@@ -2,6 +2,7 @@ use std::{
     any::{Any, TypeId},
     collections::HashMap,
     hash::{BuildHasherDefault, Hasher},
+    marker::PhantomData,
     rc::Rc,
 };
 
@@ -212,7 +213,7 @@ impl From<http::Request<IncomingBody>> for Request {
                 headers: parts.headers,
             },
             body: Body::new(body),
-            extensions: Extensions(None),
+            extensions: Default::default(),
         }
     }
 }
@@ -220,52 +221,56 @@ impl From<http::Request<IncomingBody>> for Request {
 type AnyCloneMap = HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Default)]
-pub struct Extensions(Option<Box<AnyCloneMap>>);
+pub struct Extensions<'a> {
+    pub map: HashMap<TypeId, Box<dyn AnyClone>, BuildHasherDefault<IdHasher>>,
+    _marker: PhantomData<&'a ()>,
+}
 
-impl Extensions {
-    fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
-        self.0
-            .get_or_insert_with(Box::default)
-            .insert(TypeId::of::<T>(), Box::new(val))
+impl<'a> Extensions<'a> {
+    pub fn insert<T: 'static>(&mut self, val: &'a T) -> Option<T> {
+        // SAFETY: `AnyClone` require 'static, so we lie to it by erasing 'a → 'static.
+        // This is safe because PhantomData<&'a ()> guarantees
+        // the State cannot outlive 'a, so the reference to T is
+        // always valid during the State's existence.
+        let erased: &'static T = unsafe { std::mem::transmute(val) };
+        self.map
+            .insert(TypeId::of::<&T>(), Box::new(erased))
             .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
     }
 
-    fn get<T: 'static>(&self) -> Option<&T> {
-        self.0
-            .as_ref()
-            .and_then(|map| map.get(&TypeId::of::<T>()))
-            .and_then(|boxed| (**boxed).as_any().downcast_ref())
+    fn get<T: 'static>(&self) -> Option<&'a T> {
+        self.map
+            .get(&TypeId::of::<&T>())
+            .and_then(|boxed: &Box<dyn AnyClone>| {
+                (**boxed)
+                    .as_any()
+                    .downcast_ref()
+                    .map(|s: &T| unsafe { std::mem::transmute(s) })
+            })
     }
 
-    fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        self.0
-            .as_mut()
-            .and_then(|map| map.get_mut(&TypeId::of::<T>()))
-            .and_then(|boxed| (**boxed).as_any_mut().downcast_mut())
+    fn get_mut<T: 'static>(&mut self) -> Option<&'a mut T> {
+        self.map
+            .get_mut(&TypeId::of::<&T>())
+            .and_then(|boxed: &mut Box<dyn AnyClone + 'static>| {
+                (**boxed)
+                    .as_any_mut()
+                    .downcast_mut()
+                    .map(|s: &mut T| unsafe { std::mem::transmute(s) })
+            })
     }
 
-    fn remove<T: 'static>(&mut self) -> Option<T> {
-        self.0
-            .as_mut()
-            .and_then(|map| map.remove(&TypeId::of::<T>()))
-            .and_then(|boxed| boxed.into_any().downcast().ok().map(|boxed| *boxed))
-    }
-
-    #[inline]
-    pub fn clear(&mut self) {
-        if let Some(ref mut map) = self.0 {
-            map.clear();
-        }
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.0.as_ref().is_none_or(|map| map.is_empty())
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.as_ref().map_or(0, |map| map.len())
+    pub fn remove<T: 'static>(&mut self) -> Option<&'a T> {
+        self.map
+            .remove(&TypeId::of::<&T>())
+            .and_then(|boxed: Box<dyn AnyClone + 'static>| {
+                boxed
+                    .into_any()
+                    .downcast::<&'static T>()
+                    .ok()
+                    .map(|boxed: Box<&'static T>| *boxed)
+                    .map(|val: &'static T| unsafe { std::mem::transmute(val) })
+            })
     }
 }
 
