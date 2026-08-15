@@ -94,7 +94,7 @@ impl Request {
          *      -> id=23&name=mike
          *      -> Path(T {id: 23, name: mike})
          */
-        match self.state::<UrlParams>() {
+        match self.extension::<UrlParams>() {
             Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
@@ -131,7 +131,7 @@ impl Request {
     pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.state::<MatchedPath>().map(|s| &s.0)
+        self.extension::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -183,19 +183,19 @@ impl Request {
         }
     }
 
-    pub fn state<T: 'static>(&self) -> Option<&T> {
+    pub fn extension<T: 'static>(&self) -> Option<&T> {
         self.extensions.get()
     }
 
-    pub fn state_mut<T: 'static>(&mut self) -> Option<&mut T> {
+    pub fn extension_mut<T: 'static>(&mut self) -> Option<&mut T> {
         self.extensions.get_mut()
     }
 
-    pub fn add_state<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+    pub fn add_extension<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.extensions.insert(val)
     }
 
-    pub fn remove_state<T: 'static>(&mut self) -> Option<T> {
+    pub fn remove_extension<T: 'static>(&mut self) -> Option<T> {
         self.extensions.remove()
     }
 }
