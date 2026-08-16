@@ -127,15 +127,15 @@ impl Request {
             .map_err(Error::FailedToDeserializeQuery)
     }
 
+    pub fn raw_query(&self) -> Option<String> {
+        self.uri().query().map(|query| query.to_owned())
+    }
+
     // #[cfg(not(feature = "no-matched-path"))]
     pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
         self.ext::<MatchedPath>().map(|s| &s.0)
-    }
-
-    pub fn raw_query(&self) -> Option<String> {
-        self.uri().query().map(|query| query.to_owned())
     }
 
     pub async fn into_form<T>(self) -> Result<Form<T>, Error>
