@@ -225,10 +225,10 @@ impl Extensions {
         self.get_or_insert_with(|| value)
     }
 
-    pub fn get_or_insert_with<T: 'static, F: FnOnce() -> T>(&mut self, default: F) -> &mut T {
+    pub fn get_or_insert_with<T: 'static, F: FnOnce() -> T>(&mut self, value_fn: F) -> &mut T {
         self.0
             .entry(TypeId::of::<T>())
-            .or_insert_with(|| Box::new(default()))
+            .or_insert_with(|| Box::new(value_fn()))
             .downcast_mut()
             .expect("extensions map should now contain a T value")
     }
