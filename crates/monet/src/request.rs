@@ -94,7 +94,7 @@ impl Request {
          *      -> id=23&name=mike
          *      -> Path(T {id: 23, name: mike})
          */
-        match self.extension::<UrlParams>() {
+        match self.ext::<UrlParams>() {
             Some(UrlParams::PairParams(params)) => {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 params.iter().for_each(|(k, v)| {
@@ -131,7 +131,7 @@ impl Request {
     pub fn matched_path(&self) -> Option<&Rc<str>> {
         use crate::router::url::MatchedPath;
 
-        self.extension::<MatchedPath>().map(|s| &s.0)
+        self.ext::<MatchedPath>().map(|s| &s.0)
     }
 
     pub fn raw_query(&self) -> Option<String> {
@@ -183,20 +183,12 @@ impl Request {
         }
     }
 
-    pub fn extension<T: 'static>(&self) -> Option<&T> {
+    pub fn ext<T: 'static>(&self) -> Option<&T> {
         self.extensions.get()
     }
 
-    pub fn extension_mut<T: 'static>(&mut self) -> Option<&mut T> {
+    pub fn ext_mut<T: 'static>(&mut self) -> Option<&mut T> {
         self.extensions.get_mut()
-    }
-
-    pub fn add_extension<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
-        self.extensions.insert(val)
-    }
-
-    pub fn remove_extension<T: 'static>(&mut self) -> Option<T> {
-        self.extensions.remove()
     }
 }
 
@@ -233,25 +225,25 @@ impl Extensions {
             .expect("extensions map should now contain a T value")
     }
 
-    fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
+    pub fn insert<T: Clone + 'static>(&mut self, val: T) -> Option<T> {
         self.0
             .insert(TypeId::of::<T>(), Box::new(val))
             .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
     }
 
-    fn get<T: 'static>(&self) -> Option<&T> {
+    pub fn get<T: 'static>(&self) -> Option<&T> {
         self.0
             .get(&TypeId::of::<T>())
             .and_then(|boxed| (**boxed).downcast_ref())
     }
 
-    fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
+    pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         self.0
             .get_mut(&TypeId::of::<T>())
             .and_then(|boxed| (**boxed).downcast_mut())
     }
 
-    fn remove<T: 'static>(&mut self) -> Option<T> {
+    pub fn remove<T: 'static>(&mut self) -> Option<T> {
         self.0
             .remove(&TypeId::of::<T>())
             .and_then(|boxed| boxed.downcast().ok().map(|boxed| *boxed))
