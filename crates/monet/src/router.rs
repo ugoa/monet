@@ -146,7 +146,7 @@ impl Router {
                         // TODO: Add allowed method in 405 response
                         match &mr.fallback {
                             Some(handler) => return handler.call(req),
-                            None => panic!("No handler for `{}` at Path `{}`", method, path),
+                            None => panic!("No handler for `{}` method at Path `{}`", method, path),
                         }
                     }
                 }
