@@ -212,18 +212,16 @@ where
 
             match (accept_fut, requests_fut, bg_taskset_fut).race().await {
                 Event::NewConnection { io } => {
-                    let service = async {
+                    let http1_conn = async {
+                        let svc = service_fn(async |req| {
+                            router.dispatch(req.into()).map(Ok::<_, Infallible>).await
+                        });
                         http1::Builder::new()
-                            .serve_connection(
-                                HyperStream::new_plain(io),
-                                service_fn(async |req| {
-                                    router.dispatch(req.into()).map(Ok::<_, Infallible>).await
-                                }),
-                            )
+                            .serve_connection(HyperStream::new_plain(io), svc)
                             .with_upgrades()
                             .await
                     };
-                    inflight_requests.insert(AssertUnwindSafe(service).catch_unwind());
+                    inflight_requests.insert(AssertUnwindSafe(http1_conn).catch_unwind());
                 }
                 Event::RequestProcessed => (),
                 Event::BackgroundTaskCompleted => (),
