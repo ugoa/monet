@@ -20,20 +20,16 @@ use crate::{
     logging::try_enable_tracing,
 };
 
+type BgJobGroup = FutureGroup<Pin<Box<dyn Future<Output = ()>>>>;
 thread_local! {
-    static BACKGROUND_TASKSET: RefCell<FutureGroup<Pin<Box<dyn Future<Output = ()>>>>> =
-        RefCell::new(FutureGroup::new());
+    static BACKGROUND_JOBS: RefCell<BgJobGroup> = RefCell::new(FutureGroup::new());
 }
 
 const BACKLOG: i32 = 1024;
 
-pub fn spawn<F>(future: F)
-where
-    F: Future<Output = ()> + 'static, // 'static is required because it's stored in thread_local
-{
-    BACKGROUND_TASKSET.with(|group| {
-        group.borrow_mut().insert(Box::pin(future));
-    });
+// 'static is required because it's stored in thread_local
+pub fn spawn<F: Future<Output = ()> + 'static>(future: F) {
+    BACKGROUND_JOBS.with_borrow_mut(|group| group.insert(Box::pin(future)));
 }
 
 enum Event {
@@ -199,11 +195,9 @@ where
             };
 
             let bg_taskset_fut = async {
-                if BACKGROUND_TASKSET.with(|g| !g.borrow().is_empty()) {
-                    poll_fn(|cx| {
-                        BACKGROUND_TASKSET.with(|g| Pin::new(&mut *g.borrow_mut()).poll_next(cx))
-                    })
-                    .await;
+                if BACKGROUND_JOBS.with_borrow(|g| !g.is_empty()) {
+                    poll_fn(|cx| BACKGROUND_JOBS.with_borrow_mut(|g| Pin::new(g).poll_next(cx)))
+                        .await;
                     Event::BackgroundTaskCompleted
                 } else {
                     pending().await
