@@ -214,7 +214,6 @@ where
                 Event::NewConnection { io } => {
                     let service = async {
                         http1::Builder::new()
-                            .keep_alive(true)
                             .serve_connection(
                                 HyperStream::new_plain(io),
                                 service_fn(async |req| {
