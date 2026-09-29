@@ -143,6 +143,37 @@ where
     });
 }
 
+pub fn run2<A, F>(addrs: A, router_threadlocal_factory: F)
+where
+    A: Send + Clone + 'static + ToSocketAddrsAsync,
+    F: Send + Sync + 'static + Fn() -> Router,
+{
+    try_enable_tracing();
+
+    let core_ids = core_affinity::get_core_ids().expect("shall succeed on supported platforms");
+    let factory = Arc::new(router_threadlocal_factory);
+
+    use tokio::sync::mpsc::unbounded_channel;
+
+    thread::scope(|scope| {
+        core_ids.into_iter().for_each(|core_id| {
+            let addrs = addrs.clone();
+            let factory = Arc::clone(&factory);
+
+            scope.spawn(move || {
+                trace!("Starting Worker thread {:?} ", core_id.id);
+
+                //  Won't work on macos. https://developer.apple.com/forums/thread/44002
+                core_affinity::set_for_current(core_id);
+
+                let router: Router = factory();
+
+                build_service(addrs, router, true);
+            });
+        });
+    });
+}
+
 pub fn run_with_single_thread<A>(addrs: A, router: Router)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,

@@ -9,6 +9,7 @@ license = "MIT"
 [dependencies]
 # Runtime related
 compio = { version = "0.19.1", features = ["io-compat", "net", "macros", "time", "fs", "io", "tls"] }
+tokio = { version = "1.53.1", features = ["sync"]}
 compio-net = "0.12.3"
 compio-driver = "0.12.4"
 
