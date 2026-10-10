@@ -15,6 +15,8 @@ fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     info!("Server running at: {}", addr);
 
+    let v = vec![1, 2, 3];
+
     monet::Server::new(addr, || {
         Router::new().at("/", get(greeting)).at(
             "/hi",

@@ -95,29 +95,6 @@ where
     }
 }
 
-#[derive(Default)]
-pub struct SingleThreadServer<A> {
-    router: Router,
-    socket_addrs: A,
-}
-
-impl<A> SingleThreadServer<A>
-where
-    A: Send + Clone + 'static + ToSocketAddrsAsync,
-{
-    pub fn new(socket_addrs: A, router: Router) -> Self {
-        Self {
-            router,
-            socket_addrs,
-        }
-    }
-
-    pub fn run(self) {
-        try_enable_tracing();
-        build_service(self.socket_addrs, self.router, false);
-    }
-}
-
 pub fn run<A, F>(addrs: A, router_threadlocal_factory: F)
 where
     A: Send + Clone + 'static + ToSocketAddrsAsync,
@@ -145,13 +122,6 @@ where
             });
         });
     });
-}
-
-pub fn run_with_single_thread<A>(addrs: A, router: Router)
-where
-    A: Send + Clone + 'static + ToSocketAddrsAsync,
-{
-    build_service(addrs, router, false);
 }
 
 fn build_service<A>(addrs: A, router: Router, reuse_port: bool)
