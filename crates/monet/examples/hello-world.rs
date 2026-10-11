@@ -4,18 +4,12 @@ use monet::{Request, Router, get};
 use tracing::info;
 
 async fn greeting(_req: Request) -> String {
-    format!(
-        "{} Current thread ID: {:?}",
-        jiff::Zoned::now(),
-        thread::current().id()
-    )
+    "hello world".to_string()
 }
 
 fn main() {
     let addr: SocketAddr = ([0, 0, 0, 0], 9527).into();
     info!("Server running at: {}", addr);
-
-    let v = vec![1, 2, 3];
 
     monet::Server::new(addr, || {
         Router::new().at("/", get(greeting)).at(

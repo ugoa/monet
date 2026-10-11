@@ -51,6 +51,18 @@ pub trait Endpoint: 'static {
     }
 }
 
+pub trait NewEndpoint<S> {
+    fn call<'a>(
+        &'a self,
+        req: Request,
+        state: &'a S,
+    ) -> Pin<Box<dyn Future<Output = Response> + 'a>>;
+
+    fn name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+}
+
 impl std::fmt::Debug for dyn Endpoint {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Endpoint: {{{}}}", self.name())
